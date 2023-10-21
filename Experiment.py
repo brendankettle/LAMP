@@ -17,6 +17,8 @@ class Experiment:
 
     def diagnostic(self, diag_name, diag_folder):
 
+        # how much should be loaded through config files?
+
         # import the named module again
         # BUT this time return the object???
         return DiagObj
