@@ -14,3 +14,9 @@ class Experiment:
         DAQ_lib = importlib.import_module(DAQ_module)
         #except ImportError:
         Data = DAQ_lib.DAQ()
+
+    def diagnostic(self, diag_name, diag_folder):
+
+        # import the named module again
+        # BUT this time return the object???
+        return DiagObj
