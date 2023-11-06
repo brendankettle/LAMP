@@ -9,7 +9,7 @@ class Experiment:
         self.config_filepath = root_folder + config_filepath
         self.diags = {}
 
-        # read config info
+        # read config info - use root folder??
         if not os.path.exists(config_filepath):
             raise Exception(f'Problem finding experiment config file: {config_filepath}')
         self.config = configparser.ConfigParser()
@@ -58,7 +58,11 @@ class Experiment:
 
         return
     
+    def get_shot_details(self):
+        
+        return
+    
     # or in DAQ?
-    def shot_series(self):
+    def shots(self):
 
         return

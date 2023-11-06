@@ -1,6 +1,7 @@
 import os
 import configparser
 from .diagnostic import Diagnostic
+import cv2
 
 class ESpec(Diagnostic):
 
@@ -27,6 +28,13 @@ class ESpec(Diagnostic):
     def __repr__(self):
         return "ESpec(name=" + self.config['name'] + ")"
     
+    # move to base class?
+    def get_shotdata(self, shot_dict):
+
+        self.ex.DAQ.get_shotdata(shot_dict)
+
+        return
+
     def load_calib(self, timestamp):
         print(f'Loading some calibration from file: {timestamp}')
         print(self.ex.config['setup']['calib_folder'])
