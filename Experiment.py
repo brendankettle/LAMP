@@ -1,5 +1,5 @@
 import os
-import configparser
+from configparser import ConfigParser, ExtendedInterpolation
 import importlib
 
 class Experiment:
@@ -12,17 +12,19 @@ class Experiment:
         # read config info - use root folder??
         if not os.path.exists(config_filepath):
             raise Exception(f'Problem finding experiment config file: {config_filepath}')
-        self.config = configparser.ConfigParser()
+        self.config = ConfigParser(interpolation=ExtendedInterpolation())
         self.config.read(config_filepath)
 
         # setup DAQ
-        # TODO: Can be "none"? For accessing random single fiels etc.
-        DAQ_module = 'LAMP.DAQs.' + self.config['setup']['DAQ']
-        try:
-            DAQ_lib = importlib.import_module(DAQ_module)
-        except ImportError:
-            raise Exception(f'Could not find DAQ module: {DAQ_module}')
-        self.DAQ = DAQ_lib.DAQ()
+        if self.config['setup']['DAQ'].lower() == 'none':
+            print('To Do: Support single file analysis...')
+        else:
+            DAQ_module = 'LAMP.DAQs.' + self.config['setup']['DAQ']
+            try:
+                DAQ_lib = importlib.import_module(DAQ_module)
+            except ImportError:
+                raise Exception(f'Could not find DAQ module: {DAQ_module}')
+            self.DAQ = DAQ_lib.DAQ(self)
 
         # loop through diagnostics and add
         if 'diagnostics' in self.config.keys():
@@ -34,7 +36,7 @@ class Experiment:
         # read config file
         if not os.path.exists(diag_config_filepath):
             raise Exception(f'Problem finding config file for: {diag_config_filepath}')
-        diag_config = configparser.ConfigParser()
+        diag_config = ConfigParser(interpolation=ExtendedInterpolation())
         diag_config.read(diag_config_filepath)
 
         if 'name' in diag_config['info']:
@@ -58,11 +60,11 @@ class Experiment:
 
         return
     
-    def get_shot_details(self):
+
+    def list_diagnostics(self):
         
-        return
-    
-    # or in DAQ?
-    def shots(self):
+        for diag_name in self.diags.keys():
+            print(diag_name)
 
         return
+
