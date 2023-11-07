@@ -1,3 +1,5 @@
+"""Main entry point for analysis scripts; Experiment class
+"""
 import os
 from configparser import ConfigParser, ExtendedInterpolation
 import importlib

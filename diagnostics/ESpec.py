@@ -5,7 +5,9 @@ import cv2
 
 class ESpec(Diagnostic):
 
-    version = 0.1
+    __version = 0.1
+    __authors = ['Brendan Kettle']
+    __requirements = ''
 
     # TODO: Move stuff into the diagnostic base class
 

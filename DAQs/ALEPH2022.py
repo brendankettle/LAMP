@@ -6,14 +6,15 @@ import csv
 
 class DAQ:
 
-    version = 0.1
+    __version = 0.1
+    __name = 'ALEPH2022'
+    __authors = ['Brendan Kettle']
 
     def __init__(self, exp_obj):
-        print('Using ALEPH 2022 DAQ')
+        print(f'Using {self.__name} DAQ')
         # pass in experiment object
         self.ex = exp_obj
         self.data_folder = self.ex.config['paths']['data_folder']
-
         return
     
     def _build_shot_path(self, run_folder, diagnostic, shotnum, ext):
@@ -38,9 +39,13 @@ class DAQ:
 
         return runs
 
-    def get_shot_info(self, run, shotnums = None):
+    def get_shot_info(self, run = None, shotnums = None):
         """Return shot information from run csv files
         """
+        if run == None:
+            print(f'Run name required for get_shot_info(run=,) using {self.__name} DAQ')
+            return None
+
         shot_info_filepath = f'{self.data_folder}/{run}/laserEnergy_{run}.csv'
 
         # DAQ_Shotnum	Timestamp [(hh)(mm)(ss)(centisecond)]	Labview_ShotsTodayNum	Energy_Measurement [J]
@@ -66,7 +71,7 @@ class DAQ:
             headers = next(csvreader)
             for row in csvreader:
                 DAQ_shotnums.append(int(row[0]))
-                timestamps.append(int(row[1]))
+                timestamps.append(row[1])
                 labview_shotnums.append(int(row[2]))
                 laser_energies.append(float(row[3]))
 
