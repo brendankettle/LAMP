@@ -17,12 +17,12 @@ class DAQ:
         self.data_folder = self.ex.config['paths']['data_folder']
         return
     
-    def _build_shot_path(self, run_folder, diagnostic, shotnum, ext):
+    def _build_shot_filepath(self, run_folder, diagnostic, shotnum, ext):
 
         # check file?
-        shot_path = f'{self.data_folder}/{run_folder}/{diagnostic}/shot{shotnum}.{ext}'
+        shot_filepath = f'{self.data_folder}/{run_folder}/{diagnostic}/shot{shotnum}.{ext}'
 
-        return shot_path
+        return shot_filepath
 
     def get_runs(self, timeframe):
         """List all runs within a given timeframe; all, a day, etc.
