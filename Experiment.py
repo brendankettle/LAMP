@@ -62,8 +62,10 @@ class Experiment:
         else:
             raise Exception(f'Could not find Diagnostic object: {diag_type}')
 
-        return
+        return self.get_diagnostic(diag_name)
     
+    def get_diagnostic(self, diag_name):
+        return self.diags[diag_name]
 
     def list_diagnostics(self):
         for diag_name in self.diags.keys():

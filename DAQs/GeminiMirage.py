@@ -23,6 +23,8 @@ class GeminiMirage(DAQ):
     # perhaps some of this can move to base class?
     def get_shot_data(self, diag_name, shot_dict):
 
+        # TO DO: Check if shot_dict is not dictionary; could just be filepath
+
         diag_config = self.ex.diags[diag_name].config['setup']
         required = ['data_folder','data_ext','data_type']
         for param in required:
