@@ -6,7 +6,13 @@ import numpy as np
 import pickle
 import json
 
+# TODO: Some way of auto picking calibration by date? a calib history file dictates files by dates?
+
 class Diagnostic():
+
+    calib_dict = {}
+    calib_input = {}
+    calib_hist = {}
 
     def __init__(self, exp_obj, config_filepath):
         self.ex = exp_obj # pass in experiment object
@@ -23,42 +29,103 @@ class Diagnostic():
         self.config = ConfigParser(interpolation=ExtendedInterpolation())
         self.config.read(config_filepath)
         return
+
+    def get_calib(self, calib_id=None, input=False):
+        """Take a calibration id of some form, and return calibration dictionary
+            - = None: Try and use pre-saved calibration dict within object
+            - = Dictionary: Assuming calibration is already given by input and simply return
+            - = Filepath: Look for a dictionary within a calibration file
+            - = ID String:  Look for a dictionary within the master calibration (input) file, with this ID
+        """
+        # If none passed, try use pre-saved calib input
+        if calib_id is None:
+            if input and self.calib_input:
+                return self.calib_input
+            elif self.calib_dict:
+                return self.calib_dict
+            else:
+                print("get_calib() error; None passed and no calibration pre-set")
+        # passing dictionary directly? This needs to have the required keys!
+        elif isinstance(calib_id, dict):
+            return calib_id
+        # passing string?
+        else:
+            # let's look for a file first
+            calib_filepath = os.path.join(self.ex.config['paths']['calibs_folder'], self.config['setup']['calib_folder'], calib_id)
+            if os.path.exists(calib_filepath):
+                return self.load_calib_file(calib_id)
+            # no file, so let's look for ID key within the master calibration input file (if set in config)
+            elif input and 'calib_inputs' in self.config['setup']:
+                all_calib_input_dicts = self.load_calib_file(self.config['setup']['calib_inputs'])
+                if calib_id in all_calib_input_dicts:
+                    return all_calib_input_dicts[calib_id]
+                else:
+                    print(f"get_calib() error; No calibration input ID found for {calib_id} in master calib input file")
+            else:
+                print(f"get_calib() error; Unknown calibration input found for {calib_id}")
+
+    def set_calib(self, calib_id):
+        self.calib_dict = self.get_calib(calib_id)
+        return
     
-    # TODO: Shouldn't auto save calib to the object? we load different calibrations...
+    def save_calib(self, calib_filename, calib_dict = None):
+        """Save all the current calibration information to file, or save specific dictionary if passed"""
+        if calib_dict is None:
+            calib_dict = self.calib_dict
+        self.save_calib_file(calib_filename, calib_dict)
+        return
+    
+    def load_calib(self, calib_filename, set=True, file_type=None, options=None):
+        calib = self.load_calib_file(calib_filename, file_type=file_type, options=options)
+        if set:
+            self.set_calib(calib)
+        return
+    
+    def get_calib_input(self, calib_input=None):
+        """Wrapper for get_calib, but specifying an input calibration
+        """
+        return self.get_calib(calib_input, input=True)
+
+    def set_calib_input(self, calib_input):
+        self.calib_input = self.get_calib_input(calib_input)
+        return self.calib_input
+    
     # TODO: Passing arguments such as delimiters
-    def load_calib_file(self, filepath, type=None, options=None):
+    def load_calib_file(self, filename, file_type=None, options=None):
+        filepath = os.path.join(self.ex.config['paths']['calibs_folder'], self.config['setup']['calib_folder'], filename)
         # auto-detect type through file extension?
-        if type is None:
+        if file_type is None:
             filepath_no_ext, file_ext = os.path.splitext(filepath)
-            if file_ext.lower() == '.pickle':
-                self.calib = self.load_pickle(filepath)
+            if file_ext.lower() == '.pickle' or file_ext.lower() == '.pkl':
+                calib = self.load_pickle(filepath)
             elif file_ext.lower() == '.json':
-                self.calib = self.load_json(filepath)
+                calib = self.load_json(filepath)
             elif file_ext.lower() == '.csv':
-                self.calib = self.load_csv(filepath)
+                calib = self.load_csv(filepath)
             else:
                 print(f"Diagnostic error; load_calib_file(); could not auto-read file type, please provide type= arugment")
-        elif type.lower() == '.pickle':
-            self.calib = self.load_pickle(filepath)
-        elif type.lower() == '.json':
-            self.calib = self.load_json(filepath)
-        elif type.lower() == '.csv':
-            self.calib = self.load_csv(filepath)
+        elif file_type.lower() == '.pickle' or file_ext.lower() == '.pkl':
+            calib = self.load_pickle(filepath)
+        elif file_type.lower() == '.json':
+            calib = self.load_json(filepath)
+        elif file_type.lower() == '.csv':
+            calib = self.load_csv(filepath)
         else:
             print(f"Diagnostic error; load_calib_file(); no known type '{type}'")
-        return self.calib
-    
-    def save_calib_file(self, filepath, calib_data, type=None):
+        return calib
+
+    def save_calib_file(self, filename, calib_data, type=None):
+        filepath = os.path.join(self.ex.config['paths']['calibs_folder'], self.config['setup']['calib_folder'], filename)
         # auto-detect type through file extension?
         if type is None:
             filepath_no_ext, file_ext = os.path.splitext(filepath)
-            if file_ext.lower() == '.pickle':
+            if file_ext.lower() == '.pickle' or file_ext.lower() == '.pkl':
                 self.save_pickle(filepath, calib_data)
             elif file_ext.lower() == '.json':
                 self.save_json(filepath, calib_data)
             else:
                 print(f"Diagnostic error; save_calib_file(); could not auto-read file type, please provide type= arugment")
-        elif type.lower() == '.pickle':
+        elif type.lower() == '.pickle' or file_ext.lower() == '.pkl':
             self.save_pickle(filepath, calib_data)
         elif type.lower() == '.json':
             self.save_json(filepath, calib_data)

@@ -7,45 +7,110 @@ import os
 from .diagnostic import Diagnostic
 from ..lib.image_proc import ImageProc
 
-# what about calling diagnostic analysis outside of an experiment environment? 
+# ESpec results class / objects?
 
 class ESpec(Diagnostic):
-    """Electron (charged particle?) Spectrometer
-    This can potentially expand to cover a lot more actions;
+    """Electron (charged particle?) Spectrometer. This can potentially expand to cover a lot more actions;
         - Montage creation (lib function?)
         - Two screen processing
         - Click tools for making spatial calibrations
         - Charge calibration?
-        - Even maybe calculating trajectories and dispersions?
+        - Calculating trajectories and dispersions?
     """
+
+    # TODO: Background correction?
+    # TODO: Correct image count units
 
     __version = 0.1
     __authors = ['Brendan Kettle']
     __requirements = ''
 
-    calib_input = {}
-    calib_dict = {}
     curr_img = None
     x_mm, y_mm = None, None
     x_mrad, y_mrad = None, None
     x_MeV, y_MeV = None, None
 
     def __init__(self, exp_obj, config_filepath):
-        # Initiate parent base Diagnostic class to get all shared attributes and funcs
+        """Initiate parent base Diagnostic class to get all shared attributes and funcs"""
         super().__init__(exp_obj, config_filepath)
         return
     
-    def get_shot_data(self, shot_dict, process=False):
+    def get_shot_data(self, shot_dict):
         """Wrapper for getting shot data through DAQ"""
-        if process:
-            print('TODO: Need to implement applying calibrations...')
-            # Need to load calibration... use shot_dict to determine? OR the contents of "process" variable
-        else:
-            shot_data = self.DAQ.get_shot_data(self.config['setup']['name'], shot_dict)
-        return shot_data
+        return self.DAQ.get_shot_data(self.config['setup']['name'], shot_dict)
 
-    def make_transform(self, calib_input, view=False):
+    def get_proc_shot(self, shot_dict, calib_id=None):
+        """Return a processed shot.
+        """
+
+        # get calibration dictionary
+        calib_dict = self.get_calib(calib_id)
+
+        # minimum calibration is transform?
+        img, x, y = self.transform(shot_dict, calib_dict['transform'])
+
+        # dispersion? default to applying to X axis
+        if 'dispersion' in calib_dict:
+            MeV = self.apply_dispersion(calib_dict)
+            if 'axis' in calib_dict['dispersion']:
+                if calib_dict['dispersion']['axis'].lower() == 'y':
+                    y = MeV
+                else:
+                    x = MeV
+            else:
+                x = MeV
+            # ROI?
+            if 'roi_MeV' in calib_dict:
+                print('TODO: Finish ROI')
+
+        # divergence? default to Y axis
+        if 'divergence' in calib_dict:
+            mrad = self.apply_divergence(calib_dict)
+            if 'axis' in calib_dict['divergence']:
+                if calib_dict['divergence']['axis'].lower() == 'x':
+                    x = mrad
+                else:
+                    y = mrad
+            else:
+                y = mrad
+            # ROI?
+            if 'roi_mrad' in calib_dict:
+                print('TODO: Finish ROI')
+
+        return img, x, y
+
+    # master function for generating a calibration file using a calibration input etc? Do transform, dispersion, etc. 
+    def make_calib(self, calib_input, calib_filename=None, view=True):
+
+        # Get and set calibration input 
+        calib_input = self.set_calib_input(calib_input)
+
+        # Make a spatial transform
+        self.make_transform(view=view)
+
+        # Apply dispersion?
+        if 'dispersion' in calib_input:
+            self.make_dispersion()
+
+        # Apply divergence?
+        if 'divergence' in calib_input:
+            self.make_divergence()
+
+        # transfer other values
+        save_vars = ['roi_mm','roi_MeV','roi_mrad']
+        for var in save_vars:
+            if var in calib_input:
+                self.calib_dict[var] = calib_input[var]
+
+        # save the full calibration?
+        if calib_filename:
+            self.save_calib(calib_filename)
+
+        return self.get_calib()
+
+    def make_transform(self, calib_input=None, view=False):
         """Generate a transform dictionary for use with spatially transforming raw shot images.
+            This is a wrapper for ImageProc make_transform()
 
             calib_input: A dictionary containing the required information for the transform, or calibration file/id for loading...
                         Required dictionary keys; 
@@ -60,26 +125,8 @@ class ESpec(Diagnostic):
             view:
         """
 
-        # sort calibration input format
-        if isinstance(calib_input, dict):
-            # passing dictionary directly; This needs to have the required keys!
-            self.calib_input['transform'] = calib_input
-        else:
-            # passing a string, let's look for a file first
-            calib_input_filepath = os.path.join(self.ex.config['paths']['calibs_folder'], self.config['setup']['calib_folder'], calib_input)
-            if os.path.exists(calib_input_filepath):
-                self.calib_input = self.load_calib_file(calib_input_filepath)
-            elif 'calib_inputs' in self.config['setup']:
-                # or, if it can't be found, look for ID key within the master calibration input file (if set in config)
-                calib_input_filepath = os.path.join(self.ex.config['paths']['calibs_folder'], self.config['setup']['calib_folder'], self.config['setup']['calib_inputs'])
-                all_cal_dicts = self.load_calib_file(calib_input_filepath)
-                if calib_input in all_cal_dicts:
-                    self.calib_input = all_cal_dicts[calib_input]
-                else:
-                    print(f"ESpec Error; make_transform(); No calibration input found for {calib_input}")
-            else:
-                print(f"ESpec Error; make_transform(); Unknown calibration input found for {calib_input}")
-        tcalib_input = self.calib_input['transform']
+        # get dictionary from whatever form of calib_input was passed 
+        tcalib_input = self.get_calib_input(calib_input)['transform']
 
         # points are (by convention) passed in a list of [X,Y], where the first is in the pixel point, 
         # the next is the corresponding transform point, and repeat
@@ -150,6 +197,7 @@ class ESpec(Diagnostic):
         else:
             self.calib_dict['transform'] = tform_dict
         # if img_data is passed as a shot dictionary, grab the actual image
+        # TODO: could pass a filepath?
         if isinstance(img_data, dict):
             img_data = self.get_shot_data(img_data)
         img = ImageProc(img_data)
@@ -159,44 +207,142 @@ class ESpec(Diagnostic):
         ey = ty - self.calib_dict['transform']['e_offsets'][1]
         return timg, ex, ey
 
-    def apply_dispersion(self, calib_input, axis='x', units='mm'):
+    # TODO: Still need to give conversion from counts to counts per MeV?
+    def make_dispersion(self, calib_input=None):
 
-        # TODO: ... work out calib_input format... this should be in seperate function?
-        calib_filepath = os.path.join(self.ex.config['paths']['calibs_folder'], self.config['setup']['calib_folder'], calib_input)
-        disp_curve = self.load_calib_file(calib_filepath)
+        # get dispersion curve from file
+        disp_dict = self.get_calib_input(calib_input)['dispersion']
+        disp_curve = self.load_calib_file(disp_dict['filename'])
 
-        # TODO: Units??
-
-        # TODO: Need to convert counts to per MeV?
-
-        if axis.lower() == 'x':
-            self.x_MeV = np.interp(self.x_mm/1000, disp_curve[:,0], disp_curve[:,1])
-            return self.x_MeV
-        elif axis.lower() == 'y':
-            self.y_MeV = np.interp(self.y_mm/1000, disp_curve[:,0], disp_curve[:,1])
-            return self.y_MeV
-
-    def apply_divergence(self, calib_input, axis='y', units='mm'):
-
-        # TODO: Units??
-
-        # TODO: Need to convert counts to per mrad?
-
-        mrad_per_mm = calib_input['mrad_per_mm']
+        if 'spatial_units' in disp_dict:
+            spat_units = disp_dict['spatial_units']
+        else:
+            spat_units = 'mm'
+        if 'spectral_units' in disp_dict:
+            spec_units = disp_dict['spectral_units']
+        else:
+            spec_units = 'MeV'
+        if 'axis' in disp_dict:
+            axis = disp_dict['axis'].lower()
+        else:
+            axis = 'x'
 
         if axis.lower() == 'x':
-            self.x_mrad = self.x_mm * mrad_per_mm
-            return self.x_mrad
+            MeV = np.interp(self.x_mm, self.to_mm(disp_curve[:,0],spat_units), self.to_MeV(disp_curve[:,1], spec_units))
+            mm = self.x_mm
+            self.x_MeV = MeV
         elif axis.lower() == 'y':
-            self.y_mrad = self.y_mm * mrad_per_mm
-            return self.y_mrad
+            MeV = np.interp(self.y_mm, self.to_mm(disp_curve[:,0],spat_units), self.to_MeV(disp_curve[:,1], spec_units))
+            mm = self.y_mm
+            self.y_MeV = MeV
 
-    def save_calib(self, calib_filename):
-        """Save all the current calibration information to file"""
-        calib_filepath = os.path.join(self.ex.config['paths']['calibs_folder'], self.config['setup']['calib_folder'], calib_filename)
-        self.save_calib_file(calib_filepath, self.calib_dict)
-        return
+        # save details to calib dictionary
+        self.calib_dict['dispersion'] = {
+            "calib_curve": disp_curve,
+            "calib_filename": disp_dict['filename'],
+            "calib_spatial_units": spat_units,
+            "calib_spectral_units": spec_units,
+            "mm": mm,
+            "MeV": MeV,
+            "axis": axis
+        }
+            
+        return MeV
 
-    def load_calib(self, calib_id):
-        # TO DO: Pass some time frame and work out calibration file? 
-        return
+    def apply_dispersion(self, calib_id=None, disp_dict=None):
+
+        if disp_dict is None:
+            disp_dict = self.get_calib(calib_id)['dispersion']
+        MeV = disp_dict['MeV']
+        if disp_dict['axis'] == 'x':
+            self.x_MeV = MeV
+        elif disp_dict['axis'] == 'y':
+            self.y_MeV = MeV
+
+        return MeV
+
+    # TODO: Still need to give conversion from counts to counts per mrad?
+    def make_divergence(self, calib_input=None):
+
+        div_dict = self.get_calib_input(calib_input)['divergence']
+
+        if 'spatial_units' in div_dict:
+            spat_units = div_dict['spatial_units']
+        else:
+            spat_units = 'mm'
+        if 'angular_units' in div_dict:
+            ang_units = div_dict['angular_units']
+        else:
+            ang_units = 'mrad'
+        if 'axis' in div_dict:
+            axis = div_dict['axis'].lower()
+        else:
+            axis = 'y'
+
+        mm_to_mrad = div_dict['spatial_to_angular'] * (self.to_mrad(1,ang_units) / self.to_mm(1,spat_units))
+
+        # could this be more complicated? like a function for distance to angle...
+        # np.interp(self.x_mm, self.to_mm(disp_curve[:,0],spat_units), self.to_MeV(disp_curve[:,1], spec_units))
+        if axis.lower() == 'x':
+            mrad = self.x_mm * mm_to_mrad
+            mm = self.x_mm
+            self.x_mrad = mrad
+        elif axis.lower() == 'y':
+            mrad = self.y_mm * mm_to_mrad
+            mm = self.y_mm
+            self.y_mrad = mrad
+
+        # save details to calib dictionary
+        self.calib_dict['divergence'] = {
+            "mm_to_mrad": mm_to_mrad,
+            #"calib_filename": disp_dict['filename'],
+            #"calib_spatial_units": spat_units,
+            #"calib_spectral_units": spec_units,
+            "mm": mm,
+            "mrad": mrad,
+            "axis": axis
+        }
+            
+        return mrad
+    
+    def apply_divergence(self, calib_id=None, div_dict=None):
+        
+        if div_dict is None:
+            div_dict = self.get_calib(calib_id)['divergence']
+        mrad = div_dict['mrad']
+        if div_dict['axis'] == 'x':
+            self.x_mrad = mrad
+        elif div_dict['axis'] == 'y':
+            self.y_mrad = mrad
+
+        return mrad
+
+    def to_mm(self, value, units):
+        if units.lower() == 'mm':
+            return value
+        elif units.lower() == 'cm':
+            return (value * 10)
+        elif units.lower() == 'm':
+            return (value * 1e3)
+        else:
+            print(f"to_mm error; unknown spatial units {units}")
+
+    def to_MeV(self, value, units):
+        if units == 'MeV':
+            return value
+        elif units == 'GeV':
+            return (value * 1e3)
+        elif units == 'eV':
+            return (value * 1e-3)
+        else:
+            print(f"to_MeV error; unknown spectral units {units}")
+
+    def to_mrad(self, value, units):
+        if units.lower() == 'mrad':
+            return value
+        elif units.lower() == 'rad':
+            return (value * 1e3)
+        elif units.lower() == 'deg':
+            return (value * (np.pi() / 180) * 1e3)
+        else:
+            print(f"to_mrad error; unknown angular units {units}")
