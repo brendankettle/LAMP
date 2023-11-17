@@ -3,25 +3,25 @@
 import os
 from pathlib import Path
 import csv
+from .DAQ import DAQ
 
-class DAQ:
+class ALEPH2022(DAQ):
 
     __version = 0.1
     __name = 'ALEPH2022'
     __authors = ['Brendan Kettle']
 
     def __init__(self, exp_obj):
-        print(f'Using {self.__name} DAQ')
         # pass in experiment object
         self.ex = exp_obj
         self.data_folder = self.ex.config['paths']['data_folder']
+        # Initiate parent base DAQ class to get all shared attributes and funcs
+        super().__init__()
         return
     
     def _build_shot_filepath(self, run_folder, diagnostic, shotnum, ext):
-
         # check file?
         shot_filepath = f'{self.data_folder}/{run_folder}/{diagnostic}/shot{shotnum}.{ext}'
-
         return shot_filepath
 
     def get_runs(self, timeframe):
