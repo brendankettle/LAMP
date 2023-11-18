@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import importlib
 import os
+from scipy.interpolate import interp1d
 
 from .diagnostic import Diagnostic
 from ..lib.image_proc import ImageProc
@@ -205,6 +206,7 @@ class ESpec(Diagnostic):
         # E beam offset? shifts the xy cords on transformed screen
         ex = tx - self.calib_dict['transform']['e_offsets'][0]
         ey = ty - self.calib_dict['transform']['e_offsets'][1]
+
         return timg, ex, ey
 
     # TODO: Still need to give conversion from counts to counts per MeV?
@@ -213,6 +215,16 @@ class ESpec(Diagnostic):
         # get dispersion curve from file
         disp_dict = self.get_calib_input(calib_input)['dispersion']
         disp_curve = self.load_calib_file(disp_dict['filename'])
+
+        # TODO: Still asuming its spatial then spectral in data
+        m,n = np.shape(disp_curve)
+        if m > n:
+            disp_spat = disp_curve[:,0]
+            disp_spec = disp_curve[:,1]
+        else:
+            print("BODGING DISPERSION! NEED TO REWRITE THE NUMPY FILES FROM JASON!")
+            disp_spat = 0.03 + (0.19 - disp_curve[0,:])
+            disp_spec = disp_curve[1,:]
 
         if 'spatial_units' in disp_dict:
             spat_units = disp_dict['spatial_units']
@@ -227,12 +239,14 @@ class ESpec(Diagnostic):
         else:
             axis = 'x'
 
+        disp_fit = interp1d(self.to_mm(disp_spat,spat_units), self.to_MeV(disp_spec, spec_units),bounds_error=False, fill_value="extrapolate")
+
         if axis.lower() == 'x':
-            MeV = np.interp(self.x_mm, self.to_mm(disp_curve[:,0],spat_units), self.to_MeV(disp_curve[:,1], spec_units))
+            MeV = disp_fit(self.x_mm)
             mm = self.x_mm
             self.x_MeV = MeV
         elif axis.lower() == 'y':
-            MeV = np.interp(self.y_mm, self.to_mm(disp_curve[:,0],spat_units), self.to_MeV(disp_curve[:,1], spec_units))
+            MeV = disp_fit(self.y_mm)
             mm = self.y_mm
             self.y_MeV = MeV
 
@@ -265,39 +279,26 @@ class ESpec(Diagnostic):
     def make_divergence(self, calib_input=None):
 
         div_dict = self.get_calib_input(calib_input)['divergence']
+        mm_to_screen = div_dict['mm_to_screen']
 
-        if 'spatial_units' in div_dict:
-            spat_units = div_dict['spatial_units']
-        else:
-            spat_units = 'mm'
-        if 'angular_units' in div_dict:
-            ang_units = div_dict['angular_units']
-        else:
-            ang_units = 'mrad'
         if 'axis' in div_dict:
             axis = div_dict['axis'].lower()
         else:
             axis = 'y'
 
-        mm_to_mrad = div_dict['spatial_to_angular'] * (self.to_mrad(1,ang_units) / self.to_mm(1,spat_units))
-
         # could this be more complicated? like a function for distance to angle...
-        # np.interp(self.x_mm, self.to_mm(disp_curve[:,0],spat_units), self.to_MeV(disp_curve[:,1], spec_units))
         if axis.lower() == 'x':
-            mrad = self.x_mm * mm_to_mrad
+            mrad = np.arctan(self.x_mm / mm_to_screen) * 1000
             mm = self.x_mm
             self.x_mrad = mrad
         elif axis.lower() == 'y':
-            mrad = self.y_mm * mm_to_mrad
+            mrad = np.arctan(self.y_mm / mm_to_screen) * 1000
             mm = self.y_mm
             self.y_mrad = mrad
 
         # save details to calib dictionary
         self.calib_dict['divergence'] = {
-            "mm_to_mrad": mm_to_mrad,
-            #"calib_filename": disp_dict['filename'],
-            #"calib_spatial_units": spat_units,
-            #"calib_spectral_units": spec_units,
+            "mm_to_screen": mm_to_screen,
             "mm": mm,
             "mrad": mrad,
             "axis": axis

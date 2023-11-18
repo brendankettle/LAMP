@@ -19,11 +19,55 @@ class ALEPH2022(DAQ):
         super().__init__()
         return
     
-    def _build_shot_filepath(self, run_folder, diagnostic, shotnum, ext):
+    def _build_shot_filepath(self, diagnostic, run_folder, shotnum, ext):
         # check file?
         shot_filepath = f'{self.data_folder}/{run_folder}/{diagnostic}/shot{shotnum}.{ext}'
         return shot_filepath
 
+    # perhaps some of this can move to base class?
+    def get_shot_data(self, diag_name, shot_dict):
+
+        diag_config = self.ex.diags[diag_name].config['setup']
+
+        # Double check if shot_dict is dictionary; could just be filepath
+        if isinstance(shot_dict, dict):
+        
+            required = ['data_folder','data_ext','data_type']
+            for param in required:
+                if param not in diag_config:
+                    print(f"get_shot_data() error: {self.__name} DAQ requires a config['setup'] parameter '{param}' for {diag_name}")
+                    return None
+
+            required = ['run','shotnum']
+            for param in required:
+                if param not in shot_dict:
+                    print(f"get_shot_data() error: {self.__name} DAQ requires a shot_dict['{param}'] value")
+                    return None
+
+            shot_filepath = self._build_shot_filepath(diag_config['data_folder'], shot_dict['run'], shot_dict['shotnum'], diag_config['data_ext'])
+
+            if diag_config['data_type'] == 'image':
+                shot_data = self.load_imdata(shot_filepath)
+            else:
+                print('Non-image data loading not yet supported... probably need to add text at least?')
+
+        # raw filepath?
+        else:
+            # look for file first
+            shot_filepath = self.data_folder + shot_dict
+            if os.path.exists(shot_filepath):
+                filepath_no_ext, file_ext = os.path.splitext(shot_filepath)
+                img_exts = {".tif",".tiff"}
+                # if it's there, try and suss out data type from file extension
+                if file_ext in img_exts:
+                    shot_data = self.load_imdata(shot_filepath)
+                else:
+                    print(f"Error; get_shot_data(); could not identify file type for extension: {file_ext}")
+            else:
+                print(f"Error; get_shot_data(); could not find shot with raw filepath: {shot_filepath}")
+
+        return shot_data
+    
     def get_runs(self, timeframe):
         """List all runs within a given timeframe; all, a day, etc.
         """

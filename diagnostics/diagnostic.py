@@ -102,13 +102,17 @@ class Diagnostic():
                 calib = self.load_json(filepath)
             elif file_ext.lower() == '.csv':
                 calib = self.load_csv(filepath)
+            elif file_ext.lower() == '.npy':
+                calib = self.load_npy(filepath)
             else:
                 print(f"Diagnostic error; load_calib_file(); could not auto-read file type, please provide type= arugment")
-        elif file_type.lower() == '.pickle' or file_ext.lower() == '.pkl':
+        elif file_type.lower() == 'pickle' or file_ext.lower() == 'pkl':
             calib = self.load_pickle(filepath)
-        elif file_type.lower() == '.json':
+        elif file_type.lower() == 'json':
             calib = self.load_json(filepath)
-        elif file_type.lower() == '.csv':
+        elif file_type.lower() == 'csv':
+            calib = self.load_csv(filepath)
+        elif file_type.lower() == 'numpy' or file_type.lower() == 'npy':
             calib = self.load_csv(filepath)
         else:
             print(f"Diagnostic error; load_calib_file(); no known type '{type}'")
@@ -133,6 +137,9 @@ class Diagnostic():
             print(f"Diagnostic error; save_calib_file(); no known type '{type}'")
         return
     
+    def load_npy(self, filepath):
+        return np.load(filepath)
+
     def load_csv(self, filepath, delimiter=','):
         return np.loadtxt(filepath, delimiter=delimiter)
 
