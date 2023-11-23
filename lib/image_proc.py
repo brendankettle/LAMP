@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 from matplotlib.image import imread 
+import matplotlib.pyplot as plt 
 
 """NB: Library functions/modules should not be coupled into the DAQ or diagnostics; should be independent!"""
 
@@ -51,40 +52,46 @@ class ImageProc():
         """
 
         # resolution of new output image
-        dx = img_size_t[0] / img_size_px[0]
-        dy = img_size_t[1] / img_size_px[1]
+        dx = img_size_t[0] / img_size_px[0] # mm / px
+        dy = img_size_t[1] / img_size_px[1] # mm / px
+        new_pixel_area = dx*dy
+
+        # make new pixel coords for transformed image
         x_t = offset[0] + np.linspace(0,img_size_px[0],num=img_size_px[0]) * dx
         y_t = offset[1] + np.linspace(0,img_size_px[1],num=img_size_px[1]) * dy
 
-        # make pixel values for transformed image (given any upsampling or offsets)
+        # make tranform point pixel values for transformed image (given any upsampling or offsets)
         p_pxt = (p_t - offset) / [dx, dy]
 
         # perform calculation for transform matrix
         H, status = cv2.findHomography(p_px, p_pxt)
 
-        # calculate pixel areas in original image (in terms of transform plane coords; for real space, mm?)
-        (orig_size_x, orig_size_y) = np.shape(self.get_img())
+        # calculate pixel areas in original image (in terms of transform plane coords; for real space; mm2 per pixel)
+        (orig_size_y, orig_size_x) = np.shape(self.get_img())
         retval, H_inv = cv2.invert(H)
         (X,Y) = np.meshgrid(x_t,y_t)
         X_raw = cv2.warpPerspective(X, H_inv, (orig_size_x, orig_size_y))
         Y_raw = cv2.warpPerspective(Y, H_inv, (orig_size_x, orig_size_y))
-        imgArea0 = np.abs(np.gradient(X_raw,axis=1)*np.gradient(Y_raw,axis=0))
-        imgArea0 = np.median(imgArea0[np.abs(X_raw**2+Y_raw**2)>0])
+        orig_pixel_area = np.abs(np.gradient(X_raw,axis=1)*np.gradient(Y_raw,axis=0)) # gradient is like diff, but calculates as average of differences either side
+        orig_pixel_area = np.median(orig_pixel_area[np.abs(X_raw**2+Y_raw**2)>0]) # return central value of orig_pixel_area where X_raw and Y_raw > 0
 
         # build transform dictionary
         tform_dict = {
             'description': description,
             'H': H,
-            'newImgSize': (img_size_px[0],img_size_px[1]),
-            'x_mm': x_t, # For backwards capability of old ESpec calibraions, where transformed plane is real space (mm)
-            'y_mm': y_t, # For backwards capability of old ESpec calibraions, where transformed plane is real space (mm)
+            'new_img_size': (img_size_px[0],img_size_px[1]),
             'x': x_t,
             'y': y_t,
-            'imgArea0': imgArea0,
-            'imgArea1': dx*dy,
+            'orig_pixel_area': orig_pixel_area, # caluclated pixel area of plane to be transformed in calibration image (mm2 per pixel for spatial transform)
+            'new_pixel_area': new_pixel_area, # area of pixel in new output imge (mm2 per pixel for spatial transform)
             'p_px': p_px,
             'p_t': p_t,
-            'notes': notes 
+            'notes': notes,
+            'newImgSize': (img_size_px[0],img_size_px[1]), # For backwards capability of old ESpec calibraions
+            'x_mm': x_t, # For backwards capability of old ESpec calibraions, where transformed plane is real space (mm)
+            'y_mm': y_t, # For backwards capability of old ESpec calibraions, where transformed plane is real space (mm)
+            'imgArea0': orig_pixel_area, # For backwards capability of old ESpec calibraions
+            'imgArea1': new_pixel_area, # For backwards capability of old ESpec calibraions
         }
 
         self.tform_dict = tform_dict
@@ -107,11 +114,11 @@ class ImageProc():
 
         # unpack the transform dictionary 
         H = self.tform_dict['H']
-        raw_pixel_area_t = self.tform_dict['imgArea0'] # (in terms of transform plane coords; for real space, mm?)
-        new_pixel_area = self.tform_dict['imgArea1'] 
-        new_img_size_px = self.tform_dict['newImgSize'] 
+        raw_pixel_area_t = self.tform_dict['orig_pixel_area'] # caluclated pixel area of plane to be transformed in calibration image (mm2 per pixel for spatial transform)
+        new_pixel_area = self.tform_dict['new_pixel_area'] # area of pixel in new output imge (mm2 per pixel for spatial transform)
+        new_img_size = self.tform_dict['new_img_size'] 
 
-        # scale image data by the transform plane pixel area (so it's unit areas?)
+        # scale image data by the transform plane pixel area (so it's unit areas)
         with np.errstate(divide='ignore'):
             with np.errstate(invalid='ignore'):
                 img_per_area = self.img_data_raw / raw_pixel_area_t
@@ -119,8 +126,8 @@ class ImageProc():
         img_per_area[np.isinf(img_per_area)] = 0
         img_per_area[np.isnan(img_per_area)] = 0
 
-        # do warp and rescale count values for new pixel size
-        self.set_img(cv2.warpPerspective(img_per_area, H, new_img_size_px) * new_pixel_area)
+        # do warp and rescale count values for new pixel size (i.e from counts per unit area to counts per bin)
+        self.set_img(cv2.warpPerspective(img_per_area, H, new_img_size) * new_pixel_area)
 
         # Save the new X / Y scales from the dictionary to the image object
         self.x = self.tform_dict['x']

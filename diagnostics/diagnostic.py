@@ -18,6 +18,11 @@ class Diagnostic():
         self.ex = exp_obj # pass in experiment object
         self.DAQ = self.ex.DAQ # shortcut to DAQ
         self.load_config(config_filepath)
+
+        # load calibration history?
+        if 'calib_history' in self.config['setup']:
+            self.calib_hist = self.load_calib_file(self.config['setup']['calib_history'])
+
         return
 
     def __repr__(self):

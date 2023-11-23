@@ -14,19 +14,21 @@ class ESpec(Diagnostic):
     """Electron (charged particle?) Spectrometer. This can potentially expand to cover a lot more actions;
         - Montage creation (lib function?)
         - Two screen processing
-        - Click tools for making spatial calibrations
         - Charge calibration?
         - Calculating trajectories and dispersions?
     """
 
     # TODO: Background correction?
-    # TODO: Correct image count units
 
     __version = 0.1
     __authors = ['Brendan Kettle']
     __requirements = ''
 
+    # my (BK) thinking is that it is better to keep track of all the different units for the x/y axis
+    # also, sticking to the same units (mm/MeV/mrad) helps make it easier to convert from different calibrations and simplify plotting
+    # but I'm sure I can can be convinced otehrwise!
     curr_img = None
+    img_units = 'Counts'
     x_mm, y_mm = None, None
     x_mrad, y_mrad = None, None
     x_MeV, y_MeV = None, None
@@ -41,47 +43,101 @@ class ESpec(Diagnostic):
         return self.DAQ.get_shot_data(self.config['setup']['name'], shot_dict)
 
     def get_proc_shot(self, shot_dict, calib_id=None):
-        """Return a processed shot.
+        """Return a processed shot using saved or passed calibrations.
         """
 
         # get calibration dictionary
         calib_dict = self.get_calib(calib_id)
 
-        # minimum calibration is transform?
+        # minimum calibration is spatial transform
         img, x, y = self.transform(shot_dict, calib_dict['transform'])
 
-        # dispersion? default to applying to X axis
+        # dispersion?
         if 'dispersion' in calib_dict:
-            MeV = self.apply_dispersion(calib_dict)
+            img, MeV = self.apply_dispersion(img, calib_dict)
+
+            # default to applying to X axis unless set
             if 'axis' in calib_dict['dispersion']:
                 if calib_dict['dispersion']['axis'].lower() == 'y':
-                    y = MeV
+                    axis = 'y'
                 else:
-                    x = MeV
+                    axis = 'x'
             else:
-                x = MeV
+                axis = 'x'
+
             # ROI?
             if 'roi_MeV' in calib_dict:
-                print('TODO: Finish ROI')
+                MeV_min = np.min(calib_dict['roi_MeV'])
+                MeV_max = np.max(calib_dict['roi_MeV'])
+                if axis == 'y':
+                    img = img[(MeV > MeV_min), :] # I'm sure this cam be done in one line, but I'm being lazy...
+                    MeV = MeV[(MeV > MeV_min)]
+                    img = img[(MeV < MeV_max), :]
+                    MeV = MeV[(MeV < MeV_max)]
+                else:
+                    img = img[:, (MeV > MeV_min)]
+                    MeV = MeV[(MeV > MeV_min)]
+                    img = img[:, (MeV < MeV_max)]
+                    MeV = MeV[(MeV < MeV_max)]
 
-        # divergence? default to Y axis
+            # save axis to object
+            if axis == 'y':
+                self.y_MeV = MeV 
+                y = MeV
+            else:
+                self.x_MeV = MeV 
+                x = MeV
+
+        # divergence?
         if 'divergence' in calib_dict:
-            mrad = self.apply_divergence(calib_dict)
+            img, mrad = self.apply_divergence(img, calib_dict)
+
+            # default to Y axis
             if 'axis' in calib_dict['divergence']:
                 if calib_dict['divergence']['axis'].lower() == 'x':
-                    x = mrad
+                    axis = 'x'
                 else:
-                    y = mrad
+                    axis = 'y'
             else:
-                y = mrad
+                axis = 'y'
+
             # ROI?
             if 'roi_mrad' in calib_dict:
-                print('TODO: Finish ROI')
+                mrad_min = np.min(calib_dict['roi_mrad'])
+                mrad_max = np.max(calib_dict['roi_mrad'])
+                if axis == 'y':
+                    img = img[(mrad > mrad_min), :]
+                    mrad = mrad[(mrad > mrad_min)]
+                    img = img[(mrad < mrad_max), :]
+                    mrad = mrad[(mrad < mrad_max)]
+                else:
+                    img = img[:, (mrad > mrad_min)]
+                    mrad = mrad[(mrad > mrad_min)]
+                    img = img[:, (mrad < mrad_max)]
+                    mrad = mrad[(mrad < mrad_max)]
+
+            # save axis to object
+            if axis == 'y':
+                self.y_mrad = mrad
+                y = mrad
+            else:
+                self.x_mrad = mrad
+                x = mrad
 
         return img, x, y
 
-    # master function for generating a calibration file using a calibration input etc? Do transform, dispersion, etc. 
+    def get_spectra(self, shot_dict, calib_id=None):
+
+        return
+    
+    def get_div(self, shot_dict, calib_id=None):
+
+        return
+
     def make_calib(self, calib_input, calib_filename=None, view=True):
+        """Master function for generating a calibration file using a calibration input
+            E.g transform, dispersion, etc. 
+        """
 
         # Get and set calibration input 
         calib_input = self.set_calib_input(calib_input)
@@ -190,6 +246,8 @@ class ESpec(Diagnostic):
         return self.calib_dict['transform']
 
     def transform(self, img_data, tform_dict=None):
+        """"""
+
         # if not passed, use stored tform_dict, or complain
         if tform_dict is None:
             if self.calib_dict['transform'] is None:
@@ -201,6 +259,7 @@ class ESpec(Diagnostic):
         # TODO: could pass a filepath?
         if isinstance(img_data, dict):
             img_data = self.get_shot_data(img_data)
+
         img = ImageProc(img_data)
         timg, tx, ty = img.transform(self.calib_dict['transform'])
         # E beam offset? shifts the xy cords on transformed screen
@@ -209,8 +268,8 @@ class ESpec(Diagnostic):
 
         return timg, ex, ey
 
-    # TODO: Still need to give conversion from counts to counts per MeV?
     def make_dispersion(self, calib_input=None):
+        """"""
 
         # get dispersion curve from file
         disp_dict = self.get_calib_input(calib_input)['dispersion']
@@ -263,20 +322,31 @@ class ESpec(Diagnostic):
             
         return MeV
 
-    def apply_dispersion(self, calib_id=None, disp_dict=None):
+    def apply_dispersion(self, img_data, calib_id=None, disp_dict=None):
+        """"""
 
         if disp_dict is None:
             disp_dict = self.get_calib(calib_id)['dispersion']
+
         MeV = disp_dict['MeV']
+        dMeV = abs(np.gradient(MeV)) # gradient is like diff, but calculates as average of differences either side
+
         if disp_dict['axis'] == 'x':
             self.x_MeV = MeV
+            dMeV_matrix = np.tile(dMeV, (len(self.y_mm),1))
         elif disp_dict['axis'] == 'y':
             self.y_MeV = MeV
+            dMeV_matrix = np.transpose(np.tile(dMeV, (len(self.y_mm),1)))
 
-        return MeV
+        # convert from counts to counts per MeV
+        img_data = img_data / dMeV_matrix
 
-    # TODO: Still need to give conversion from counts to counts per mrad?
+        self.img_units = self.img_units + '_per_MeV'
+
+        return img_data, MeV
+
     def make_divergence(self, calib_input=None):
+        """"""
 
         div_dict = self.get_calib_input(calib_input)['divergence']
         mm_to_screen = div_dict['mm_to_screen']
@@ -306,17 +376,26 @@ class ESpec(Diagnostic):
             
         return mrad
     
-    def apply_divergence(self, calib_id=None, div_dict=None):
-        
+    def apply_divergence(self, img_data, calib_id=None, div_dict=None):
+        """"""
+
+        # either used passed dictionary, or load from ID
         if div_dict is None:
             div_dict = self.get_calib(calib_id)['divergence']
+        
         mrad = div_dict['mrad']
+        dmrad = np.mean(np.diff(mrad)) # assuming linear for now...
+
         if div_dict['axis'] == 'x':
             self.x_mrad = mrad
         elif div_dict['axis'] == 'y':
             self.y_mrad = mrad
 
-        return mrad
+        # convert counts to per mrad
+        img_data = img_data / dmrad
+        self.img_units = self.img_units + '_per_mrad'
+
+        return img_data, mrad
 
     def to_mm(self, value, units):
         if units.lower() == 'mm':

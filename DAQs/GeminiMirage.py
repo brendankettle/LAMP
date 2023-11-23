@@ -17,11 +17,28 @@ class GeminiMirage(DAQ):
         return
 
     def _build_shot_filepath(self, diagnostic, date, run, shotnum, ext):
+        """This is used internally, and so can be DAQ specific"""
         shot_path = f'{self.data_folder}/{diagnostic}/{date}/{run}/Shot{str(shotnum).zfill(3)}.{ext}'
         return shot_path
     
+    def build_time(self, time_dict):
+        """Universal function to return a point in time for DAQ, for comparison, say in calibrations
+        """
+
+        # for Gemini, use date / run / shot
+
+        return
+    
+    def compare_time(self, time, ref_time):
+        """Universal function to check a time against a reference?
+        """
+
+        return
+    
     # perhaps some of this can move to base class?
     def get_shot_data(self, diag_name, shot_dict):
+        """Univeral function for returning shot data given a diagnostic and shot dictionary
+        """
 
         # TO DO: Check if shot_dict is not dictionary; could just be filepath
 
@@ -48,3 +65,4 @@ class GeminiMirage(DAQ):
             print('Non-image data loading not yet supported... probably need to add text at least?')
 
         return shot_data
+
