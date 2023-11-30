@@ -1,14 +1,10 @@
-"""Base class for Diagnostics
-"""
 import os
 from configparser import ConfigParser, ExtendedInterpolation
 import numpy as np
-import pickle
-import json
-
-# TODO: Some way of auto picking calibration by date? a calib history file dictates files by dates?
 
 class Diagnostic():
+    """Base class for Diagnostics
+    """
 
     calib_dict = {}
     calib_input = {}
@@ -18,11 +14,10 @@ class Diagnostic():
         self.ex = exp_obj # pass in experiment object
         self.DAQ = self.ex.DAQ # shortcut to DAQ
         self.load_config(config_filepath)
-
         # load calibration history?
         if 'calib_history' in self.config['setup']:
             self.calib_hist = self.load_calib_file(self.config['setup']['calib_history'])
-
+        self.diag_name = self.config['setup']['name'] # shortcut
         return
 
     def __repr__(self):
@@ -35,7 +30,11 @@ class Diagnostic():
         self.config.read(config_filepath)
         return
 
-    def get_calib(self, calib_id=None, input=False):
+    def get_shot_data(self, shot_dict):
+        """Wrapper for getting shot data through DAQ"""
+        return self.DAQ.get_shot_data(self.config['setup']['name'], shot_dict)
+    
+    def get_calib(self, calib_id=None, shot_dict=None, input=False):
         """Take a calibration id of some form, and return calibration dictionary
             - = None: Try and use pre-saved calibration dict within object
             - = Dictionary: Assuming calibration is already given by input and simply return
@@ -49,12 +48,30 @@ class Diagnostic():
             elif self.calib_dict:
                 return self.calib_dict
             else:
-                print("get_calib() error; None passed and no calibration pre-set")
+                # try using calibration history with a shot dictionary?
+                if self.calib_hist and shot_dict:
+                    shot_time = self.DAQ.build_time_point(shot_dict)
+                    for calib_name in self.calib_hist:
+                        calib = self.calib_hist[calib_name]
+                        start_shot_dict  = calib['start']
+                        calib_start  = self.DAQ.build_time_point(start_shot_dict)
+                        end_shot_dict = calib['end']
+                        calib_end  = self.DAQ.build_time_point(end_shot_dict)
+                        if shot_time > calib_start and shot_time < calib_end:
+                            if input:
+                                calib_id = calib['input_id']
+                            else:
+                                calib_id = calib['calib_file']
+                            break
+                    if not calib_id:
+                        print("get_calib() error; Could not place shot in calibration history timeline")
+                else:
+                    print("get_calib() error; None passed and no calibration pre-set")
         # passing dictionary directly? This needs to have the required keys!
-        elif isinstance(calib_id, dict):
+        if isinstance(calib_id, dict):
             return calib_id
-        # passing string?
-        else:
+        # passing string? (or got a calibration filepath  using history above)
+        if isinstance(calib_id, str):
             # let's look for a file first
             calib_filepath = os.path.join(self.ex.config['paths']['calibs_folder'], self.config['setup']['calib_folder'], calib_id)
             if os.path.exists(calib_filepath):
@@ -69,8 +86,8 @@ class Diagnostic():
             else:
                 print(f"get_calib() error; Unknown calibration input found for {calib_id}")
 
-    def set_calib(self, calib_id):
-        self.calib_dict = self.get_calib(calib_id)
+    def set_calib(self, calib_id=None, shot_dict=None):
+        self.calib_dict = self.get_calib(calib_id, shot_dict=shot_dict)
         return
     
     def save_calib(self, calib_filename, calib_dict = None):
@@ -84,89 +101,24 @@ class Diagnostic():
         calib = self.load_calib_file(calib_filename, file_type=file_type, options=options)
         if set:
             self.set_calib(calib)
-        return
+        return calib
     
-    def get_calib_input(self, calib_input=None):
+    def get_calib_input(self, calib_input=None, shot_dict=None):
         """Wrapper for get_calib, but specifying an input calibration
         """
-        return self.get_calib(calib_input, input=True)
+        return self.get_calib(calib_input, shot_dict=shot_dict, input=True)
 
-    def set_calib_input(self, calib_input):
-        self.calib_input = self.get_calib_input(calib_input)
+    def set_calib_input(self, calib_input=None, shot_dict=None):
+        self.calib_input = self.get_calib_input(calib_input, shot_dict=shot_dict)
         return self.calib_input
     
     # TODO: Passing arguments such as delimiters
     def load_calib_file(self, filename, file_type=None, options=None):
         filepath = os.path.join(self.ex.config['paths']['calibs_folder'], self.config['setup']['calib_folder'], filename)
-        # auto-detect type through file extension?
-        if file_type is None:
-            filepath_no_ext, file_ext = os.path.splitext(filepath)
-            if file_ext.lower() == '.pickle' or file_ext.lower() == '.pkl':
-                calib = self.load_pickle(filepath)
-            elif file_ext.lower() == '.json':
-                calib = self.load_json(filepath)
-            elif file_ext.lower() == '.csv':
-                calib = self.load_csv(filepath)
-            elif file_ext.lower() == '.npy':
-                calib = self.load_npy(filepath)
-            else:
-                print(f"Diagnostic error; load_calib_file(); could not auto-read file type, please provide type= arugment")
-        elif file_type.lower() == 'pickle' or file_ext.lower() == 'pkl':
-            calib = self.load_pickle(filepath)
-        elif file_type.lower() == 'json':
-            calib = self.load_json(filepath)
-        elif file_type.lower() == 'csv':
-            calib = self.load_csv(filepath)
-        elif file_type.lower() == 'numpy' or file_type.lower() == 'npy':
-            calib = self.load_csv(filepath)
-        else:
-            print(f"Diagnostic error; load_calib_file(); no known type '{type}'")
+        calib  = self.DAQ.load_file(filepath, file_type=file_type, options=options)
         return calib
 
     def save_calib_file(self, filename, calib_data, type=None):
         filepath = os.path.join(self.ex.config['paths']['calibs_folder'], self.config['setup']['calib_folder'], filename)
-        # auto-detect type through file extension?
-        if type is None:
-            filepath_no_ext, file_ext = os.path.splitext(filepath)
-            if file_ext.lower() == '.pickle' or file_ext.lower() == '.pkl':
-                self.save_pickle(filepath, calib_data)
-            elif file_ext.lower() == '.json':
-                self.save_json(filepath, calib_data)
-            else:
-                print(f"Diagnostic error; save_calib_file(); could not auto-read file type, please provide type= arugment")
-        elif type.lower() == '.pickle' or file_ext.lower() == '.pkl':
-            self.save_pickle(filepath, calib_data)
-        elif type.lower() == '.json':
-            self.save_json(filepath, calib_data)
-        else:
-            print(f"Diagnostic error; save_calib_file(); no known type '{type}'")
+        self.DAQ.save_file(filepath, calib_data, type=type)
         return
-    
-    def load_npy(self, filepath):
-        return np.load(filepath)
-
-    def load_csv(self, filepath, delimiter=','):
-        return np.loadtxt(filepath, delimiter=delimiter)
-
-    def save_csv(self, filepath, data):
-        print('TODO: CSV writer!')
-        return
-    
-    def load_pickle(self, filepath):
-        with open(filepath, 'rb') as handle:
-            return pickle.load(handle)
-
-    def save_pickle(self, filepath, data):
-        with open(filepath, 'wb') as handle:
-            pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        return
-
-    def load_json(self, filepath):
-        with open(filepath) as json_file:
-            return json.load(json_file)
-    
-    def save_json(self, filepath, data):
-        with open(filepath, "w") as outfile:
-            json.dump(data, outfile)
-        return
-    

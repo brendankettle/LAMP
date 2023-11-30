@@ -6,7 +6,7 @@ import os
 from scipy.interpolate import interp1d
 
 from .diagnostic import Diagnostic
-from ..lib.image_proc import ImageProc
+from ..utils.image_proc import ImageProc
 
 # ESpec results class / objects?
 
@@ -22,7 +22,7 @@ class ESpec(Diagnostic):
 
     __version = 0.1
     __authors = ['Brendan Kettle']
-    __requirements = ''
+    __requirements = 'cv2'
 
     # my (BK) thinking is that it is better to keep track of all the different units for the x/y axis
     # also, sticking to the same units (mm/MeV/mrad) helps make it easier to convert from different calibrations and simplify plotting
@@ -32,33 +32,33 @@ class ESpec(Diagnostic):
     x_mm, y_mm = None, None
     x_mrad, y_mrad = None, None
     x_MeV, y_MeV = None, None
+    calib_dict = None
 
     def __init__(self, exp_obj, config_filepath):
         """Initiate parent base Diagnostic class to get all shared attributes and funcs"""
         super().__init__(exp_obj, config_filepath)
         return
-    
-    def get_shot_data(self, shot_dict):
-        """Wrapper for getting shot data through DAQ"""
-        return self.DAQ.get_shot_data(self.config['setup']['name'], shot_dict)
 
     def get_proc_shot(self, shot_dict, calib_id=None):
         """Return a processed shot using saved or passed calibrations.
         """
 
         # get calibration dictionary
-        calib_dict = self.get_calib(calib_id)
+        self.calib_dict = self.get_calib(calib_id, shot_dict=shot_dict)
 
         # minimum calibration is spatial transform
-        img, x, y = self.transform(shot_dict, calib_dict['transform'])
+        img, x, y = self.transform(shot_dict, self.calib_dict['transform'])
+        self.curr_img = img
+        self.x_mm = x
+        self.y_mm = y
 
         # dispersion?
-        if 'dispersion' in calib_dict:
-            img, MeV = self.apply_dispersion(img, calib_dict)
+        if 'dispersion' in self.calib_dict:
+            img, MeV = self.apply_dispersion(img, self.calib_dict)
 
             # default to applying to X axis unless set
-            if 'axis' in calib_dict['dispersion']:
-                if calib_dict['dispersion']['axis'].lower() == 'y':
+            if 'axis' in self.calib_dict['dispersion']:
+                if self.calib_dict['dispersion']['axis'].lower() == 'y':
                     axis = 'y'
                 else:
                     axis = 'x'
@@ -66,9 +66,9 @@ class ESpec(Diagnostic):
                 axis = 'x'
 
             # ROI?
-            if 'roi_MeV' in calib_dict:
-                MeV_min = np.min(calib_dict['roi_MeV'])
-                MeV_max = np.max(calib_dict['roi_MeV'])
+            if 'roi_MeV' in self.calib_dict:
+                MeV_min = np.min(self.calib_dict['roi_MeV'])
+                MeV_max = np.max(self.calib_dict['roi_MeV'])
                 if axis == 'y':
                     img = img[(MeV > MeV_min), :] # I'm sure this cam be done in one line, but I'm being lazy...
                     MeV = MeV[(MeV > MeV_min)]
@@ -89,12 +89,12 @@ class ESpec(Diagnostic):
                 x = MeV
 
         # divergence?
-        if 'divergence' in calib_dict:
-            img, mrad = self.apply_divergence(img, calib_dict)
+        if 'divergence' in self.calib_dict:
+            img, mrad = self.apply_divergence(img, self.calib_dict)
 
             # default to Y axis
-            if 'axis' in calib_dict['divergence']:
-                if calib_dict['divergence']['axis'].lower() == 'x':
+            if 'axis' in self.calib_dict['divergence']:
+                if self.calib_dict['divergence']['axis'].lower() == 'x':
                     axis = 'x'
                 else:
                     axis = 'y'
@@ -102,9 +102,9 @@ class ESpec(Diagnostic):
                 axis = 'y'
 
             # ROI?
-            if 'roi_mrad' in calib_dict:
-                mrad_min = np.min(calib_dict['roi_mrad'])
-                mrad_max = np.max(calib_dict['roi_mrad'])
+            if 'roi_mrad' in self.calib_dict:
+                mrad_min = np.min(self.calib_dict['roi_mrad'])
+                mrad_max = np.max(self.calib_dict['roi_mrad'])
                 if axis == 'y':
                     img = img[(mrad > mrad_min), :]
                     mrad = mrad[(mrad > mrad_min)]
@@ -127,12 +127,32 @@ class ESpec(Diagnostic):
         return img, x, y
 
     def get_spectra(self, shot_dict, calib_id=None):
-
-        return
+        """Integrate across the non-dispersive axis and return a psectral lineout"""
+        img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id)
+        spec = np.sum(img, 0)
+        if 'axis' in  self.calib_dict['dispersion'] and self.calib_dict['dispersion']['axis'].lower() == 'y':
+            MeV = y
+        else:
+            MeV = x
+        return spec, MeV
     
     def get_div(self, shot_dict, calib_id=None):
+        """Currently integrating across the spatial axis. Could be something more involved?"""
+        img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id)
+        sum_lineout = np.sum(img, 1)
+        if 'axis' in  self.calib_dict['divergence'] and self.calib_dict['divergence']['axis'].lower() == 'x':
+            mrad = x
+        else:
+            mrad = y
+        return sum_lineout, mrad
+    
+    def get_div_FWHM(self, shot_dict, calib_id=None):
+        lineout, mrad = self.get_div(shot_dict, calib_id=calib_id)
+        # TODO: write library function to find FWHM from lineout
+        # TODO: Return Error estimate as well
+        FWHM = None
+        return FWHM
 
-        return
 
     def make_calib(self, calib_input, calib_filename=None, view=True):
         """Master function for generating a calibration file using a calibration input

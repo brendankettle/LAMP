@@ -3,9 +3,15 @@ import cv2
 from matplotlib.image import imread 
 import matplotlib.pyplot as plt 
 
-"""NB: Library functions/modules should not be coupled into the DAQ or diagnostics; should be independent!"""
+"""NB: functions/modules should not be coupled into the DAQ or diagnostics; should be independent!"""
 
 class ImageProc():
+    """Class for handling the processing of image data. This includes:
+        - Background correction
+        - Spatial transforms
+        - Masking
+        - ?
+    """
 
     img_data = None
     tform_dict = None
@@ -28,6 +34,10 @@ class ImageProc():
         # Only if not using DAQ...
         self.set_img(imread(filepath).astype(float))
         return self.get_img()
+
+    def subtract(self, img):
+        self.img_data = self.img_data - img
+        return self.img_data
 
     # def bkg_sub(self, bkg=None):
     #     # todo - automated background types?
