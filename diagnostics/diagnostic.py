@@ -43,6 +43,7 @@ class Diagnostic():
         """
         # If none passed, try use pre-saved calib input
         if calib_id is None:
+            # TODO: Should this check if shot dictionary is set first?
             if input and self.calib_input:
                 return self.calib_input
             elif self.calib_dict:
@@ -62,6 +63,7 @@ class Diagnostic():
                                 calib_id = calib['input_id']
                             else:
                                 calib_id = calib['calib_file']
+                                calib_input_id = calib['input_id']
                             break
                     if not calib_id:
                         print("get_calib() error; Could not place shot in calibration history timeline")
@@ -77,14 +79,17 @@ class Diagnostic():
             if os.path.exists(calib_filepath):
                 return self.load_calib_file(calib_id)
             # no file, so let's look for ID key within the master calibration input file (if set in config)
-            elif input and 'calib_inputs' in self.config['setup']:
+            elif 'calib_inputs' in self.config['setup']:
                 all_calib_input_dicts = self.load_calib_file(self.config['setup']['calib_inputs'])
-                if calib_id in all_calib_input_dicts:
+                if input and calib_id in all_calib_input_dicts:
                     return all_calib_input_dicts[calib_id]
+                elif 'calib_input_id' in locals() and calib_input_id in all_calib_input_dicts:
+                    print(f"Warning; get_calib(); Could not find calibration: {calib_id}, so using input: {calib_input_id}")
+                    return all_calib_input_dicts[calib_input_id]
                 else:
                     print(f"get_calib() error; No calibration input ID found for {calib_id} in master calib input file")
             else:
-                print(f"get_calib() error; Unknown calibration input found for {calib_id}")
+                print(f"get_calib() error; Unknown calibration found for {calib_id}")
 
     def set_calib(self, calib_id=None, shot_dict=None):
         self.calib_dict = self.get_calib(calib_id, shot_dict=shot_dict)

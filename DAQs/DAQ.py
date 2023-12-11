@@ -75,8 +75,9 @@ class DAQ():
     def load_npy(self, filepath):
         return np.load(filepath)
 
-    def load_csv(self, filepath, delimiter=','):
-        return np.loadtxt(filepath, delimiter=delimiter)
+    def load_csv(self, filepath, delimiter=',', col_dtypes=None):
+        # Pandas might be better here? problems with mixed data types...
+        return np.genfromtxt(filepath, delimiter=delimiter, dtype=col_dtypes, encoding=None)
 
     def save_csv(self, filepath, data):
         print('TODO: CSV writer!')
