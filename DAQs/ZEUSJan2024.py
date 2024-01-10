@@ -1,14 +1,14 @@
-"""Interface layer for ALEPH, Colorado in 2022. Uses Michigan DAQ code.
-"""
 import os
 from pathlib import Path
 import csv
 from .DAQ import DAQ
 
-class ALEPH2022(DAQ):
+class ZEUSJan2024(DAQ):
+    """Interface layer for Zeus, Michigan in January 2024. Assumes Michigan DAQ code?
+    """
 
     __version = 0.1
-    __name = 'ALEPH2022'
+    __name = 'ZEUSJan2024'
     __authors = ['Brendan Kettle']
 
     def __init__(self, exp_obj):
@@ -81,46 +81,46 @@ class ALEPH2022(DAQ):
 
         return runs
 
-    def get_shot_info(self, run = None, shotnums = None):
-        """Return shot information from run csv files
-        """
-        if run == None:
-            print(f'Run name required for get_shot_info(run=,) using {self.__name} DAQ')
-            return None
+    # def get_shot_info(self, run = None, shotnums = None):
+    #     """Return shot information from run csv files
+    #     """
+    #     if run == None:
+    #         print(f'Run name required for get_shot_info(run=,) using {self.__name} DAQ')
+    #         return None
 
-        shot_info_filepath = f'{self.data_folder}/{run}/laserEnergy_{run}.csv'
+    #     shot_info_filepath = f'{self.data_folder}/{run}/laserEnergy_{run}.csv'
 
-        # DAQ_Shotnum	Timestamp [(hh)(mm)(ss)(centisecond)]	Labview_ShotsTodayNum	Energy_Measurement [J]
+    #     # DAQ_Shotnum	Timestamp [(hh)(mm)(ss)(centisecond)]	Labview_ShotsTodayNum	Energy_Measurement [J]
 
-        # initializing the titles and rows list
-        headers = []
-        DAQ_shotnums = []
-        timestamps = []
-        labview_shotnums = []
-        laser_energies = []
+    #     # initializing the titles and rows list
+    #     headers = []
+    #     DAQ_shotnums = []
+    #     timestamps = []
+    #     labview_shotnums = []
+    #     laser_energies = []
         
-        # reading csv file
-        if not os.path.isfile(shot_info_filepath):
-            # no file?
-            return None
-        with open(shot_info_filepath, 'r') as csvfile:
-            # empty?
-            csv_dict = [row for row in csv.DictReader(csvfile)]
-            if len(csv_dict) == 0:
-                return None
-            csvfile.seek(0)
-            csvreader = csv.reader(csvfile)
-            headers = next(csvreader)
-            for row in csvreader:
-                DAQ_shotnums.append(int(row[0]))
-                timestamps.append(row[1])
-                labview_shotnums.append(int(row[2]))
-                laser_energies.append(float(row[3]))
+    #     # reading csv file
+    #     if not os.path.isfile(shot_info_filepath):
+    #         # no file?
+    #         return None
+    #     with open(shot_info_filepath, 'r') as csvfile:
+    #         # empty?
+    #         csv_dict = [row for row in csv.DictReader(csvfile)]
+    #         if len(csv_dict) == 0:
+    #             return None
+    #         csvfile.seek(0)
+    #         csvreader = csv.reader(csvfile)
+    #         headers = next(csvreader)
+    #         for row in csvreader:
+    #             DAQ_shotnums.append(int(row[0]))
+    #             timestamps.append(row[1])
+    #             labview_shotnums.append(int(row[2]))
+    #             laser_energies.append(float(row[3]))
 
-        shot_info = {'DAQ_shotnums': DAQ_shotnums, 'timestamps': timestamps, 'labview_shotnums': labview_shotnums, 'laser_energies': laser_energies}
+    #     shot_info = {'DAQ_shotnums': DAQ_shotnums, 'timestamps': timestamps, 'labview_shotnums': labview_shotnums, 'laser_energies': laser_energies}
 
-        # want a specific shot(s)?
-        if shotnums:
-            print('TO DO: Allow specific shot selection in _read_shot_info()!')
+    #     # want a specific shot(s)?
+    #     if shotnums:
+    #         print('TO DO: Allow specific shot selection in _read_shot_info()!')
 
-        return shot_info
+    #     return shot_info

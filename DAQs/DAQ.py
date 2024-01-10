@@ -3,6 +3,7 @@ from matplotlib import image
 import numpy as np
 import pickle
 import json
+import toml
 
 class DAQ():
     """Base class for DAQs
@@ -40,6 +41,8 @@ class DAQ():
                 data = self.load_csv(filepath)
             elif file_ext.lower() == '.npy':
                 data = self.load_npy(filepath)
+            elif file_ext.lower() == '.toml':
+                data = self.load_toml(filepath)
             else:
                 print(f"DAQ error; load_file(); could not auto-read file type, please provide type= arugment")
         elif file_type.lower() == 'pickle' or file_ext.lower() == 'pkl':
@@ -49,7 +52,9 @@ class DAQ():
         elif file_type.lower() == 'csv':
             data = self.load_csv(filepath)
         elif file_type.lower() == 'numpy' or file_type.lower() == 'npy':
-            data = self.load_csv(filepath)
+            data = self.load_npy(filepath)
+        elif file_type.lower() == 'toml':
+            data = self.load_toml(filepath)
         else:
             print(f"DAQ error; load_file(); no known type '{type}'")
         return data
@@ -99,4 +104,14 @@ class DAQ():
     def save_json(self, filepath, data):
         with open(filepath, "w") as outfile:
             json.dump(data, outfile)
+        return
+    
+    def load_toml(self, filepath):
+        # https://docs.python.org/3/library/tomllib.html
+        with open(filepath, "rb") as toml_file:
+            return toml.load(toml_file)
+    
+    def save_toml(self, filepath, data):
+        with open(filepath, 'w') as outfile:
+            toml.dump(data, outfile)
         return

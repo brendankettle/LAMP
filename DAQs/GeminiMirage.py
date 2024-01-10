@@ -18,6 +18,7 @@ class GeminiMirage(DAQ):
 
     def _build_shot_filepath(self, diagnostic, date, run, shotnum, ext):
         """This is used internally, and so can be DAQ specific"""
+        # check file?
         shot_path = f'{self.data_folder}/{diagnostic}/{date}/{run}/Shot{str(shotnum).zfill(3)}.{ext}'
         return shot_path
     
