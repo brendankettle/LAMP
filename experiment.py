@@ -62,6 +62,9 @@ class Experiment:
         else:
             raise Exception(f'Could not find Diagnostic object: {diag_type}')
 
+        # TODO: If default calibration file set, load it?
+        # For example, a focal cam might just after pixel to mm conversion that doesn't change throughout experiment
+
         return self.get_diagnostic(diag_name)
     
     def get_diagnostic(self, diag_name):

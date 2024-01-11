@@ -1,8 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import importlib
-import os
 from scipy.interpolate import interp1d
 
 from .diagnostic import Diagnostic
