@@ -98,20 +98,20 @@ class DAQ():
         return
 
     def load_json(self, filepath):
-        with open(filepath) as json_file:
-            return json.load(json_file)
+        with open(filepath) as handle:
+            return json.load(handle)
     
     def save_json(self, filepath, data):
-        with open(filepath, "w") as outfile:
-            json.dump(data, outfile)
+        with open(filepath, "w") as handle:
+            json.dump(data, handle)
         return
     
     def load_toml(self, filepath):
-        # https://docs.python.org/3/library/tomllib.html
-        with open(filepath, "rb") as toml_file:
-            return toml.load(toml_file)
+        # with open(filepath, "rb") as handle:
+        #     return toml.load(handle)
+        return toml.load(filepath)
     
     def save_toml(self, filepath, data):
-        with open(filepath, 'w') as outfile:
-            toml.dump(data, outfile)
+        with open(filepath, 'w') as handle:
+            toml.dump(data, handle)
         return

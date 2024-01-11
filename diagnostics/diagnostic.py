@@ -17,6 +17,7 @@ class Diagnostic():
         # load calibration history?
         if 'calib_history' in self.config['setup']:
             self.calib_hist = self.load_calib_file(self.config['setup']['calib_history'])
+        # TODO: load calibration input or calibration default file?
         self.diag_name = self.config['setup']['name'] # shortcut
         return
 

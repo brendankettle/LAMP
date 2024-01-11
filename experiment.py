@@ -17,7 +17,7 @@ class Experiment:
 
         # setup DAQ
         if self.config['setup']['DAQ'].lower() == 'none':
-            print('To Do: Support single file analysis...')
+            print('To Do: Support single file analysis... This could just be another DAQ module called None...')
         else:
             DAQ_module = 'LAMP.DAQs.' + self.config['setup']['DAQ']
             try:
@@ -61,9 +61,6 @@ class Experiment:
             self.diags[diag_name] = diag_class(self, diag_config_filepath)
         else:
             raise Exception(f'Could not find Diagnostic object: {diag_type}')
-
-        # TODO: If default calibration file set, load it?
-        # For example, a focal cam might just after pixel to mm conversion that doesn't change throughout experiment
 
         return self.get_diagnostic(diag_name)
     
