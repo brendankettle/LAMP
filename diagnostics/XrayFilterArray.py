@@ -152,6 +152,12 @@ class XrayFilterArray(Diagnostic):
             plt.colorbar()
             plt.show(block=False)
 
+            plt.figure()
+            plt.imshow(direct_fit, vmin=np.min(direct_fit), vmax=np.max(direct_fit))
+            plt.colorbar()
+            plt.title('Direct Fit')
+            plt.show(block=False)
+
         return direct_fit
 
     def make_filter_mask(self, calib_input=None, method='polygon', fig_ax=None):
@@ -218,7 +224,6 @@ class XrayFilterArray(Diagnostic):
             # roi?
             if 'roi' in calib_input:
                 roi = calib_input['roi']
-                print(roi)
                 full_mask[:,:roi[0]] = 0
                 full_mask[:roi[1],:] = 0
                 full_mask[:,roi[2]:] = 0
@@ -357,6 +362,23 @@ class XrayFilterArray(Diagnostic):
         plt.show(block=False)
 
         return
+
+    def get_element_direct_counts(self, shot_dict):
+        """Return the """
+        element_direct_counts = 0
+        return element_direct_counts
+    
+    def get_element_filtered_counts(self, shot_dict):
+        """Return the """
+        element_filtered_counts = 0
+        return element_filtered_counts
+    
+    def get_element_transmissions(self, shot_dict):
+        """Return the """
+        element_direct_counts = self.get_element_direct_counts(shot_dict)
+        element_filtered_counts = self.get_element_filtered_counts(shot_dict)
+        element_transmissions = element_filtered_counts / element_direct_counts
+        return element_transmissions
 
     # TODO: Outside of this class? ImageProc?
     def polyfit2D(self, new_x, new_y, img, x, y, norder=4):
