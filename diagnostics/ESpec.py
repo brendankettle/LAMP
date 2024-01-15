@@ -37,7 +37,7 @@ class ESpec(Diagnostic):
         super().__init__(exp_obj, config_filepath)
         return
 
-    def get_proc_shot(self, shot_dict, calib_id=None):
+    def get_proc_shot(self, shot_dict, calib_id=None, roi=None):
         """Return a processed shot using saved or passed calibrations.
         """
 
@@ -124,9 +124,10 @@ class ESpec(Diagnostic):
 
         return img, x, y
 
-    def get_spectra(self, shot_dict, calib_id=None):
-        """Integrate across the non-dispersive axis and return a psectral lineout"""
+    def get_spectrum(self, shot_dict, calib_id=None, roi=None):
+        """Integrate across the non-dispersive axis and return a spectral lineout"""
         img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id)
+        # TODO: ROI for sum region
         spec = np.sum(img, 0)
         if 'axis' in  self.calib_dict['dispersion'] and self.calib_dict['dispersion']['axis'].lower() == 'y':
             MeV = y
@@ -453,3 +454,54 @@ class ESpec(Diagnostic):
             return (value * (np.pi() / 180) * 1e3)
         else:
             print(f"to_mrad error; unknown angular units {units}")
+
+    # ------------------------------------------------------ #
+    # PLOTTING FUNCTIONS
+    # TODO: Move some of this to shared plotting class
+    # even like a "make_title" function?
+    # ------------------------------------------------------ #
+    
+    def plot_make_title(self, shot_dict):
+        if 'date' in shot_dict:
+            datestr = ', Date: ' + str(shot_dict['date'])
+        else:
+            datestr = ''
+        if 'run' in shot_dict:
+            runstr = ', Run: ' + str(shot_dict['run'])
+        else:
+            runstr = ''
+        if 'shotnum' in shot_dict:
+            shotstr = ', Shot: ' + str(shot_dict['shotnum'])
+        else:
+            shotstr = ''
+        return f"{self.diag_name} {datestr} {runstr} {shotstr}"
+
+    def plot_proc_shot(self, shot_dict):
+
+        espec_img, x_MeV, y_mrad = self.get_proc_shot(shot_dict)
+
+        fig = plt.figure()
+        im = plt.pcolormesh(x_MeV, y_mrad, espec_img, shading='auto')
+        cb = plt.colorbar(im)
+        cb.set_label(self.img_units, rotation=270, labelpad=20)
+        plt.title(self.plot_make_title(shot_dict))
+        plt.xlabel('MeV') 
+        plt.ylabel('mrad')
+        plt.tight_layout()
+        plt.show(block=False)
+
+        return fig
+    
+    def plot_spectrum(self, shot_dict):
+
+        spec, MeV = self.get_spectrum(shot_dict)
+
+        fig = plt.figure()
+        im = plt.plot(MeV, spec)
+        plt.title(self.plot_make_title(shot_dict))
+        plt.xlabel('MeV') 
+        plt.ylabel('Counts per MeV')
+        plt.tight_layout()
+        plt.show(block=False)
+
+        return fig
