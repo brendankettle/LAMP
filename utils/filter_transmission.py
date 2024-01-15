@@ -1,5 +1,6 @@
 import numpy as np
 import os
+from pathlib import Path
 
 # TODO: Update mass atten data for sub keV (or extrapolate?? using scipy not np.interp)
 # TODO: set the path/format for attenuation files
@@ -12,7 +13,7 @@ def filter_transmission(eV, material, thickness_um, density):
 
     # assuming lookup data is in subfolder where this file is 
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    path_ma = dir_path+"/mass_attenuation_data/mass_attenuation_%s.txt"%(material)
+    path_ma = Path(dir_path+"/mass_attenuation_data/mass_attenuation_%s.txt"%(material))
     ma_data = np.genfromtxt(path_ma, delimiter='\t', skip_header=1)
 
     # Combine different element transmissions if necessary

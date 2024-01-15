@@ -4,6 +4,7 @@ import numpy as np
 import pickle
 import json
 import toml
+from pathlib import Path
 
 class DAQ():
     """Base class for DAQs
@@ -11,7 +12,7 @@ class DAQ():
 
     def __init__(self, exp_obj):
         self.ex = exp_obj # pass in experiment object
-        self.data_folder = self.ex.config['paths']['data_folder']
+        self.data_folder = Path(self.ex.config['paths']['data_folder'])
         return
     
     # def get_calib(self,calib_id,diag=False): 
@@ -23,11 +24,11 @@ class DAQ():
     #         return None
 
     def load_imdata(self, shot_filepath, data_type=float):
-        imdata = image.imread(shot_filepath).astype(data_type)
+        imdata = image.imread(Path(shot_filepath)).astype(data_type)
         return imdata
 
     def load_file(self, filepath, file_type=None, options=None):
-        if not os.path.exists(filepath):
+        if not os.path.exists(Path(filepath)):
             print(f'DAQ Error; load_file(); {filepath} not found')
             return None
         # auto-detect type through file extension?
@@ -78,40 +79,40 @@ class DAQ():
         return
     
     def load_npy(self, filepath):
-        return np.load(filepath)
+        return np.load(Path(filepath))
 
     def load_csv(self, filepath, delimiter=',', col_dtypes=None):
         # Pandas might be better here? problems with mixed data types...
-        return np.genfromtxt(filepath, delimiter=delimiter, dtype=col_dtypes, encoding=None)
+        return np.genfromtxt(Path(filepath), delimiter=delimiter, dtype=col_dtypes, encoding=None)
 
     def save_csv(self, filepath, data):
         print('TODO: CSV writer!')
         return
     
     def load_pickle(self, filepath):
-        with open(filepath, 'rb') as handle:
+        with open(Path(filepath), 'rb') as handle:
             return pickle.load(handle)
 
     def save_pickle(self, filepath, data):
-        with open(filepath, 'wb') as handle:
+        with open(Path(filepath), 'wb') as handle:
             pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         return
 
     def load_json(self, filepath):
-        with open(filepath) as handle:
+        with open(Path(filepath)) as handle:
             return json.load(handle)
     
     def save_json(self, filepath, data):
-        with open(filepath, "w") as handle:
+        with open(Path(filepath), "w") as handle:
             json.dump(data, handle)
         return
     
     def load_toml(self, filepath):
         # with open(filepath, "rb") as handle:
         #     return toml.load(handle)
-        return toml.load(filepath)
+        return toml.load(Path(filepath))
     
     def save_toml(self, filepath, data):
-        with open(filepath, 'w') as handle:
+        with open(Path(filepath), 'w') as handle:
             toml.dump(data, handle)
         return

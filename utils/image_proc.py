@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 from matplotlib.image import imread 
 import matplotlib.pyplot as plt 
+from pathlib import Path
 
 """NB: functions/modules should not be coupled into the DAQ or diagnostics; should be independent!"""
 
@@ -32,7 +33,7 @@ class ImageProc():
     
     def load_img(self, filepath):
         # Only if not using DAQ...
-        self.set_img(imread(filepath).astype(float))
+        self.set_img(imread(Path(filepath)).astype(float))
         return self.get_img()
 
     def subtract(self, img):

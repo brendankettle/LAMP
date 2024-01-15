@@ -3,17 +3,18 @@
 import os
 from configparser import ConfigParser, ExtendedInterpolation
 import importlib
+from pathlib import Path
 
 class Experiment:
 
     def __init__(self, root_folder, config_filepath):
-        self.root_folder = root_folder
-        self.config_filepath = root_folder + config_filepath
+        self.root_folder = Path(root_folder)
+        self.config_filepath = Path(root_folder + config_filepath)
 
-        if not os.path.exists(config_filepath):
-            raise Exception(f'Problem finding experiment config file: {config_filepath}')
+        if not os.path.exists(Path(config_filepath)):
+            raise Exception(f'Problem finding experiment config file: {Path(config_filepath)}')
         self.config = ConfigParser(interpolation=ExtendedInterpolation())
-        self.config.read(config_filepath)
+        self.config.read(Path(config_filepath))
 
         # setup DAQ
         if self.config['setup']['DAQ'].lower() == 'none':
@@ -38,10 +39,10 @@ class Experiment:
     def add_diagnostic(self, diag_name, diag_config_filepath):
 
         # read config file (need type at least)
-        if not os.path.exists(diag_config_filepath):
-            raise Exception(f'Problem finding config file for: {diag_config_filepath}')
+        if not os.path.exists(Path(diag_config_filepath)):
+            raise Exception(f'Problem finding config file for: {Path(diag_config_filepath)}')
         diag_config = ConfigParser(interpolation=ExtendedInterpolation())
-        diag_config.read(diag_config_filepath)
+        diag_config.read(Path(diag_config_filepath))
 
         if 'name' in diag_config['setup']:
             diag_name = diag_config['setup']['name']
@@ -58,7 +59,7 @@ class Experiment:
 
         if callable(diag_class := getattr(diag_lib, diag_type)):
             print(f'Adding Diagnostic: {diag_name} ({diag_config_filepath})')
-            self.diags[diag_name] = diag_class(self, diag_config_filepath)
+            self.diags[diag_name] = diag_class(self, Path(diag_config_filepath))
         else:
             raise Exception(f'Could not find Diagnostic object: {diag_type}')
 

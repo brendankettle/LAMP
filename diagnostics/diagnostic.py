@@ -1,6 +1,7 @@
 import os
 from configparser import ConfigParser, ExtendedInterpolation
 import numpy as np
+from pathlib import Path
 
 class Diagnostic():
     """Base class for Diagnostics
@@ -25,10 +26,10 @@ class Diagnostic():
         return f"{self.config['setup']['type']}(name='{self.config['setup']['name']}')"
     
     def load_config(self, config_filepath):
-        if not os.path.exists(config_filepath):
-            raise Exception(f'Problem finding experiment config file: {config_filepath}')
+        if not os.path.exists(Path(config_filepath)):
+            raise Exception(f'Problem finding experiment config file: {Path(config_filepath)}')
         self.config = ConfigParser(interpolation=ExtendedInterpolation())
-        self.config.read(config_filepath)
+        self.config.read(Path(config_filepath))
         return
 
     def get_shot_data(self, shot_dict):
@@ -77,7 +78,7 @@ class Diagnostic():
         if isinstance(calib_id, str):
             # let's look for a file first
             calib_filepath = os.path.join(self.ex.config['paths']['calibs_folder'], self.config['setup']['calib_folder'], calib_id)
-            if os.path.exists(calib_filepath):
+            if os.path.exists(Path(calib_filepath)):
                 return self.load_calib_file(calib_id)
             # no file, so let's look for ID key within the master calibration input file (if set in config)
             elif 'calib_inputs' in self.config['setup']:
@@ -121,10 +122,10 @@ class Diagnostic():
     # TODO: Passing arguments such as delimiters
     def load_calib_file(self, filename, file_type=None, options=None):
         filepath = os.path.join(self.ex.config['paths']['calibs_folder'], self.config['setup']['calib_folder'], filename)
-        calib  = self.DAQ.load_file(filepath, file_type=file_type, options=options)
+        calib  = self.DAQ.load_file(Path(filepath), file_type=file_type, options=options)
         return calib
 
     def save_calib_file(self, filename, calib_data, type=None):
         filepath = os.path.join(self.ex.config['paths']['calibs_folder'], self.config['setup']['calib_folder'], filename)
-        self.DAQ.save_file(filepath, calib_data, type=type)
+        self.DAQ.save_file(Path(filepath), calib_data, type=type)
         return

@@ -21,7 +21,7 @@ class ZEUSJan2024(DAQ):
         """This is used internally, and so can be DAQ specific"""
         # check file?
         shot_filepath = f'{self.data_folder}/{date}/{run_folder}/Burst{str(burst).zfill(4)}/{diagnostic}_shot_{str(shotnum).zfill(5)}.{ext}'
-        return shot_filepath
+        return Path(shot_filepath)
 
     def get_shot_data(self, diag_name, shot_dict):
 
@@ -53,7 +53,7 @@ class ZEUSJan2024(DAQ):
         else:
             # look for file first
             shot_filepath = self.data_folder + shot_dict
-            if os.path.exists(shot_filepath):
+            if os.path.exists(Path(shot_filepath)):
                 filepath_no_ext, file_ext = os.path.splitext(shot_filepath)
                 img_exts = {".tif",".tiff"}
                 # if it's there, try and suss out data type from file extension
@@ -109,7 +109,7 @@ class ZEUSJan2024(DAQ):
         """timeframe can be 'all' or a dictionary containing lists of dates, or runs"""
 
         diag_config = self.ex.diags[diag_name].config['setup']
-        diag_folder = f"{self.data_folder}/"
+        diag_folder = Path(f"{self.data_folder}/")
 
         shot_dicts = []
 
@@ -151,8 +151,14 @@ class ZEUSJan2024(DAQ):
                 for filename in os.listdir(run_folder):
                     if os.path.isfile(os.path.join(run_folder, filename)):
                         if diag_name.lower() in filename.lower():
-                            m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
-                            shotnums.append(int(m.group()))
+                            if exceptions:
+                                if filename in exceptions:
+                                    print(f'Skipping {filename}')
+                                    continue
+                            segs = os.path.splitext(filename)[0].split("_")
+                            shotnums.append(int(segs[2])) # This gets round the 
+                            #m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
+                            #shotnums.append(int(m.group()))
                             #print(f"{date} / {run} / {shotnums[-1]}")
                 shotnums = sorted(shotnums)
 

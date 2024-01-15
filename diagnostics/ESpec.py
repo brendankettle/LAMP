@@ -518,10 +518,10 @@ class ESpec(Diagnostic):
                 image_id += 1
         return M, x_ax
 
-    def plot_montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1):
+    def plot_montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None):
 
         # calling 'universal' DAQ function here, that is probably DAQ specific
-        shot_dicts = self.DAQ.get_shot_dicts(self.diag_name,timeframe)
+        shot_dicts = self.DAQ.get_shot_dicts(self.diag_name,timeframe,exceptions=exceptions)
 
         shotnums=[]
         for shot_dict in shot_dicts:
@@ -540,16 +540,20 @@ class ESpec(Diagnostic):
 
         brightness_scale = np.percentile(montage, 99.99)
 
+        if not x_roi:
+            x_roi = [0,espec_img.shape[1]]
+        # if not y_roi:
+        #     y_roi = [0,espec_img.shape[0]]
+
         # TODO: Assuming X axis here???
-        #xaxis = self.x_MeV[x_roi[0]:x_roi[1]:x_downsample]
-        xaxis = self.x_MeV
+        xaxis = self.x_MeV[x_roi[0]:x_roi[1]:x_downsample]
 
         num_shots = len(shot_dicts)
         shotnum_tick_locs = range(int((montage.shape[1]/num_shots)/2),montage.shape[1]+int((montage.shape[1]/num_shots)/2),int(montage.shape[1]/num_shots))
 
         fig = plt.figure()
         ax = plt.gca()
-        im = ax.pcolormesh(np.arange(montage.shape[1]), xaxis, montage, vmin=0.0, vmax=brightness_scale)
+        im = ax.pcolormesh(np.arange(montage.shape[1]), xaxis, montage, vmin=0.0, vmax=brightness_scale, shading='auto')
         ax.set_ylabel(r'$E$ [MeV]')
         ax.set_title(self.plot_make_title(timeframe), y=-0.1)
         divider = make_axes_locatable(ax)
