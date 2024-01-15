@@ -165,11 +165,11 @@ class ESpec(Diagnostic):
 
         # Apply dispersion?
         if 'dispersion' in calib_input:
-            self.make_dispersion()
+            self.make_dispersion(view=view)
 
         # Apply divergence?
         if 'divergence' in calib_input:
-            self.make_divergence()
+            self.make_divergence(view=view)
 
         # transfer other values
         save_vars = ['roi_mm','roi_MeV','roi_mrad']
@@ -224,6 +224,10 @@ class ESpec(Diagnostic):
 
         # Use image processing library to generate a transform dictionary 
         img = ImageProc(raw_img)
+
+        if self.calib_dict is None:
+            self.calib_dict = {}
+
         self.calib_dict['transform'] = img.make_transform(p_px, p_t, tcalib_input['img_size_t'], tcalib_input['img_size_px'], 
                                         tcalib_input['offsets'], notes=notes, description=description)
         # Add electron beam axis offset
@@ -286,7 +290,7 @@ class ESpec(Diagnostic):
 
         return timg, ex, ey
 
-    def make_dispersion(self, calib_input=None):
+    def make_dispersion(self, calib_input=None, view=False):
         """"""
 
         # get dispersion curve from file
@@ -327,6 +331,11 @@ class ESpec(Diagnostic):
             mm = self.y_mm
             self.y_MeV = MeV
 
+        if view:
+            plt.figure()
+            plt.plot(mm,MeV)
+            plt.show(block=False)
+
         # save details to calib dictionary
         self.calib_dict['dispersion'] = {
             "calib_curve": disp_curve,
@@ -363,7 +372,7 @@ class ESpec(Diagnostic):
 
         return img_data, MeV
 
-    def make_divergence(self, calib_input=None):
+    def make_divergence(self, calib_input=None, view=False):
         """"""
 
         div_dict = self.get_calib_input(calib_input)['divergence']

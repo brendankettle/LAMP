@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import csv
+import re
 from .DAQ import DAQ
 
 class ZEUSJan2024(DAQ):
@@ -16,13 +17,12 @@ class ZEUSJan2024(DAQ):
         super().__init__(exp_obj)
         return
     
-    def _build_shot_filepath(self, diagnostic, run_folder, shotnum, ext):
+    def _build_shot_filepath(self, diagnostic, date, run_folder, shotnum, ext, burst=1):
         """This is used internally, and so can be DAQ specific"""
         # check file?
-        shot_filepath = f'{self.data_folder}/{run_folder}/{diagnostic}/shot{shotnum}.{ext}'
+        shot_filepath = f'{self.data_folder}/{date}/{run_folder}/Burst{str(burst).zfill(4)}/{diagnostic}_shot_{str(shotnum).zfill(5)}.{ext}'
         return shot_filepath
 
-    # perhaps some of this can move to base class?
     def get_shot_data(self, diag_name, shot_dict):
 
         diag_config = self.ex.diags[diag_name].config['setup']
@@ -36,13 +36,13 @@ class ZEUSJan2024(DAQ):
                     print(f"get_shot_data() error: {self.__name} DAQ requires a config['setup'] parameter '{param}' for {diag_name}")
                     return None
 
-            required = ['run','shotnum']
+            required = ['date','run','shotnum']
             for param in required:
                 if param not in shot_dict:
                     print(f"get_shot_data() error: {self.__name} DAQ requires a shot_dict['{param}'] value")
                     return None
 
-            shot_filepath = self._build_shot_filepath(diag_config['data_folder'], shot_dict['run'], shot_dict['shotnum'], diag_config['data_ext'])
+            shot_filepath = self._build_shot_filepath(diag_config['data_folder'], shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], diag_config['data_ext'])
 
             if diag_config['data_type'] == 'image':
                 shot_data = self.load_imdata(shot_filepath)
@@ -81,6 +81,30 @@ class ZEUSJan2024(DAQ):
 
         return runs
 
+    def build_time_point(self, shot_dict):
+        """Universal function to return a point in time for DAQ, for comparison, say in calibrations
+        """
+        # for Zeus, use date / run / shot
+        # TODO: Burst???
+        date_str = str(shot_dict['date'])
+        year = int(date_str[0:4])
+        month = int(date_str[4:6])
+        day = int(date_str[6:8])
+        if 'run' in shot_dict and shot_dict['run']:
+            run_str = shot_dict['run']
+            m = re.search(r'\d+$', run_str) # gets last numbers
+            run = int(m.group())
+        else:
+            run = 0
+        if 'shotnum' in shot_dict:
+            shotnum = shot_dict['shotnum']
+        else:
+            shotnum = 0
+
+        # weight the different components to make a unique increasing number?
+        time_point = year*1e10 + month*1e8 + day*1e6 + run*1000 + shotnum
+        return  time_point
+    
     # def get_shot_info(self, run = None, shotnums = None):
     #     """Return shot information from run csv files
     #     """
