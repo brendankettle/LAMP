@@ -477,7 +477,7 @@ class ESpec(Diagnostic):
         return f"{self.diag_name} {datestr} {runstr} {shotstr}"
 
     # TODO: This needs cleaned up and moved to utils?
-    def create_montage(self, image, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1):
+    def create_montage(self, image, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, transpose=True):
         #count, m, n = image.shape
         #mm = int(ceil(sqrt(count)))
         #nn = mm
@@ -511,7 +511,10 @@ class ESpec(Diagnostic):
                 if image_id >= count:
                     break
                 sliceM, sliceN = j * m, k * n
-                M[sliceN:sliceN + n, sliceM:sliceM + m] = image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id].T
+                if transpose:
+                    M[sliceN:sliceN + n, sliceM:sliceM + m] = image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id].T
+                else:
+                    M[sliceN:sliceN + n, sliceM:sliceM + m] = image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id]
                 image_id += 1
         return M, x_ax
 
@@ -520,12 +523,15 @@ class ESpec(Diagnostic):
         # calling 'universal' DAQ function here, that is probably DAQ specific
         shot_dicts = self.DAQ.get_shot_dicts(self.diag_name,timeframe)
 
+        shotnums=[]
         for shot_dict in shot_dicts:
             espec_img, x_MeV, y_mrad = self.get_proc_shot(shot_dict)
             if 'images' in locals():
                 images = np.concatenate((images, np.atleast_3d(espec_img)), axis=2)
             else:
                 images = np.atleast_3d(espec_img)
+            if 'shotnum' in shot_dict:
+                shotnums.append(str(shot_dict['shotnum']))
 
         # print(images.shape)
 
@@ -538,13 +544,17 @@ class ESpec(Diagnostic):
         #xaxis = self.x_MeV[x_roi[0]:x_roi[1]:x_downsample]
         xaxis = self.x_MeV
 
+        num_shots = len(shot_dicts)
+        shotnum_tick_locs = range(int((montage.shape[1]/num_shots)/2),montage.shape[1]+int((montage.shape[1]/num_shots)/2),int(montage.shape[1]/num_shots))
+
         fig = plt.figure()
         ax = plt.gca()
-        ax.set_xticks([])
         im = ax.pcolormesh(np.arange(montage.shape[1]), xaxis, montage, vmin=0.0, vmax=brightness_scale)
         ax.set_ylabel(r'$E$ [MeV]')
         ax.set_title(self.plot_make_title(timeframe), y=-0.1)
         divider = make_axes_locatable(ax)
+        ax.set_xticks(shotnum_tick_locs)
+        ax.set_xticklabels(shotnums)
         cax = divider.append_axes("right", size="2%", pad=0.05)
         cb=plt.colorbar(im, cax=cax)
         #cb.set_label(r'Ed$^2$counts/d$\theta$d$E$ [counts mrad$^{-1}$]')
