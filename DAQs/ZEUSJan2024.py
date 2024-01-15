@@ -66,20 +66,20 @@ class ZEUSJan2024(DAQ):
 
         return shot_data
     
-    def get_runs(self, timeframe):
-        """List all runs within a given timeframe; all, a day, etc.
-        """
-        runs = []
+    # def get_runs(self, timeframe):
+    #     """List all runs within a given timeframe; all, a day, etc.
+    #     """
+    #     runs = []
 
-        # get all runs?
-        if timeframe.lower() == 'all':
-            for run_folder in sorted(os.listdir(self.data_folder)):
-                if os.path.isdir(Path(self.data_folder + run_folder)):
-                    runs.append(run_folder)
-        else:
-            print('TO DO: Finish other options for get_runs()!')
+    #     # get all runs?
+    #     if timeframe.lower() == 'all':
+    #         for run_folder in sorted(os.listdir(self.data_folder)):
+    #             if os.path.isdir(Path(self.data_folder + run_folder)):
+    #                 runs.append(run_folder)
+    #     else:
+    #         print('TO DO: Finish other options for get_runs()!')
 
-        return runs
+    #     return runs
 
     def build_time_point(self, shot_dict):
         """Universal function to return a point in time for DAQ, for comparison, say in calibrations
@@ -104,6 +104,63 @@ class ZEUSJan2024(DAQ):
         # weight the different components to make a unique increasing number?
         time_point = year*1e10 + month*1e8 + day*1e6 + run*1000 + shotnum
         return  time_point
+    
+    def get_shot_dicts(self, diag_name, timeframe, exceptions=None):
+        """timeframe can be 'all' or a dictionary containing lists of dates, or runs"""
+
+        diag_config = self.ex.diags[diag_name].config['setup']
+        diag_folder = f"{self.data_folder}/"
+
+        shot_dicts = []
+
+        # scan all folders?
+        if isinstance(timeframe, str) and timeframe.lower() == 'all':
+            # get date folders
+            dates = []
+            for dir_name in os.listdir(diag_folder):
+                if os.path.isdir(os.path.join(diag_folder, dir_name)):
+                    # add filename to list (quick bodge here to try and catch only real date folders)
+                    if len(dir_name) == 8:
+                        dates.append(int(dir_name))
+        elif isinstance(timeframe, dict) and 'dates' in timeframe:
+            dates = timeframe['dates']
+        elif isinstance(timeframe, dict) and 'date' in timeframe:
+            dates = [timeframe['date']]
+
+        # now that we have dates, for each, get run(s)
+        for date in sorted(dates):
+            date_folder = os.path.join(diag_folder, str(date))
+            # runs passed
+            if isinstance(timeframe, dict) and 'runs' in timeframe:
+                runs = timeframe['runs']
+            # single run
+            elif isinstance(timeframe, dict) and 'run' in timeframe:
+                runs = [timeframe['run']]
+            # scan folder
+            else:
+                runs = []
+                for run_name in os.listdir(date_folder):
+                    if os.path.isdir(os.path.join(date_folder, run_name)):
+                        runs.append(run_name)
+            # now we have date and runs, get shots
+            for run in sorted(runs):
+                run_folder = os.path.join(date_folder, str(run))
+                # Burst bodge for time being!!
+                run_folder = os.path.join(run_folder, 'Burst0001')
+                shotnums = []
+                for filename in os.listdir(run_folder):
+                    if os.path.isfile(os.path.join(run_folder, filename)):
+                        if diag_name.lower() in filename.lower():
+                            m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
+                            shotnums.append(int(m.group()))
+                            #print(f"{date} / {run} / {shotnums[-1]}")
+                shotnums = sorted(shotnums)
+
+                # OK, build the list to return!
+                for shotnum in shotnums:
+                    shot_dicts.append({'date': date, 'run': run, 'shotnum': shotnum})
+
+        return shot_dicts
     
     # def get_shot_info(self, run = None, shotnums = None):
     #     """Return shot information from run csv files

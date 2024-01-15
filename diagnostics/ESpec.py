@@ -458,7 +458,6 @@ class ESpec(Diagnostic):
     # ------------------------------------------------------ #
     # PLOTTING FUNCTIONS
     # TODO: Move some of this to shared plotting class
-    # even like a "make_title" function?
     # ------------------------------------------------------ #
     
     def plot_make_title(self, shot_dict):
@@ -475,6 +474,17 @@ class ESpec(Diagnostic):
         else:
             shotstr = ''
         return f"{self.diag_name} {datestr} {runstr} {shotstr}"
+
+    def plot_montage(self, timeframe):
+
+        # calling 'universal' DAQ function here, that is probably DAQ specific
+        shot_dicts = self.DAQ.get_shot_dicts(self.diag_name,timeframe)
+
+        print(shot_dicts)
+
+        fig = plt.figure()
+
+        return fig
 
     def plot_proc_shot(self, shot_dict):
 
