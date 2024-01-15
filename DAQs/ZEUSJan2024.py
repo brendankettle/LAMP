@@ -17,10 +17,10 @@ class ZEUSJan2024(DAQ):
         super().__init__(exp_obj)
         return
     
-    def _build_shot_filepath(self, diagnostic, date, run_folder, shotnum, ext, burst=1):
+    def _build_shot_filepath(self, diagnostic, date, run_folder, shotnum, ext, burst_folder='Burst0001'):
         """This is used internally, and so can be DAQ specific"""
         # check file?
-        shot_filepath = f'{self.data_folder}/{date}/{run_folder}/Burst{str(burst).zfill(4)}/{diagnostic}_shot_{str(shotnum).zfill(5)}.{ext}'
+        shot_filepath = f'{self.data_folder}/{date}/{run_folder}/{burst_folder}/{diagnostic}_shot_{str(shotnum).zfill(5)}.{ext}'
         return Path(shot_filepath)
 
     def get_shot_data(self, diag_name, shot_dict):
@@ -41,8 +41,13 @@ class ZEUSJan2024(DAQ):
                 if param not in shot_dict:
                     print(f"get_shot_data() error: {self.__name} DAQ requires a shot_dict['{param}'] value")
                     return None
+                
+            if 'burst' in shot_dict:
+                burst = shot_dict['burst']
+            else:
+                burst = 'Burst0001'
 
-            shot_filepath = self._build_shot_filepath(diag_config['data_folder'], shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], diag_config['data_ext'])
+            shot_filepath = self._build_shot_filepath(diag_config['data_folder'], shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], diag_config['data_ext'], burst_folder=burst)
 
             if diag_config['data_type'] == 'image':
                 shot_data = self.load_imdata(shot_filepath)
@@ -52,8 +57,8 @@ class ZEUSJan2024(DAQ):
         # raw filepath?
         else:
             # look for file first
-            shot_filepath = self.data_folder + shot_dict
-            if os.path.exists(Path(shot_filepath)):
+            shot_filepath = Path(self.data_folder + shot_dict)
+            if os.path.exists(shot_filepath):
                 filepath_no_ext, file_ext = os.path.splitext(shot_filepath)
                 img_exts = {".tif",".tiff"}
                 # if it's there, try and suss out data type from file extension
@@ -96,13 +101,19 @@ class ZEUSJan2024(DAQ):
             run = int(m.group())
         else:
             run = 0
+        if 'burst' in shot_dict:
+            burst_str = shot_dict['burst']
+            m = re.search(r'\d+$', burst_str) # gets last numbers
+            burst = int(m.group())
+        else:
+            burst = 0
         if 'shotnum' in shot_dict:
             shotnum = shot_dict['shotnum']
         else:
             shotnum = 0
 
         # weight the different components to make a unique increasing number?
-        time_point = year*1e10 + month*1e8 + day*1e6 + run*1000 + shotnum
+        time_point = year*1e13 + month*1e11 + day*1e9 + run*1e6 + burst*1000 + shotnum
         return  time_point
     
     def get_shot_dicts(self, diag_name, timeframe, exceptions=None):
@@ -142,29 +153,42 @@ class ZEUSJan2024(DAQ):
                 for run_name in os.listdir(date_folder):
                     if os.path.isdir(os.path.join(date_folder, run_name)):
                         runs.append(run_name)
-            # now we have date and runs, get shots
+            # now we have date and runs, get bursts
             for run in sorted(runs):
                 run_folder = os.path.join(date_folder, str(run))
-                # Burst bodge for time being!!
-                run_folder = os.path.join(run_folder, 'Burst0001')
-                shotnums = []
-                for filename in os.listdir(run_folder):
-                    if os.path.isfile(os.path.join(run_folder, filename)):
-                        if diag_name.lower() in filename.lower():
-                            if exceptions:
-                                if filename in exceptions:
-                                    print(f'Skipping {filename}')
-                                    continue
-                            segs = os.path.splitext(filename)[0].split("_")
-                            shotnums.append(int(segs[2])) # This gets round the 
-                            #m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
-                            #shotnums.append(int(m.group()))
-                            #print(f"{date} / {run} / {shotnums[-1]}")
-                shotnums = sorted(shotnums)
+                # bursts passed
+                if isinstance(timeframe, dict) and 'bursts' in timeframe:
+                    bursts = timeframe['bursts']
+                # single burst
+                elif isinstance(timeframe, dict) and 'burst' in timeframe:
+                    bursts = [timeframe['burst']]
+                # scan folder
+                else:
+                    bursts = []
+                    for burst_name in os.listdir(run_folder):
+                        if os.path.isdir(os.path.join(run_folder, burst_name)):
+                            bursts.append(burst_name)
+                # now we have date, runs, bursts, get shots
+                for burst in sorted(bursts):
+                    burst_folder = os.path.join(run_folder, str(burst))
+                    shotnums = []
+                    for filename in os.listdir(burst_folder):
+                        if os.path.isfile(os.path.join(burst_folder, filename)):
+                            if diag_name.lower() in filename.lower():
+                                if exceptions:
+                                    if filename in exceptions:
+                                        print(f'Skipping {filename}')
+                                        continue
+                                segs = os.path.splitext(filename)[0].split("_")
+                                shotnums.append(int(segs[2])) # This gets round the double shots for now, but need to fix this
+                                #m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
+                                #shotnums.append(int(m.group()))
+                                #print(f"{date} / {run} / {shotnums[-1]}")
+                    shotnums = sorted(shotnums)
 
-                # OK, build the list to return!
-                for shotnum in shotnums:
-                    shot_dicts.append({'date': date, 'run': run, 'shotnum': shotnum})
+                    # OK, build the list to return!
+                    for shotnum in shotnums:
+                        shot_dicts.append({'date': date, 'run': run, 'burst': burst, 'shotnum': shotnum})
 
         return shot_dicts
     

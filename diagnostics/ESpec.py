@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import re
 
 from .diagnostic import Diagnostic
 from ..utils.image_proc import ImageProc
@@ -511,6 +512,7 @@ class ESpec(Diagnostic):
                 if image_id >= count:
                     break
                 sliceM, sliceN = j * m, k * n
+                # TODO: Not sure this downsampling is bug free - can have rounding error?
                 if transpose:
                     M[sliceN:sliceN + n, sliceM:sliceM + m] = image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id].T
                 else:
@@ -523,15 +525,26 @@ class ESpec(Diagnostic):
         # calling 'universal' DAQ function here, that is probably DAQ specific
         shot_dicts = self.DAQ.get_shot_dicts(self.diag_name,timeframe,exceptions=exceptions)
 
-        shotnums=[]
+        shot_labels = []
         for shot_dict in shot_dicts:
             espec_img, x_MeV, y_mrad = self.get_proc_shot(shot_dict)
             if 'images' in locals():
                 images = np.concatenate((images, np.atleast_3d(espec_img)), axis=2)
             else:
                 images = np.atleast_3d(espec_img)
+
+            if 'burst' in shot_dict:
+                m = re.search(r'\d+$', str(shot_dict['burst'])) # gets last numbers
+                burst = int(m.group())
+                burst_str = str(burst) + '|'
+            else:
+                burst_str = ''
             if 'shotnum' in shot_dict:
-                shotnums.append(str(shot_dict['shotnum']))
+                shot_str = str(shot_dict['shotnum'])
+            else:
+                shot_str = ''
+
+            shot_labels.append(burst_str + shot_str)
 
         # print(images.shape)
 
@@ -555,10 +568,10 @@ class ESpec(Diagnostic):
         ax = plt.gca()
         im = ax.pcolormesh(np.arange(montage.shape[1]), xaxis, montage, vmin=0.0, vmax=brightness_scale, shading='auto')
         ax.set_ylabel(r'$E$ [MeV]')
-        ax.set_title(self.plot_make_title(timeframe), y=-0.1)
+        ax.set_title(self.plot_make_title(timeframe), y=-0.2)
         divider = make_axes_locatable(ax)
         ax.set_xticks(shotnum_tick_locs)
-        ax.set_xticklabels(shotnums)
+        ax.set_xticklabels(shot_labels)
         cax = divider.append_axes("right", size="2%", pad=0.05)
         cb=plt.colorbar(im, cax=cax)
         #cb.set_label(r'Ed$^2$counts/d$\theta$d$E$ [counts mrad$^{-1}$]')
