@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from .diagnostic import Diagnostic
 from ..utils.image_proc import ImageProc
@@ -475,14 +476,79 @@ class ESpec(Diagnostic):
             shotstr = ''
         return f"{self.diag_name} {datestr} {runstr} {shotstr}"
 
-    def plot_montage(self, timeframe):
+    # TODO: This needs cleaned up and moved to utils?
+    def create_montage(self, image, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1):
+        #count, m, n = image.shape
+        #mm = int(ceil(sqrt(count)))
+        #nn = mm
+        m, n, count = image.shape
+        
+        #print(m) # num y pixels
+        #print(n) # num x pixels
+        #print(count) # num images
+
+        if x_roi:
+            n = x_roi[1] - x_roi[0]
+        else:
+            x_roi = [0,image.shape[1]]
+        if y_roi:
+            m = y_roi[1] - y_roi[0]
+        else:
+            y_roi = [0,image.shape[0]]
+        
+        # m is energy axis, n is y axis
+        m = int(m /  y_downsample)
+        n = int(n / x_downsample)
+        
+        mm=count
+        nn=1
+        M = np.zeros((nn * n, mm * m))
+        x_ax=np.linspace(0, m*(mm-1), count)+m/2.0
+
+        image_id = 0
+        for j in range(mm):
+            for k in range(nn):
+                if image_id >= count:
+                    break
+                sliceM, sliceN = j * m, k * n
+                M[sliceN:sliceN + n, sliceM:sliceM + m] = image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id].T
+                image_id += 1
+        return M, x_ax
+
+    def plot_montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1):
 
         # calling 'universal' DAQ function here, that is probably DAQ specific
         shot_dicts = self.DAQ.get_shot_dicts(self.diag_name,timeframe)
 
-        print(shot_dicts)
+        for shot_dict in shot_dicts:
+            espec_img, x_MeV, y_mrad = self.get_proc_shot(shot_dict)
+            if 'images' in locals():
+                images = np.concatenate((images, np.atleast_3d(espec_img)), axis=2)
+            else:
+                images = np.atleast_3d(espec_img)
+
+        # print(images.shape)
+
+        # TODO: create montage should be outside of this class
+        montage, x_ax = self.create_montage(images, x_roi, y_roi, x_downsample, y_downsample)
+
+        brightness_scale = np.percentile(montage, 99.99)
+
+        # TODO: Assuming X axis here???
+        #xaxis = self.x_MeV[x_roi[0]:x_roi[1]:x_downsample]
+        xaxis = self.x_MeV
 
         fig = plt.figure()
+        ax = plt.gca()
+        ax.set_xticks([])
+        im = ax.pcolormesh(np.arange(montage.shape[1]), xaxis, montage, vmin=0.0, vmax=brightness_scale)
+        ax.set_ylabel(r'$E$ [MeV]')
+        ax.set_title(self.plot_make_title(timeframe), y=-0.1)
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="2%", pad=0.05)
+        cb=plt.colorbar(im, cax=cax)
+        #cb.set_label(r'Ed$^2$counts/d$\theta$d$E$ [counts mrad$^{-1}$]')
+        plt.tight_layout()
 
         return fig
 
