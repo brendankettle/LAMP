@@ -147,7 +147,7 @@ class XrayFilterArray(Diagnostic):
 
         if view:
             plt.figure()
-            plt.imshow(img * direct_mask, vmin=np.min(img * direct_mask), vmax=np.max(img * direct_mask))
+            plt.imshow(img * direct_mask, vmin=np.min(img * direct_mask), vmax=np.percentile(img * direct_mask, 95))
             plt.title('Direct Signal Mask')
             plt.colorbar()
             plt.show(block=False)
@@ -170,7 +170,7 @@ class XrayFilterArray(Diagnostic):
             filter_positions = self.load_filter_positions(calib_id=calib_input)
 
             if 'filter_margin_inner' in calib_input:
-                filter_radius = -calib_input['filter_margin_inner']
+                filter_radius = calib_input['filter_margin_inner']
             else:
                 filter_radius = 0
 
@@ -207,7 +207,7 @@ class XrayFilterArray(Diagnostic):
             filter_positions = self.load_filter_positions(calib_id=calib_input)
 
             if 'filter_margin_outer' in calib_input:
-                filter_radius = calib_input['filter_margin_outer']
+                filter_radius = -calib_input['filter_margin_outer']
             else:
                 filter_radius = 0
 
@@ -289,13 +289,37 @@ class XrayFilterArray(Diagnostic):
 
         # any shifts? to save rewriting all locations...
         if 'filter_xshift' in calib_input:
-            x = calib_input['filter_xshift']
+            xshift = calib_input['filter_xshift']
         else:
-            x = 0
+            xshift = 0
         if 'filter_yshift' in calib_input:
-            y = calib_input['filter_yshift']
+            yshift = calib_input['filter_yshift']
         else:
-            y = 0
+            yshift = 0
+        # any flips? filter pack could be in back to front or upside down.
+        if 'filter_xflip' in calib_input and calib_input['filter_xflip']:
+            if 'camera' in self.config and 'img_width' in self.config['camera']:
+                xflip = int(self.config['camera']['img_width'])
+            else:
+                print(f'Error; Could not flip filter positions without camera.img_width being set in {self.diag_name} config.')
+        else:
+            xflip = 0
+        if 'filter_yflip' in calib_input and calib_input['filter_yflip']:
+            if 'camera' in self.config and 'img_height' in self.config['camera']:
+                yflip = int(self.config['camera']['img_height'])
+            else:
+                print(f'Error; Could not flip filter positions without camera.img_height being set in {self.diag_name} config.')
+        else:
+            yflip = 0
+        # any scaling? moving filter pack forward/back will change shadow positions
+        if 'filter_xscale' in calib_input and calib_input['filter_xscale']:
+            xscale = float(calib_input['filter_xscale'])
+        else:
+            xscale = 1
+        if 'filter_yscale' in calib_input and calib_input['filter_yscale']:
+            yscale = float(calib_input['filter_yscale'])
+        else:
+            yscale = 1
 
         filters = []
         # old csv format? ... Reformat
@@ -303,17 +327,18 @@ class XrayFilterArray(Diagnostic):
         if file_ext.lower() == '.csv':
             #  filter number, x0, y0, x1, y1, x2, y2, x3, y3
             for filter in filter_positions:
-                filters.append({"spec_id": int(filter[0]), "points": np.array([[filter[1]+x, filter[2]+y], [filter[3]+x, filter[4]+y], [filter[5]+x, filter[6]+y], [filter[7]+x, filter[8]+y]])})
-            # filter_pack_nos=filter_coords[:, 0]
-            # filter_coords=filter_coords[:, 1:].reshape((-1,4,2))
+                filter = np.array(list(filter))
+                filter[1::2] = (abs(filter[1::2] - xflip) * xscale) + xshift # x's. Flip first, then scale, then shift
+                filter[2::2] = (abs(filter[2::2] - yflip) * yscale) + yshift # y's. Flip first, then scale, then shift
+                filters.append({"spec_id": int(filter[0]), "points": filter[1:].reshape((4,2))})
         else:
             # assume we've laoded a JSON file with a dictionary in the correct format...
             # But handle x/y shifts
-            print('UNTESTED')
+            print('UNTESTED ADN NEED TO INCORPORATE FLIPS / SCALING')
             for filter in filter_positions:
                 filter_pos = filter_positions[filter]
-                filter_pos[:,0] = filter_pos[:,0] + x
-                filter_pos[:,1] = filter_pos[:,1] + y
+                filter_pos[:,0] = filter_pos[:,0] + xshift
+                filter_pos[:,1] = filter_pos[:,1] + yshift
                 filters.append({"spec_id": int(filter[0]), "points": filter_pos})
 
         return filters
