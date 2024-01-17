@@ -21,6 +21,10 @@ class XrayFilterArray(Diagnostic):
     __authors = ['Brendan Kettle']
     __requirements = ''
 
+    filter_specs = None
+    filter_positions = None
+    filter_mask = None
+
     def __init__(self, exp_obj, config_filepath):
         """Initiate parent base Diagnostic class to get all shared attributes and funcs"""
         super().__init__(exp_obj, config_filepath)
@@ -28,14 +32,17 @@ class XrayFilterArray(Diagnostic):
 
     def get_shot_img(self, shot_dict, subtract_dark=True, calib_id=None):
         """Return a shot image, by default with darks removed. Background?"""
-        # get calibration dictionary?
-        calib_input = self.get_calib_input(calib_id, shot_dict=shot_dict)
         raw_img = self.get_shot_data(shot_dict)
         img = ImageProc(raw_img)
         if subtract_dark:
-            # TODO: check if dark saved already
-            dark_img = self.make_dark(calib_input['darks'])
-            img.subtract(dark_img)
+            if hasattr(self, 'dark_img'):
+                img.subtract(self.dark_img)
+            elif 'dark_img' in self.calib_dict: 
+                img.subtract(self.calib_dict['dark_img'])
+            else:
+                calib_input = self.get_calib_input(calib_id, shot_dict=shot_dict)
+                if 'darks' in calib_input:
+                    img.subtract(self.make_dark(calib_input['darks']))
         return img.get_img()
     
     def get_shot_counts(self, shot_dict, calib_id=None):
@@ -119,6 +126,8 @@ class XrayFilterArray(Diagnostic):
             plt.colorbar()
             plt.show(block=False)
 
+        #print(self.calib_dict)
+
         # save the full calibration?
         if calib_filename:
             self.save_calib(calib_filename)
@@ -163,22 +172,25 @@ class XrayFilterArray(Diagnostic):
     def make_filter_mask(self, calib_input=None, method='polygon', fig_ax=None):
 
         calib_input = self.get_calib_input(calib_input)
-        filter_specs = self.load_filter_specs(calib_id=calib_input)
+
+        if 'filter_specs' not in self.calib_dict:
+            self.calib_dict['filter_specs'] = self.load_filter_specs(calib_input)
 
         # TODO: check calibration input for method
         if method.lower() == 'polygon':
-            filter_positions = self.load_filter_positions(calib_id=calib_input)
+            if 'filter_positions' not in self.calib_dict:
+                self.calib_dict['filter_positions'] = self.load_filter_positions(calib_id=calib_input)
 
             if 'filter_margin_inner' in calib_input:
                 filter_radius = calib_input['filter_margin_inner']
             else:
                 filter_radius = 0
 
-            for filter in filter_positions:
+            for filter in self.calib_dict['filter_positions']:
                 filter_id = filter['spec_id']
                 xv, yv, mask = self.create_masked_polygon(filter['points'], filter_radius=filter_radius)
-                if filter_id in filter_specs:
-                    filter_spec = filter_specs[int(filter_id)]
+                if filter_id in self.calib_dict['filter_specs']:
+                    filter_spec = self.calib_dict['filter_specs'][int(filter_id)]
                     filter_name = filter_spec['name']
                     if fig_ax:
                         fig_ax.add_patch(patches.Polygon(filter['points'], fill=None, edgecolor='r'))
@@ -195,6 +207,8 @@ class XrayFilterArray(Diagnostic):
         elif method.lower() == 'auto':
             print("TODO: No auto filter mask method yet...")
 
+        self.filter_mask = full_mask
+
         return full_mask
 
 
@@ -204,14 +218,15 @@ class XrayFilterArray(Diagnostic):
 
         # use filter positions... but expand filters outside. 
         if method.lower() == 'inv_filters':
-            filter_positions = self.load_filter_positions(calib_id=calib_input)
+            if 'filter_positions' not in self.calib_dict:
+                self.calib_dict['filter_positions'] = self.load_filter_positions(calib_id=calib_input)
 
             if 'filter_margin_outer' in calib_input:
                 filter_radius = -calib_input['filter_margin_outer']
             else:
                 filter_radius = 0
 
-            for filter in filter_positions:
+            for filter in self.calib_dict['filter_positions']:
                 xv, yv, mask = self.create_masked_polygon(filter['points'], filter_radius=filter_radius)
                 if 'full_mask' in locals():
                     full_mask += mask
@@ -253,7 +268,7 @@ class XrayFilterArray(Diagnostic):
         """Load the material/thickness/etc details for each element in filter array
         """
         calib_input = self.get_calib_input(calib_id)
-        filter_specs_file = calib_input['filter_specs']
+        filter_specs_file = calib_input['filter_specs_file']
         filter_specs = self.load_calib_file(filter_specs_file)
         # old csv format? ... Reformat
         filepath_no_ext, file_ext = os.path.splitext(filter_specs_file)
@@ -278,13 +293,15 @@ class XrayFilterArray(Diagnostic):
             # assume we've laoded a JSON file with a dictionary in the correct format...
             filters = filter_specs
 
+        self.calib_dict['filter_specs'] = filters
+
         return filters
 
     def load_filter_positions(self, calib_id=None):
         """Load the polygon coordinates of each filter element
         """
         calib_input = self.get_calib_input(calib_id)
-        filter_positions_file = calib_input['filter_positions']
+        filter_positions_file = calib_input['filter_positions_file']
         filter_positions = self.load_calib_file(filter_positions_file)
 
         # any shifts? to save rewriting all locations...
@@ -341,6 +358,8 @@ class XrayFilterArray(Diagnostic):
                 filter_pos[:,1] = filter_pos[:,1] + yshift
                 filters.append({"spec_id": int(filter[0]), "points": filter_pos})
 
+        self.calib_dict['filter_positions'] = filters
+
         return filters
 
     def plot_filter_positions(self, shot_dict, calib_id=None):
@@ -364,14 +383,15 @@ class XrayFilterArray(Diagnostic):
 
     def plot_filter_transmissions(self, calib_id = None, eV = range(100,int(1e5))):
 
-        filter_specs = self.load_filter_specs(calib_id=calib_id)
+        if 'filter_specs' not in self.calib_dict:
+            self.calib_dict['filter_specs'] = self.load_filter_specs(calib_id)
 
         calib_dict = self.get_calib(calib_id)
 
         plt.figure()
 
-        for fid in filter_specs:
-            filter = filter_specs[fid]
+        for fid in self.calib_dict['filter_specs']:
+            filter = self.calib_dict['filter_specs'][fid]
             trans = filter_transmission(eV, filter['material'], filter['thickness'], filter['mass_density'])
             plt.plot(eV, trans, label=filter['name'])
             
@@ -387,22 +407,25 @@ class XrayFilterArray(Diagnostic):
         plt.show(block=False)
 
         return
+    
+    def get_element_transmissions(self, shot_dict, view=False):
+        """Return the """
 
-    def get_element_direct_counts(self, shot_dict):
-        """Return the """
-        element_direct_counts = 0
-        return element_direct_counts
-    
-    def get_element_filtered_counts(self, shot_dict):
-        """Return the """
-        element_filtered_counts = 0
-        return element_filtered_counts
-    
-    def get_element_transmissions(self, shot_dict):
-        """Return the """
-        element_direct_counts = self.get_element_direct_counts(shot_dict)
-        element_filtered_counts = self.get_element_filtered_counts(shot_dict)
-        element_transmissions = element_filtered_counts / element_direct_counts
+        if 'filter_specs' not in self.calib_dict:
+            self.calib_dict['filter_specs'] = self.load_filter_specs()
+
+        if 'filter_mask' not in self.calib_dict:
+            self.calib_dict['filter_mask'] = self.make_filter_mask()
+
+        direct_fit = self.calc_direct_fit(shot_dict, view=view)
+        shot_img = self.get_shot_img(shot_dict)
+
+        element_transmissions = {}
+        for fid in self.calib_dict['filter_specs']:
+            element_direct_counts = np.sum(direct_fit[self.calib_dict['filter_mask']==fid])
+            element_filtered_counts = np.sum(shot_img[self.calib_dict['filter_mask']==fid])
+            element_transmissions[fid] = element_filtered_counts / element_direct_counts
+
         return element_transmissions
 
     # TODO: Outside of this class? ImageProc?
