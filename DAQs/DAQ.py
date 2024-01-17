@@ -110,7 +110,9 @@ class DAQ():
     def load_toml(self, filepath):
         # with open(filepath, "rb") as handle:
         #     return toml.load(handle)
-        return toml.load(Path(filepath))
+        #return toml.load(Path(filepath))
+        # the following JSON to and fro is for fixing a pickling issue?
+        return json.loads(json.dumps(toml.load(Path(filepath))))
     
     def save_toml(self, filepath, data):
         with open(Path(filepath), 'w') as handle:
