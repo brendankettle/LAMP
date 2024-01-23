@@ -24,7 +24,7 @@ class Experiment:
             try:
                 DAQ_lib = importlib.import_module(DAQ_module)
             except ImportError:
-                raise Exception(f'Could not find DAQ module: {DAQ_module}')
+                raise Exception(f'Error importing DAQ module: {DAQ_module}')
             #self.DAQ = DAQ_lib.DAQ(self)
             if callable(DAQ_class := getattr(DAQ_lib, self.config['setup']['DAQ'])):
                 print(f"Using DAQ: {self.config['setup']['DAQ']}")

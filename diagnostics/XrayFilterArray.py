@@ -3,7 +3,10 @@ import matplotlib
 import matplotlib.pyplot as plt 
 import matplotlib.patches as patches
 import os
+from scipy.special import kv
 from scipy.linalg import lstsq
+from scipy.optimize import least_squares, leastsq
+from scipy.interpolate import interp1d
 from .diagnostic import Diagnostic
 from ..utils.image_proc import ImageProc
 from ..utils.filter_transmission import filter_transmission
@@ -110,10 +113,6 @@ class XrayFilterArray(Diagnostic):
         direct_mask = self.make_direct_mask(calib_input)
         self.calib_dict['direct_mask'] = direct_mask
 
-        # TODO: CCD QE?
-
-        # TODO: Combined throughput for filtering and QE etc.?
-
         # plotting?
         if view:
             plt.figure()
@@ -126,25 +125,119 @@ class XrayFilterArray(Diagnostic):
             plt.colorbar()
             plt.show(block=False)
 
-        #print(self.calib_dict)
-
         # save the full calibration?
         if calib_filename:
             self.save_calib(calib_filename)
 
         return self.get_calib()
 
-    def calc_direct_fit(self, shot_dict, calib_id=None, view=False):
+    def normalised_synchrotron_spectrum(self, E_crit, eV):
+        """In Energy, for in terms of photon number, divide by eV"""
+        var = eV / (2*E_crit)
+        K = kv(2/3, var) # modified Bessel function of the second kind
+        shape = (var**2) * (K**2) # * constants * gamma ^2
+        norm_shape = shape / max(shape)
+        return norm_shape
+
+    def load_QE(self, eV):
+        """Wrapper function to load camera QE"""
+        QE_data = self.load_calib_file(self.config['camera']['QE_file'])
+        data_eV = QE_data[:,0]
+        data_QE = QE_data[:,1]
+        interp_func = interp1d(data_eV, data_QE, fill_value='extrapolate')
+        QE = interp_func(eV)
+        return QE
+
+    def diff_measured_synchrotron(self, params, eV, shared_throughput, filter_transmissions, element_signals):
+        """filter_tranmissions and element_signals are dictionaries with keys of each filter id"""
+        E_crit, height = params
+        sync_spec = self.normalised_synchrotron_spectrum(E_crit, eV)
+        err = []
+        for fid in filter_transmissions:
+            element_calc = np.trapz(sync_spec * shared_throughput * filter_transmissions[fid], eV) * height
+            err.append(element_calc - element_signals[fid])
+        return err
+
+    def get_Ecrits(self, timeframe, exceptions=None):
+
+        shot_dicts = self.DAQ.get_shot_dicts(self.diag_name,timeframe,exceptions=exceptions)
+
+        E_crits = []
+        for shot_dict in shot_dicts:
+            print(shot_dict)
+            E_crit, height = self.fit_synchrotron_spectrum(shot_dict)
+            E_crits.append(E_crit)
+                                                  
+        return E_crits
+
+    def fit_synchrotron_spectrum(self, shot_dict, E_crit_guess = 10e3, height_guess = 1, eV = range(100,int(1e5),int(1e2)), view=False):
+        """"""
+        # load system throughput (QE, shared filtering)
+        QE = self.load_QE(eV)
+        # if view:
+        #     plt.figure()
+        #     plt.plot(eV, QE)
+        #     plt.title('QE')
+        #     plt.show(block=False)
+        shared_throughput = QE.copy()
+        filter_transmissions, base_filter_transmissions = self.get_filter_transmissions(eV)
+        for filter_name in base_filter_transmissions:
+            # if view:
+            #     plt.figure()
+            #     plt.plot(eV, base_filter_transmissions[filter_name])
+            #     plt.title(f"{self.calib_dict['base_filtering'][filter_name]['material']}, {self.calib_dict['base_filtering'][filter_name]['thickness']} um,{self.calib_dict['base_filtering'][filter_name]['mass_density']} g/cc")
+            #     plt.show(block=False)
+            shared_throughput = shared_throughput * base_filter_transmissions[filter_name]
+
+        # get measured signals through each filter element
+        element_signals = self.get_element_signals(shot_dict)
+
+        params, pcov, infodict, errmsg, success = leastsq(self.diff_measured_synchrotron, x0=[E_crit_guess,height_guess], args=(eV, shared_throughput, filter_transmissions, element_signals), full_output=True)
+        
+        # To obtain the covariance matrix of the parameters x, cov_x must be multiplied by the variance of the residuals – see curve_fit.
+        s_sq = (self.diff_measured_synchrotron(params, eV, shared_throughput, filter_transmissions, element_signals)[0]**2).sum()/(len(element_signals)-len(params))
+        pcov = np.diag(pcov * s_sq)**0.5
+        # NOT SURE ABOUT THE ABOVE
+
+        if success < 1 or success > 4:
+            print('Error fitting Synchrotron Spectrum. Error message follows: ')
+            print(errmsg)
+            print(infodict)
+
+        E_crit_best = params[0]
+        height_best = params[1]
+
+        if view:
+            sync_spec_best = self.normalised_synchrotron_spectrum(E_crit_best, eV)
+            plt.figure()
+            best_fits = {}
+            for fid in filter_transmissions:
+                plt.plot(eV, sync_spec_best * shared_throughput * filter_transmissions[fid], label=fid)
+                best_fits[fid] = np.trapz(sync_spec_best * shared_throughput * filter_transmissions[fid], eV) * height_best
+                #print(f'{best_fits[fid]}, {element_signals[fid]}')
+            plt.legend()
+            plt.show(block=False)
+
+            plt.figure()
+            plt.plot(element_signals.keys(), element_signals.values(), label='Measured')
+            plt.plot(best_fits.keys(), best_fits.values(), label='Fit')
+            plt.xlabel('Filter ID')
+            plt.legend()
+            plt.show(block=False)
+
+        return E_crit_best, height_best
+
+    def calc_direct_fit(self, shot_dict, view=False):
 
         # get calibration dictionary
-        calib_dict = self.get_calib(calib_id, shot_dict=shot_dict)
+        calib_dict = self.get_calib(shot_dict=shot_dict)
 
         img = self.get_shot_img(shot_dict)
 
         if 'direct_mask' in calib_dict:
             direct_mask = calib_dict['direct_mask']
         else:
-            direct_mask = self.make_direct_mask(self.get_calib_input(calib_id, shot_dict=shot_dict))
+            direct_mask = self.make_direct_mask(self.get_calib_input(shot_dict=shot_dict))
 
         direct_signal = img * direct_mask
         direct_signal[direct_signal==0] = np.nan
@@ -264,11 +357,12 @@ class XrayFilterArray(Diagnostic):
 
         return xv, yv, mask
 
-    def load_filter_specs(self, calib_id=None):
+    def load_filter_specs(self, calib_id):
         """Load the material/thickness/etc details for each element in filter array
         """
         calib_input = self.get_calib_input(calib_id)
         filter_specs_file = calib_input['filter_specs_file']
+        #filter_specs_file = self.calib_dict['filter_specs_file']
         filter_specs = self.load_calib_file(filter_specs_file)
         # old csv format? ... Reformat
         filepath_no_ext, file_ext = os.path.splitext(filter_specs_file)
@@ -374,12 +468,30 @@ class XrayFilterArray(Diagnostic):
         full_mask = self.make_filter_mask(calib_input, fig_ax=ax)
         plt.show(block=False)
 
-        plt.figure()
-        plt.imshow(full_mask, vmin=np.min(full_mask), vmax=np.max(full_mask))
-        plt.colorbar()
-        plt.show(block=False)
+        # plt.figure()
+        # plt.imshow(full_mask, vmin=np.min(full_mask), vmax=np.max(full_mask))
+        # plt.colorbar()
+        # plt.show(block=False)
 
         return
+
+    def get_filter_transmissions(self, eV):
+        """"""
+        if 'filter_specs' not in self.calib_dict:
+            self.calib_dict['filter_specs'] = self.load_filter_specs()
+
+        filter_transmissions = {}
+        for fid in self.calib_dict['filter_specs']:
+            filter = self.calib_dict['filter_specs'][fid]
+            # filter['name']
+            filter_transmissions[fid] = filter_transmission(eV, filter['material'], filter['thickness'], filter['mass_density'])
+        base_filter_transmissions = {}
+        if self.calib_dict and 'base_filtering' in self.calib_dict:
+            for fname in self.calib_dict['base_filtering']:
+                filter = self.calib_dict['base_filtering'][fname]
+                base_filter_transmissions[fname] = filter_transmission(eV, filter['material'], filter['thickness'], filter['mass_density'])
+
+        return filter_transmissions, base_filter_transmissions
 
     def plot_filter_transmissions(self, calib_id = None, eV = range(100,int(1e5))):
 
@@ -408,7 +520,7 @@ class XrayFilterArray(Diagnostic):
 
         return
     
-    def get_element_transmissions(self, shot_dict, view=False):
+    def get_element_signals(self, shot_dict, view=False):
         """Return the """
 
         if 'filter_specs' not in self.calib_dict:
@@ -420,13 +532,20 @@ class XrayFilterArray(Diagnostic):
         direct_fit = self.calc_direct_fit(shot_dict, view=view)
         shot_img = self.get_shot_img(shot_dict)
 
-        element_transmissions = {}
+        # subtract a "background" element?
+        bkg = 0
         for fid in self.calib_dict['filter_specs']:
-            element_direct_counts = np.sum(direct_fit[self.calib_dict['filter_mask']==fid])
-            element_filtered_counts = np.sum(shot_img[self.calib_dict['filter_mask']==fid])
-            element_transmissions[fid] = element_filtered_counts / element_direct_counts
+            if self.calib_dict['filter_specs'][fid]['bkg_sub']:
+                bkg = np.mean(shot_img[self.calib_dict['filter_mask']==fid])
+        # This is still not right for lots of hard hits, as direct fit signal will be skewed
 
-        return element_transmissions
+        element_signals = {}
+        for fid in self.calib_dict['filter_specs']:
+            element_direct_counts = np.mean(direct_fit[self.calib_dict['filter_mask']==fid])
+            element_filtered_counts = np.mean(shot_img[self.calib_dict['filter_mask']==fid])
+            element_signals[fid] = (element_filtered_counts - bkg) / element_direct_counts
+
+        return element_signals
 
     # TODO: Outside of this class? ImageProc?
     def polyfit2D(self, new_x, new_y, img, x, y, norder=4):
