@@ -17,10 +17,10 @@ class ZEUSJan2024(DAQ):
         super().__init__(exp_obj)
         return
     
-    def _build_shot_filepath(self, diagnostic, date, run_folder, shotnum, ext, burst_folder='Burst0001'):
+    def _build_shot_filepath(self, stem, date, run_folder, shotnum, ext, burst_folder='Burst0001'):
         """This is used internally, and so can be DAQ specific"""
         # check file?
-        shot_filepath = f'{self.data_folder}/{date}/{run_folder}/{burst_folder}/{diagnostic}_shot_{str(shotnum).zfill(5)}.{ext}'
+        shot_filepath = f'{self.data_folder}/{date}/{run_folder}/{burst_folder}/{stem}shot_{str(shotnum).zfill(5)}.{ext}'
         return Path(shot_filepath)
 
     def get_shot_data(self, diag_name, shot_dict):
@@ -30,7 +30,7 @@ class ZEUSJan2024(DAQ):
         # Double check if shot_dict is dictionary; could just be filepath
         if isinstance(shot_dict, dict):
         
-            required = ['data_folder','data_ext','data_type']
+            required = ['data_stem','data_ext','data_type']
             for param in required:
                 if param not in diag_config:
                     print(f"get_shot_data() error: {self.__name} DAQ requires a config['setup'] parameter '{param}' for {diag_name}")
@@ -47,7 +47,7 @@ class ZEUSJan2024(DAQ):
             else:
                 burst = 'Burst0001'
 
-            shot_filepath = self._build_shot_filepath(diag_config['data_folder'], shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], diag_config['data_ext'], burst_folder=burst)
+            shot_filepath = self._build_shot_filepath(diag_config['data_stem'], shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], diag_config['data_ext'], burst_folder=burst)
 
             if diag_config['data_type'] == 'image':
                 shot_data = self.load_imdata(shot_filepath)
@@ -57,7 +57,7 @@ class ZEUSJan2024(DAQ):
         # raw filepath?
         else:
             # look for file first
-            shot_filepath = Path(self.data_folder + shot_dict)
+            shot_filepath = os.path.join(Path(self.data_folder), Path(shot_dict.lstrip('\/')))
             if os.path.exists(shot_filepath):
                 filepath_no_ext, file_ext = os.path.splitext(shot_filepath)
                 img_exts = {".tif",".tiff"}
@@ -174,7 +174,7 @@ class ZEUSJan2024(DAQ):
                     shotnums = []
                     for filename in os.listdir(burst_folder):
                         if os.path.isfile(os.path.join(burst_folder, filename)):
-                            if diag_name.lower() in filename.lower():
+                            if diag_config['data_stem'].lower() in filename.lower():
                                 if exceptions:
                                     if filename in exceptions:
                                         print(f'Skipping {filename}')
