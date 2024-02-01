@@ -64,6 +64,8 @@ class XrayCrystalSpec(Diagnostic):
             
             plt.figure()
             plt.plot(x[lefti[1]+1:righti[0]],sig)
+            plt.ylabel('No. photons per ADU')
+            plt.xlabel('ADUs')
             plt.show(block=False)
 
         return np.sum(sig)
