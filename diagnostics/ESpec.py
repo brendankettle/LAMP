@@ -551,7 +551,8 @@ class ESpec(Diagnostic):
         # TODO: create montage should be outside of this class
         montage, x_ax = self.create_montage(images, x_roi, y_roi, x_downsample, y_downsample)
 
-        brightness_scale = np.percentile(montage, 99.99)
+        # TODO: optional argument for function
+        brightness_scale = np.percentile(montage, 99)
 
         if not x_roi:
             x_roi = [0,espec_img.shape[1]]
