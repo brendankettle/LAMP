@@ -514,6 +514,11 @@ class ESpec(Diagnostic):
                 sliceM, sliceN = j * m, k * n
                 # TODO: Not sure this downsampling is bug free - can have rounding error?
                 if transpose:
+                    # bodge here to fit array lengths...
+                    if np.shape(image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id])[0] > m:
+                        y_roi[1] = y_roi[1] - y_downsample
+                    if np.shape(image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id])[1] > n:
+                        x_roi[1] = x_roi[1] - x_downsample
                     M[sliceN:sliceN + n, sliceM:sliceM + m] = image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id].T
                 else:
                     M[sliceN:sliceN + n, sliceM:sliceM + m] = image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id]
@@ -560,6 +565,9 @@ class ESpec(Diagnostic):
         #     y_roi = [0,espec_img.shape[0]]
 
         # TODO: Assuming X axis here???
+        # bodge fix here for array size??
+        if len(self.x_MeV[x_roi[0]:x_roi[1]:x_downsample]) > montage.shape[0]:
+            x_roi[1] = x_roi[1] - x_downsample
         xaxis = self.x_MeV[x_roi[0]:x_roi[1]:x_downsample]
 
         num_shots = len(shot_dicts)
