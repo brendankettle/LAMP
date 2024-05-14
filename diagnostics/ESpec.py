@@ -483,11 +483,13 @@ class ESpec(Diagnostic):
         #mm = int(ceil(sqrt(count)))
         #nn = mm
         m, n, count = image.shape
-        
+
         #print(m) # num y pixels
         #print(n) # num x pixels
         #print(count) # num images
 
+
+        # TODO: Need to check ROIs are within pixel limits, are will cause errors below
         if x_roi:
             n = x_roi[1] - x_roi[0]
         else:
@@ -501,10 +503,17 @@ class ESpec(Diagnostic):
         m = int(m /  y_downsample)
         n = int(n / x_downsample)
         
-        mm=count
-        nn=1
+        mm=count # number of columns?
+        nn=1 # number of rows?
         M = np.zeros((nn * n, mm * m))
         x_ax=np.linspace(0, m*(mm-1), count)+m/2.0
+
+        if transpose:
+            # bodge here to fit array lengths...
+            if np.shape(image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, 0])[0] > m:
+                y_roi[1] = y_roi[1] - y_downsample
+            if np.shape(image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, 0])[1] > n:
+                x_roi[1] = x_roi[1] - x_downsample
 
         image_id = 0
         for j in range(mm):
@@ -514,18 +523,13 @@ class ESpec(Diagnostic):
                 sliceM, sliceN = j * m, k * n
                 # TODO: Not sure this downsampling is bug free - can have rounding error?
                 if transpose:
-                    # bodge here to fit array lengths...
-                    if np.shape(image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id])[0] > m:
-                        y_roi[1] = y_roi[1] - y_downsample
-                    if np.shape(image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id])[1] > n:
-                        x_roi[1] = x_roi[1] - x_downsample
                     M[sliceN:sliceN + n, sliceM:sliceM + m] = image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id].T
                 else:
                     M[sliceN:sliceN + n, sliceM:sliceM + m] = image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id]
                 image_id += 1
         return M, x_ax
 
-    def plot_montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None):
+    def plot_montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmax=None):
 
         # calling 'universal' DAQ function here, that is probably DAQ specific
         shot_dicts = self.DAQ.get_shot_dicts(self.diag_name,timeframe,exceptions=exceptions)
@@ -557,7 +561,8 @@ class ESpec(Diagnostic):
         montage, x_ax = self.create_montage(images, x_roi, y_roi, x_downsample, y_downsample)
 
         # TODO: optional argument for function
-        brightness_scale = np.percentile(montage, 99)
+        if not vmax:
+            vmax = np.percentile(montage, 99)
 
         if not x_roi:
             x_roi = [0,espec_img.shape[1]]
@@ -575,7 +580,7 @@ class ESpec(Diagnostic):
 
         fig = plt.figure()
         ax = plt.gca()
-        im = ax.pcolormesh(np.arange(montage.shape[1]), xaxis, montage, vmin=0.0, vmax=brightness_scale, shading='auto')
+        im = ax.pcolormesh(np.arange(montage.shape[1]), xaxis, montage, vmin=0.0, vmax=vmax, shading='auto')
         ax.set_ylabel(r'$E$ [MeV]')
         ax.set_title(self.plot_make_title(timeframe), y=-0.2)
         divider = make_axes_locatable(ax)
