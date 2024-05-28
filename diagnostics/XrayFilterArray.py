@@ -7,7 +7,7 @@ from scipy.special import kv
 from scipy.linalg import lstsq
 from scipy.optimize import least_squares, leastsq
 from scipy.interpolate import interp1d
-from .diagnostic import Diagnostic
+from ..diagnostic import Diagnostic
 from ..utils.image_proc import ImageProc
 from ..utils.filter_transmission import filter_transmission
 

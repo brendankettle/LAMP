@@ -1,8 +1,7 @@
 import os
 from pathlib import Path
-import csv
 import re
-from .DAQ import DAQ
+from ..DAQ import DAQ
 
 class ELINP2024(DAQ):
     """Interface layer for ELINP in April/May 2024. Assumes Michigan DAQ code?
@@ -25,7 +24,7 @@ class ELINP2024(DAQ):
 
     def get_shot_data(self, diag_name, shot_dict):
 
-        diag_config = self.ex.diags[diag_name].config['setup']
+        diag_config = self.ex.diags[diag_name].config
 
         # Double check if shot_dict is dictionary; could just be filepath
         if isinstance(shot_dict, dict):
@@ -33,7 +32,7 @@ class ELINP2024(DAQ):
             required = ['data_stem','data_ext','data_type']
             for param in required:
                 if param not in diag_config:
-                    print(f"get_shot_data() error: {self.__name} DAQ requires a config['setup'] parameter '{param}' for {diag_name}")
+                    print(f"get_shot_data() error: {self.__name} DAQ requires a config parameter '{param}' for {diag_name}")
                     return None
 
             required = ['date','run','shotnum']
@@ -119,7 +118,7 @@ class ELINP2024(DAQ):
     def get_shot_dicts(self, diag_name, timeframe, exceptions=None):
         """timeframe can be 'all' or a dictionary containing lists of dates, or runs"""
 
-        diag_config = self.ex.diags[diag_name].config['setup']
+        diag_config = self.ex.diags[diag_name].config
         diag_folder = Path(f"{self.data_folder}/")
 
         shot_dicts = []

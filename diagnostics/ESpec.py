@@ -5,8 +5,9 @@ from scipy.interpolate import interp1d
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import re
 
-from .diagnostic import Diagnostic
+from ..diagnostic import Diagnostic
 from ..utils.image_proc import ImageProc
+from ..utils.dict_update import *
 
 # ESpec results class / objects?
 
@@ -32,7 +33,6 @@ class ESpec(Diagnostic):
     x_mm, y_mm = None, None
     x_mrad, y_mrad = None, None
     x_MeV, y_MeV = None, None
-    calib_dict = None
 
     def __init__(self, exp_obj, config_filepath):
         """Initiate parent base Diagnostic class to get all shared attributes and funcs"""
@@ -43,8 +43,11 @@ class ESpec(Diagnostic):
         """Return a processed shot using saved or passed calibrations.
         """
 
-        # get calibration dictionary
-        self.calib_dict = self.get_calib(calib_id, shot_dict=shot_dict)
+        # set calibration dictionary
+        if calib_id:
+            self.calib_dict = self.get_calib(calib_id)
+        else:
+            self.calib_dict = self.get_calib(shot_dict)
 
         # minimum calibration is spatial transform
         img, x, y = self.transform(shot_dict, self.calib_dict['transform'])
@@ -54,7 +57,7 @@ class ESpec(Diagnostic):
 
         # dispersion?
         if 'dispersion' in self.calib_dict:
-            img, MeV = self.apply_dispersion(img, self.calib_dict)
+            img, MeV = self.apply_dispersion(img, self.calib_dict['dispersion'])
 
             # default to applying to X axis unless set
             if 'axis' in self.calib_dict['dispersion']:
@@ -90,7 +93,7 @@ class ESpec(Diagnostic):
 
         # divergence?
         if 'divergence' in self.calib_dict:
-            img, mrad = self.apply_divergence(img, self.calib_dict)
+            img, mrad = self.apply_divergence(img, self.calib_dict['divergence'])
 
             # default to Y axis
             if 'axis' in self.calib_dict['divergence']:
@@ -155,42 +158,43 @@ class ESpec(Diagnostic):
         return FWHM
 
 
-    def make_calib(self, calib_input, calib_filename=None, view=True):
-        """Master function for generating a calibration file using a calibration input
+    def make_calib(self, calib_id=None, save=False, view=True):
+        """Master function for generating procssed portion of calibration file
             E.g transform, dispersion, etc. 
         """
 
-        # Get and set calibration input 
-        calib_input = self.set_calib_input(calib_input)
+        # Get calibration input
+        self.calib_dict = self.get_calib(calib_id)
 
-        # Make a spatial transform
-        self.make_transform(view=view)
+        # Make a spatial transform (required)
+        self.make_transform(self.calib_dict['transform'], view=view)
 
         # Apply dispersion?
-        if 'dispersion' in calib_input:
-            self.make_dispersion(view=view)
+        if 'dispersion' in self.calib_dict:
+            self.make_dispersion(self.calib_dict['dispersion'], view=view)
 
         # Apply divergence?
-        if 'divergence' in calib_input:
-            self.make_divergence(view=view)
+        if 'divergence' in self.calib_dict:
+            self.make_divergence(self.calib_dict['divergence'], view=view)
 
         # transfer other values
+        # NOTE: we save the whole existing dictionary anyway...
         save_vars = ['roi_mm','roi_MeV','roi_mrad']
         for var in save_vars:
-            if var in calib_input:
-                self.calib_dict[var] = calib_input[var]
+            if var in self.calib_dict:
+                self.calib_dict[var] = self.calib_dict[var]
 
         # save the full calibration?
-        if calib_filename:
-            self.save_calib(calib_filename)
+        if save:
+            self.save_calib_file(self.calib_dict['proc_file'], self.calib_dict)
 
         return self.get_calib()
 
-    def make_transform(self, calib_input=None, view=False):
+    def make_transform(self, tcalib_input, view=False):
         """Generate a transform dictionary for use with spatially transforming raw shot images.
             This is a wrapper for ImageProc make_transform()
 
-            calib_input: A dictionary containing the required information for the transform, or calibration file/id for loading...
+            tcalib_input: A dictionary containing the required information for the transform, or calibration file/id for loading...
                         Required dictionary keys; 
                             - tpoints; list of [X,Y], where the first pair is raw pixel, the next is the corresponding transform point, and repeat...
                             - raw_img; shot dictionary or filepath to raw untransformed calibration image 
@@ -202,9 +206,6 @@ class ESpec(Diagnostic):
             save_path:
             view:
         """
-
-        # get dictionary from whatever form of calib_input was passed 
-        tcalib_input = self.get_calib_input(calib_input)['transform']
 
         # points are (by convention) passed in a list of [X,Y], where the first is in the pixel point, 
         # the next is the corresponding transform point, and repeat
@@ -230,9 +231,12 @@ class ESpec(Diagnostic):
 
         if self.calib_dict is None:
             self.calib_dict = {}
+        if 'transform' not in self.calib_dict:
+            self.calib_dict['transform'] = {}
 
-        self.calib_dict['transform'] = img.make_transform(p_px, p_t, tcalib_input['img_size_t'], tcalib_input['img_size_px'], 
-                                        tcalib_input['offsets'], notes=notes, description=description)
+        # update dictionary with new dictionary values
+        dict_update(self.calib_dict['transform'], img.make_transform(p_px, p_t, tcalib_input['img_size_t'], tcalib_input['img_size_px'], 
+                                        tcalib_input['offsets'], notes=notes, description=description))
         # Add electron beam axis offset
         self.calib_dict['transform']['e_offsets'] = tcalib_input['e_offsets']
 
@@ -293,11 +297,10 @@ class ESpec(Diagnostic):
 
         return timg, ex, ey
 
-    def make_dispersion(self, calib_input=None, view=False):
+    def make_dispersion(self, disp_dict, view=False):
         """"""
 
         # get dispersion curve from file
-        disp_dict = self.get_calib_input(calib_input)['dispersion']
         disp_curve = self.load_calib_file(disp_dict['filename'])
 
         # TODO: Still asuming its spatial then spectral in data
@@ -306,8 +309,7 @@ class ESpec(Diagnostic):
             disp_spat = disp_curve[:,0]
             disp_spec = disp_curve[:,1]
         else:
-            print("BODGING DISPERSION! NEED TO REWRITE THE NUMPY FILES FROM JASON!")
-            disp_spat = 0.03 + (0.19 - disp_curve[0,:])
+            disp_spat = disp_curve[0,:]
             disp_spec = disp_curve[1,:]
 
         if 'spatial_units' in disp_dict:
@@ -339,8 +341,11 @@ class ESpec(Diagnostic):
             plt.plot(mm,MeV)
             plt.show(block=False)
 
+        if 'dispersion' not in self.calib_dict:
+            self.calib_dict['dispersion'] = {}
+
         # save details to calib dictionary
-        self.calib_dict['dispersion'] = {
+        dict_update(self.calib_dict['dispersion'],{
             "calib_curve": disp_curve,
             "calib_filename": disp_dict['filename'],
             "calib_spatial_units": spat_units,
@@ -348,15 +353,12 @@ class ESpec(Diagnostic):
             "mm": mm,
             "MeV": MeV,
             "axis": axis
-        }
+        })
             
         return MeV
 
-    def apply_dispersion(self, img_data, calib_id=None, disp_dict=None):
+    def apply_dispersion(self, img_data, disp_dict):
         """"""
-
-        if disp_dict is None:
-            disp_dict = self.get_calib(calib_id)['dispersion']
 
         MeV = disp_dict['MeV']
         dMeV = abs(np.gradient(MeV)) # gradient is like diff, but calculates as average of differences either side
@@ -375,10 +377,9 @@ class ESpec(Diagnostic):
 
         return img_data, MeV
 
-    def make_divergence(self, calib_input=None, view=False):
+    def make_divergence(self, div_dict, view=False):
         """"""
 
-        div_dict = self.get_calib_input(calib_input)['divergence']
         mm_to_screen = div_dict['mm_to_screen']
 
         if 'axis' in div_dict:
@@ -396,23 +397,22 @@ class ESpec(Diagnostic):
             mm = self.y_mm
             self.y_mrad = mrad
 
+        if 'divergence' not in self.calib_dict:
+            self.calib_dict['divergence'] = {}
+
         # save details to calib dictionary
-        self.calib_dict['divergence'] = {
+        dict_update(self.calib_dict['divergence'], {
             "mm_to_screen": mm_to_screen,
             "mm": mm,
             "mrad": mrad,
             "axis": axis
-        }
+        })
             
         return mrad
     
-    def apply_divergence(self, img_data, calib_id=None, div_dict=None):
+    def apply_divergence(self, img_data, div_dict):
         """"""
 
-        # either used passed dictionary, or load from ID
-        if div_dict is None:
-            div_dict = self.get_calib(calib_id)['divergence']
-        
         mrad = div_dict['mrad']
         dmrad = np.mean(np.diff(mrad)) # assuming linear for now...
 
@@ -475,7 +475,7 @@ class ESpec(Diagnostic):
             shotstr = ', Shot: ' + str(shot_dict['shotnum'])
         else:
             shotstr = ''
-        return f"{self.diag_name} {datestr} {runstr} {shotstr}"
+        return f"{self.config['name']} {datestr} {runstr} {shotstr}"
 
     # TODO: This needs cleaned up and moved to utils?
     def create_montage(self, image, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, transpose=True):
@@ -532,7 +532,7 @@ class ESpec(Diagnostic):
     def plot_montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmax=None):
 
         # calling 'universal' DAQ function here, that is probably DAQ specific
-        shot_dicts = self.DAQ.get_shot_dicts(self.diag_name,timeframe,exceptions=exceptions)
+        shot_dicts = self.DAQ.get_shot_dicts(self.config['name'],timeframe,exceptions=exceptions)
 
         shot_labels = []
         for shot_dict in shot_dicts:
@@ -593,21 +593,26 @@ class ESpec(Diagnostic):
 
         return fig
 
-    def plot_proc_shot(self, shot_dict):
+    def plot_proc_shot(self, shot_dict, vmin=None,vmax=None,shading='auto'):
 
         espec_img, x_MeV, y_mrad = self.get_proc_shot(shot_dict)
 
+        if not vmin:
+            vmin = np.min(espec_img)
+        if not vmax:
+            vmax = np.max(espec_img)
+
         fig = plt.figure()
-        im = plt.pcolormesh(x_MeV, y_mrad, espec_img, shading='auto')
+        im = plt.pcolormesh(x_MeV, y_mrad, espec_img, vmin=vmin, vmax=vmax, shading=shading)
         cb = plt.colorbar(im)
         cb.set_label(self.img_units, rotation=270, labelpad=20)
         plt.title(self.plot_make_title(shot_dict))
-        plt.xlabel('MeV') 
-        plt.ylabel('mrad')
+        plt.xlabel('Electron energy [MeV]') 
+        plt.ylabel('Beam divergence [mrad]')
         plt.tight_layout()
         plt.show(block=False)
 
-        return fig
+        return fig, plt.gca()
     
     def plot_spectrum(self, shot_dict):
 

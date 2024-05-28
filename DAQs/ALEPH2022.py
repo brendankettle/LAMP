@@ -1,11 +1,11 @@
-"""Interface layer for ALEPH, Colorado in 2022. Uses Michigan DAQ code.
-"""
 import os
 from pathlib import Path
 import csv
-from .DAQ import DAQ
+from ..DAQ import DAQ
 
 class ALEPH2022(DAQ):
+    """Interface layer for ALEPH, Colorado in 2022. Uses Michigan DAQ code.
+    """
 
     __version = 0.1
     __name = 'ALEPH2022'
@@ -25,7 +25,7 @@ class ALEPH2022(DAQ):
     # perhaps some of this can move to base class?
     def get_shot_data(self, diag_name, shot_dict):
 
-        diag_config = self.ex.diags[diag_name].config['setup']
+        diag_config = self.ex.diags[diag_name].config
 
         # Double check if shot_dict is dictionary; could just be filepath
         if isinstance(shot_dict, dict):
@@ -33,7 +33,7 @@ class ALEPH2022(DAQ):
             required = ['data_folder','data_ext','data_type']
             for param in required:
                 if param not in diag_config:
-                    print(f"get_shot_data() error: {self.__name} DAQ requires a config['setup'] parameter '{param}' for {diag_name}")
+                    print(f"get_shot_data() error: {self.__name} DAQ requires a config parameter '{param}' for {diag_name}")
                     return None
 
             required = ['run','shotnum']

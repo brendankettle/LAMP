@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from .diagnostic import Diagnostic
+from ..diagnostic import Diagnostic
 
 
 class XrayCrystalSpec(Diagnostic):

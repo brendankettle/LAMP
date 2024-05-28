@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import re
-from .DAQ import DAQ
+from ..DAQ import DAQ
 
 class GeminiMirage(DAQ):
     """Interface layer for Gemini, using Mirage
@@ -66,11 +66,11 @@ class GeminiMirage(DAQ):
 
         # TO DO: Check if shot_dict is not dictionary; could just be filepath
 
-        diag_config = self.ex.diags[diag_name].config['setup']
+        diag_config = self.ex.diags[diag_name].config
         required = ['data_folder','data_ext','data_type']
         for param in required:
             if param not in diag_config:
-                print(f"get_shot_data() error: {self.__name} DAQ requires a config['setup'] parameter '{param}' for {diag_name}")
+                print(f"get_shot_data() error: {self.__name} DAQ requires a config parameter '{param}' for {diag_name}")
                 return None
             
         # TO DO: OR can use GSN?
@@ -95,7 +95,7 @@ class GeminiMirage(DAQ):
     def get_shot_dicts(self, diag_name, timeframe, exceptions=None):
         """timeframe can be 'all' or a dictionary containing lists of dates, or runs"""
 
-        diag_config = self.ex.diags[diag_name].config['setup']
+        diag_config = self.ex.diags[diag_name].config
         diag_folder = f"{self.data_folder}/{diag_config['data_folder']}"
 
         shot_dicts = []

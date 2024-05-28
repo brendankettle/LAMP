@@ -4,7 +4,7 @@ import pandas as pd
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import re
 
-from .diagnostic import Diagnostic
+from ..diagnostic import Diagnostic
 
 
 class ScintillatorArray(Diagnostic):
