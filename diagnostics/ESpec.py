@@ -2,24 +2,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 import re
 
 from ..diagnostic import Diagnostic
 from ..utils.image_proc import ImageProc
 from ..utils.dict_update import *
-
-# ESpec results class / objects?
+from ..utils.plotting import *
 
 class ESpec(Diagnostic):
-    """Electron (charged particle?) Spectrometer. This can potentially expand to cover a lot more actions;
-        - Montage creation (lib function?)
-        - Two screen processing
-        - Charge calibration?
-        - Calculating trajectories and dispersions?
+    """Electron (charged particle?) Spectrometer.
+        TODO: Background correction
+        TODO: Charge calibration
+        TODO: Tracking sims
+        TODO: Two screens?
     """
-
-    # TODO: Background correction?
 
     __version = 0.1
     __authors = ['Brendan Kettle']
@@ -27,7 +23,6 @@ class ESpec(Diagnostic):
 
     # my (BK) thinking is that it is better to keep track of all the different units for the x/y axis
     # also, sticking to the same units (mm/MeV/mrad) helps make it easier to convert from different calibrations and simplify plotting
-    # but I'm sure I can can be convinced otehrwise!
     curr_img = None
     img_units = 'Counts'
     x_mm, y_mm = None, None
@@ -54,6 +49,27 @@ class ESpec(Diagnostic):
         self.curr_img = img
         self.x_mm = x
         self.y_mm = y
+
+        if 'bkg_type' in self.calib_dict:
+            if self.calib_dict['bkg_type'] == 'flat':
+                if 'bkg_roi' in self.calib_dict:
+                    bkg_roi = self.calib_dict['bkg_roi']
+                    bkg_value = np.mean(img[bkg_roi[0][1]:bkg_roi[1][1],bkg_roi[0][0]:bkg_roi[1][0]])
+                    img = img - bkg_value
+                else:
+                    print(f"{self.config['name']}: No bkg_roi provided")
+            if self.calib_dict['bkg_type'] == 'linear':
+                if 'bkg_roi' in self.calib_dict:
+                    bkg_roi = self.calib_dict['bkg_roi']
+
+                    # TODO: make mean lineout, subtract across image
+                    #bkg_value = np.mean(img[bkg_roi[0][1]:bkg_roi[1][1],bkg_roi[0][0]:bkg_roi[1][0]])
+                    #img = img - bkg_value
+                else:
+                    print(f"{self.config['name']}: No bkg_roi provided")
+            else:
+                print(f"{self.config['name']}: Unknown background correction type '{self.calib_dict['bkg_type']}'")
+
 
         # dispersion?
         if 'dispersion' in self.calib_dict:
@@ -128,16 +144,20 @@ class ESpec(Diagnostic):
                 x = mrad
 
         return img, x, y
-
+    
     def get_spectrum(self, shot_dict, calib_id=None, roi=None):
         """Integrate across the non-dispersive axis and return a spectral lineout"""
         img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id)
-        # TODO: ROI for sum region
-        spec = np.sum(img, 0)
+
+        if roi is None:
+            roi = [[0,0],[np.shape(img)[1],np.shape(img)[0]]]
+
+        spec = np.sum(img[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]], 0)
         if 'axis' in  self.calib_dict['dispersion'] and self.calib_dict['dispersion']['axis'].lower() == 'y':
             MeV = y
         else:
             MeV = x
+        MeV = MeV[roi[0][0]:roi[1][0]]
         return spec, MeV
     
     def get_div(self, shot_dict, calib_id=None):
@@ -459,77 +479,10 @@ class ESpec(Diagnostic):
 
     # ------------------------------------------------------ #
     # PLOTTING FUNCTIONS
-    # TODO: Move some of this to shared plotting class
+    # TODO: Move some of this to shared plotting class?
     # ------------------------------------------------------ #
-    
-    def plot_make_title(self, shot_dict):
-        if 'date' in shot_dict:
-            datestr = ', Date: ' + str(shot_dict['date'])
-        else:
-            datestr = ''
-        if 'run' in shot_dict:
-            runstr = ', Run: ' + str(shot_dict['run'])
-        else:
-            runstr = ''
-        if 'shotnum' in shot_dict:
-            shotstr = ', Shot: ' + str(shot_dict['shotnum'])
-        else:
-            shotstr = ''
-        return f"{self.config['name']} {datestr} {runstr} {shotstr}"
 
-    # TODO: This needs cleaned up and moved to utils?
-    def create_montage(self, image, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, transpose=True):
-        #count, m, n = image.shape
-        #mm = int(ceil(sqrt(count)))
-        #nn = mm
-        m, n, count = image.shape
-
-        #print(m) # num y pixels
-        #print(n) # num x pixels
-        #print(count) # num images
-
-
-        # TODO: Need to check ROIs are within pixel limits, are will cause errors below
-        if x_roi:
-            n = x_roi[1] - x_roi[0]
-        else:
-            x_roi = [0,image.shape[1]]
-        if y_roi:
-            m = y_roi[1] - y_roi[0]
-        else:
-            y_roi = [0,image.shape[0]]
-        
-        # m is energy axis, n is y axis
-        m = int(m /  y_downsample)
-        n = int(n / x_downsample)
-        
-        mm=count # number of columns?
-        nn=1 # number of rows?
-        M = np.zeros((nn * n, mm * m))
-        x_ax=np.linspace(0, m*(mm-1), count)+m/2.0
-
-        if transpose:
-            # bodge here to fit array lengths...
-            if np.shape(image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, 0])[0] > m:
-                y_roi[1] = y_roi[1] - y_downsample
-            if np.shape(image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, 0])[1] > n:
-                x_roi[1] = x_roi[1] - x_downsample
-
-        image_id = 0
-        for j in range(mm):
-            for k in range(nn):
-                if image_id >= count:
-                    break
-                sliceM, sliceN = j * m, k * n
-                # TODO: Not sure this downsampling is bug free - can have rounding error?
-                if transpose:
-                    M[sliceN:sliceN + n, sliceM:sliceM + m] = image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id].T
-                else:
-                    M[sliceN:sliceN + n, sliceM:sliceM + m] = image[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id]
-                image_id += 1
-        return M, x_ax
-
-    def plot_montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmax=None):
+    def montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1):
 
         # calling 'universal' DAQ function here, that is probably DAQ specific
         shot_dicts = self.DAQ.get_shot_dicts(self.config['name'],timeframe,exceptions=exceptions)
@@ -537,6 +490,7 @@ class ESpec(Diagnostic):
         shot_labels = []
         for shot_dict in shot_dicts:
             espec_img, x_MeV, y_mrad = self.get_proc_shot(shot_dict)
+
             if 'images' in locals():
                 images = np.concatenate((images, np.atleast_3d(espec_img)), axis=2)
             else:
@@ -555,43 +509,13 @@ class ESpec(Diagnostic):
 
             shot_labels.append(burst_str + shot_str)
 
-        # print(images.shape)
-
-        # TODO: create montage should be outside of this class
-        montage, x_ax = self.create_montage(images, x_roi, y_roi, x_downsample, y_downsample)
-
-        # TODO: optional argument for function
-        if not vmax:
-            vmax = np.percentile(montage, 99)
-
-        if not x_roi:
-            x_roi = [0,espec_img.shape[1]]
-        # if not y_roi:
-        #     y_roi = [0,espec_img.shape[0]]
-
-        # TODO: Assuming X axis here???
-        # bodge fix here for array size??
-        if len(self.x_MeV[x_roi[0]:x_roi[1]:x_downsample]) > montage.shape[0]:
-            x_roi[1] = x_roi[1] - x_downsample
-        xaxis = self.x_MeV[x_roi[0]:x_roi[1]:x_downsample]
-
-        num_shots = len(shot_dicts)
-        shotnum_tick_locs = range(int((montage.shape[1]/num_shots)/2),montage.shape[1]+int((montage.shape[1]/num_shots)/2),int(montage.shape[1]/num_shots))
-
-        fig = plt.figure()
-        ax = plt.gca()
-        im = ax.pcolormesh(np.arange(montage.shape[1]), xaxis, montage, vmin=0.0, vmax=vmax, shading='auto')
+        # or y_MeV?
+        fig, ax = plot_montage(images, x_roi=x_roi, y_roi=y_roi, axis=self.x_MeV, x_downsample=x_downsample, 
+                               y_downsample=y_downsample, title=self.shot_string(timeframe), vmin=vmin, vmax=vmax, 
+                               transpose=transpose, num_rows=num_rows, shot_labels=shot_labels)
         ax.set_ylabel(r'$E$ [MeV]')
-        ax.set_title(self.plot_make_title(timeframe), y=-0.2)
-        divider = make_axes_locatable(ax)
-        ax.set_xticks(shotnum_tick_locs)
-        ax.set_xticklabels(shot_labels)
-        cax = divider.append_axes("right", size="2%", pad=0.05)
-        cb=plt.colorbar(im, cax=cax)
-        #cb.set_label(r'Ed$^2$counts/d$\theta$d$E$ [counts mrad$^{-1}$]')
-        plt.tight_layout()
 
-        return fig
+        return fig, ax
 
     def plot_proc_shot(self, shot_dict, vmin=None,vmax=None,shading='auto'):
 
@@ -606,7 +530,7 @@ class ESpec(Diagnostic):
         im = plt.pcolormesh(x_MeV, y_mrad, espec_img, vmin=vmin, vmax=vmax, shading=shading)
         cb = plt.colorbar(im)
         cb.set_label(self.img_units, rotation=270, labelpad=20)
-        plt.title(self.plot_make_title(shot_dict))
+        plt.title(self.shot_string(shot_dict))
         plt.xlabel('Electron energy [MeV]') 
         plt.ylabel('Beam divergence [mrad]')
         plt.tight_layout()
@@ -614,13 +538,13 @@ class ESpec(Diagnostic):
 
         return fig, plt.gca()
     
-    def plot_spectrum(self, shot_dict):
+    def plot_spectrum(self, shot_dict, roi=None):
 
-        spec, MeV = self.get_spectrum(shot_dict)
+        spec, MeV = self.get_spectrum(shot_dict, roi=roi)
 
         fig = plt.figure()
         im = plt.plot(MeV, spec)
-        plt.title(self.plot_make_title(shot_dict))
+        plt.title(self.shot_string(shot_dict))
         plt.xlabel('MeV') 
         plt.ylabel('Counts per MeV')
         plt.tight_layout()

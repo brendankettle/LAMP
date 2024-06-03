@@ -7,7 +7,7 @@ import re
 from ..diagnostic import Diagnostic
 from ..utils.plotting import *
 
-class ScintillatorArray(Diagnostic):
+class Scintillator(Diagnostic):
     """
     """
 

@@ -105,3 +105,25 @@ class Diagnostic():
     def save_calib_file(self, filename, calib_data, file_type=None, options=None):
         save_file(self.build_calib_filepath(filename), calib_data, file_type=file_type, options=options)
         return
+
+    def shot_string(self, shot_dict):
+        self.DAQ.shot_string(shot_dict)
+        return f"{self.config['name']}, {self.DAQ.shot_string(shot_dict)}"
+    
+    def get_integrated_signal(self, shot_dict, roi=None):
+        imdata, x, y = self.get_proc_shot(shot_dict)
+        if not roi:
+            height, width = np.shape(imdata)
+            roi = [[0,0],[width,height]]
+
+        return np.sum(imdata[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]])
+    
+    def get_integrated_signals(self, timeframe, roi=None):
+
+        shot_dicts = self.DAQ.get_shot_dicts(self.config['name'], timeframe)
+
+        int_data = []
+        for shot_dict in shot_dicts:
+            int_data.append(self.get_integrated_signal(shot_dict, roi=roi))
+        
+        return int_data

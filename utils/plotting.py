@@ -1,2 +1,116 @@
 """Centralised plotting class/functions?
 """
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import numpy as np
+
+def create_montage(images, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, num_rows=1, transpose=True, divider=True):
+    """ num_rows currently only works for =1
+    Also, downsampling counts not corrected!"""
+    # m = num Y pixels, n = num X pixels, count = num images
+    m, n, count = images.shape
+
+    # TODO: Need to check ROIs are within pixel limits, or will cause errors below
+    if x_roi:
+        n = x_roi[1] - x_roi[0]
+    else:
+        x_roi = [0,n]
+    if y_roi:
+        m = y_roi[1] - y_roi[0]
+    else:
+        y_roi = [0,m]
+    
+    m = int(m /  y_downsample)
+    n = int(n / x_downsample)
+    
+    num_cols = int(np.ceil(count / num_rows))
+  
+    if transpose:
+        montage = np.zeros((num_rows * n, num_cols * m))
+        x_locs = np.linspace(0, m * (count-1), count) + m / 2.0
+    else:
+        montage = np.zeros((num_rows * m, num_cols * n))
+        x_locs = np.linspace(0, n * (count-1), count) + n / 2.0
+
+    # need to make sure any down sampling fit array sizes
+    if np.shape(images[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, 0])[0] > m:
+        y_roi[1] = y_roi[1] - y_downsample
+    if np.shape(images[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, 0])[1] > n:
+        x_roi[1] = x_roi[1] - x_downsample
+
+    max_val = np.max(images)
+
+    image_id = 0
+    for j in range(count):
+        for k in range(num_rows):
+            if image_id >= count:
+                break
+            if transpose:
+                sliceJ = j * m
+                sliceK = k * n
+                montage[sliceK:sliceK + n, sliceJ:sliceJ + m] = images[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id].T
+                if divider:
+                    montage[:, sliceJ + m - 1] = max_val
+            else:
+                sliceJ = j * n
+                sliceK = k * m
+                montage[sliceK:sliceK + m, sliceJ:sliceJ + n] = images[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id]
+                if divider:
+                    montage[:, sliceJ + n - 1] = max_val
+            image_id += 1
+
+    return montage, x_locs
+
+def plot_montage(images, x_roi=None, y_roi=None, axis=None, x_downsample=1, y_downsample=1, title='', num_rows=1, transpose=True, shot_labels=None, vmin=None, vmax=None):
+    """ images should be an [m, n, count] array of images, where m = Y size, n = X size
+    ROI values in image pixels 
+    num_rows currently only works for =1"""
+
+    # m = num Y pixels, n = num X pixels, count = num images
+    m, n, count = images.shape
+
+    if x_roi is not None:
+        n = x_roi[1] - x_roi[0]
+    else:
+        x_roi = [0,n]
+    if y_roi is not None:
+        m = y_roi[1] - y_roi[0]
+    else:
+        y_roi = [0,m]
+
+    montage, x_locs = create_montage(images, x_roi=x_roi, y_roi=y_roi, x_downsample=x_downsample, y_downsample=y_downsample, num_rows=num_rows, transpose=transpose)
+
+    if vmax is None:
+        vmax = np.percentile(montage, 99)
+    if vmin is None:
+        vmin = np.min(montage)
+
+    if axis is None:
+        if transpose:
+            axis = np.arange(n)
+        else:
+            axis = np.arange(m)
+    if transpose:
+        yaxis = axis[x_roi[0]:x_roi[1]:x_downsample]
+        xaxis = np.arange(montage.shape[1])
+    else:
+        yaxis = axis[y_roi[0]:y_roi[1]:y_downsample]
+        xaxis = np.arange(montage.shape[1]) # should this just be np.arange(montage.shape[1]) as well?
+
+    if not shot_labels:
+        shot_labels = np.arange(count)+1
+
+    fig = plt.figure()
+    ax = plt.gca()
+    im = ax.pcolormesh(xaxis, yaxis, montage, vmin=vmin, vmax=vmax, shading='auto')
+    #ax.set_ylabel(r'$E$ [MeV]')
+    ax.set_title(title, y=-0.2)
+    divider = make_axes_locatable(ax)
+    ax.set_xticks(x_locs)
+    ax.set_xticklabels(shot_labels)
+    cax = divider.append_axes("right", size="2%", pad=0.05)
+    cb = plt.colorbar(im, cax=cax)
+    #cb.set_label(r'Ed$^2$counts/d$\theta$d$E$ [counts mrad$^{-1}$]')
+    plt.tight_layout()
+
+    return fig, ax

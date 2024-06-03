@@ -116,78 +116,91 @@ class ELINP2024(DAQ):
         return  time_point
     
     def get_shot_dicts(self, diag_name, timeframe, exceptions=None):
-        """timeframe can be 'all' or a dictionary containing lists of dates, or runs"""
+        """timeframe can be 'all' or a dictionary containing lists of dates, or runs
+        """
 
         diag_config = self.ex.diags[diag_name].config
         diag_folder = Path(f"{self.data_folder}/")
 
         shot_dicts = []
 
-        # scan all folders?
-        if isinstance(timeframe, str) and timeframe.lower() == 'all':
-            # get date folders
-            dates = []
-            for dir_name in os.listdir(diag_folder):
-                if os.path.isdir(os.path.join(diag_folder, dir_name)):
-                    # add filename to list (quick bodge here to try and catch only real date folders)
-                    if len(dir_name) == 8:
-                        dates.append(int(dir_name))
-        elif isinstance(timeframe, dict) and 'dates' in timeframe:
-            dates = timeframe['dates']
-        elif isinstance(timeframe, dict) and 'date' in timeframe:
-            dates = [timeframe['date']]
-
-        # now that we have dates, for each, get run(s)
-        for date in sorted(dates):
-            date_folder = os.path.join(diag_folder, str(date))
-            # runs passed
-            if isinstance(timeframe, dict) and 'runs' in timeframe:
-                runs = timeframe['runs']
-            # single run
-            elif isinstance(timeframe, dict) and 'run' in timeframe:
-                runs = [timeframe['run']]
-            # scan folder
+        # if giving shot numbers, assume single date/run/burst is given and just need to rearrange
+        # TODO: I guess this could be a sublist for each run or something...
+        if 'shotnums' in timeframe:
+            shotnums = sorted(timeframe['shotnums'])
+            if 'burst' in timeframe:
+                burst = timeframe['burst']
             else:
-                runs = []
-                for run_name in os.listdir(date_folder):
-                    if os.path.isdir(os.path.join(date_folder, run_name)):
-                        runs.append(run_name)
-            # now we have date and runs, get bursts
-            for run in sorted(runs):
-                run_folder = os.path.join(date_folder, str(run))
-                # bursts passed
-                if isinstance(timeframe, dict) and 'bursts' in timeframe:
-                    bursts = timeframe['bursts']
-                # single burst
-                elif isinstance(timeframe, dict) and 'burst' in timeframe:
-                    bursts = [timeframe['burst']]
+                burst = 'Burst0001'
+            for shotnum in timeframe['shotnums']:
+                shot_dicts.append({'date': timeframe['date'], 'run': timeframe['run'], 'burst': burst, 'shotnum': shotnum})
+        # no shot numbers, need to look in folders
+        else:
+            # scan all folders?
+            if isinstance(timeframe, str) and timeframe.lower() == 'all':
+                # get date folders
+                dates = []
+                for dir_name in os.listdir(diag_folder):
+                    if os.path.isdir(os.path.join(diag_folder, dir_name)):
+                        # add filename to list (quick bodge here to try and catch only real date folders)
+                        if len(dir_name) == 8:
+                            dates.append(int(dir_name))
+            elif isinstance(timeframe, dict) and 'dates' in timeframe:
+                dates = timeframe['dates']
+            elif isinstance(timeframe, dict) and 'date' in timeframe:
+                dates = [timeframe['date']]
+
+            # now that we have dates, for each, get run(s)
+            for date in sorted(dates):
+                date_folder = os.path.join(diag_folder, str(date))
+                # runs passed
+                if isinstance(timeframe, dict) and 'runs' in timeframe:
+                    runs = timeframe['runs']
+                # single run
+                elif isinstance(timeframe, dict) and 'run' in timeframe:
+                    runs = [timeframe['run']]
                 # scan folder
                 else:
-                    bursts = []
-                    for burst_name in os.listdir(run_folder):
-                        if os.path.isdir(os.path.join(run_folder, burst_name)):
-                            bursts.append(burst_name)
-                # now we have date, runs, bursts, get shots
-                for burst in sorted(bursts):
-                    burst_folder = os.path.join(run_folder, str(burst))
-                    shotnums = []
-                    for filename in os.listdir(burst_folder):
-                        if os.path.isfile(os.path.join(burst_folder, filename)):
-                            if diag_config['data_stem'].lower() in filename.lower():
-                                if exceptions:
-                                    if filename in exceptions:
-                                        print(f'Skipping {filename}')
-                                        continue
-                                segs = os.path.splitext(filename)[0].split("_")
-                                shotnums.append(int(segs[2])) # This gets round the double shots for now, but need to fix this
-                                #m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
-                                #shotnums.append(int(m.group()))
-                                #print(f"{date} / {run} / {shotnums[-1]}")
-                    shotnums = sorted(shotnums)
+                    runs = []
+                    for run_name in os.listdir(date_folder):
+                        if os.path.isdir(os.path.join(date_folder, run_name)):
+                            runs.append(run_name)
+                # now we have date and runs, get bursts
+                for run in sorted(runs):
+                    run_folder = os.path.join(date_folder, str(run))
+                    # bursts passed
+                    if isinstance(timeframe, dict) and 'bursts' in timeframe:
+                        bursts = timeframe['bursts']
+                    # single burst
+                    elif isinstance(timeframe, dict) and 'burst' in timeframe:
+                        bursts = [timeframe['burst']]
+                    # scan folder
+                    else:
+                        bursts = []
+                        for burst_name in os.listdir(run_folder):
+                            if os.path.isdir(os.path.join(run_folder, burst_name)):
+                                bursts.append(burst_name)
+                    # now we have date, runs, bursts, get shots
+                    for burst in sorted(bursts):
+                        burst_folder = os.path.join(run_folder, str(burst))
+                        shotnums = []
+                        for filename in os.listdir(burst_folder):
+                            if os.path.isfile(os.path.join(burst_folder, filename)):
+                                if diag_config['data_stem'].lower() in filename.lower():
+                                    if exceptions:
+                                        if filename in exceptions:
+                                            print(f'Skipping {filename}')
+                                            continue
+                                    segs = os.path.splitext(filename)[0].split("_")
+                                    shotnums.append(int(segs[2])) # This gets round the double shots for now, but need to fix this
+                                    #m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
+                                    #shotnums.append(int(m.group()))
+                                    #print(f"{date} / {run} / {shotnums[-1]}")
+                        shotnums = sorted(shotnums)
 
-                    # OK, build the list to return!
-                    for shotnum in shotnums:
-                        shot_dicts.append({'date': date, 'run': run, 'burst': burst, 'shotnum': shotnum})
+                        # OK, build the list to return!
+                        for shotnum in shotnums:
+                            shot_dicts.append({'date': date, 'run': run, 'burst': burst, 'shotnum': shotnum})
 
         return shot_dicts
     
