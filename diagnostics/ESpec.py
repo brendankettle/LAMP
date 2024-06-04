@@ -34,7 +34,7 @@ class ESpec(Diagnostic):
         super().__init__(exp_obj, config_filepath)
         return
 
-    def get_proc_shot(self, shot_dict, calib_id=None, roi=None):
+    def get_proc_shot(self, shot_dict, calib_id=None, roi=None, debug=False):
         """Return a processed shot using saved or passed calibrations.
         """
 
@@ -50,6 +50,15 @@ class ESpec(Diagnostic):
         self.x_mm = x
         self.y_mm = y
 
+        if debug:
+            plt.figure()
+            im = plt.imshow(img, vmax=(0.2*np.max(img)))
+            cb = plt.colorbar(im)
+            plt.xlabel('new pixels')
+            plt.ylabel('new pixels')
+            plt.tight_layout()
+            plt.show(block=False)
+
         if 'bkg_type' in self.calib_dict:
             if self.calib_dict['bkg_type'] == 'flat':
                 if 'bkg_roi' in self.calib_dict:
@@ -58,13 +67,32 @@ class ESpec(Diagnostic):
                     img = img - bkg_value
                 else:
                     print(f"{self.config['name']}: No bkg_roi provided")
-            if self.calib_dict['bkg_type'] == 'linear':
+            if self.calib_dict['bkg_type'] == 'horizontal_poly':
                 if 'bkg_roi' in self.calib_dict:
                     bkg_roi = self.calib_dict['bkg_roi']
 
-                    # TODO: make mean lineout, subtract across image
-                    #bkg_value = np.mean(img[bkg_roi[0][1]:bkg_roi[1][1],bkg_roi[0][0]:bkg_roi[1][0]])
-                    #img = img - bkg_value
+                    bkg_px = np.arange(bkg_roi[0][0],bkg_roi[1][0])
+                    bkg_lin = np.mean(img[bkg_roi[0][1]:bkg_roi[1][1],bkg_roi[0][0]:bkg_roi[1][0]], 0)
+                    bkg_fit = np.polyfit(bkg_px, bkg_lin, 4)
+                    bkg_func = np.poly1d(bkg_fit)
+                    all_px = np.arange(0,np.shape(img)[1])
+                    bkg_img = np.tile(bkg_func(all_px), (np.shape(img)[0],1))
+
+                    if debug:
+                        plt.figure()
+                        plt.plot(bkg_px, bkg_lin)
+                        plt.plot(all_px,bkg_func(all_px))
+                        plt.xlabel('new pixels')
+                        plt.ylabel('mean counts')
+                        plt.tight_layout()
+                        plt.show(block=False)
+
+                        plt.figure()
+                        plt.imshow(bkg_img)
+                        plt.tight_layout()
+                        plt.show(block=False)
+
+                    img = img - bkg_img
                 else:
                     print(f"{self.config['name']}: No bkg_roi provided")
             else:
@@ -517,9 +545,9 @@ class ESpec(Diagnostic):
 
         return fig, ax
 
-    def plot_proc_shot(self, shot_dict, vmin=None,vmax=None,shading='auto'):
+    def plot_proc_shot(self, shot_dict, vmin=None,vmax=None, debug=False):
 
-        espec_img, x_MeV, y_mrad = self.get_proc_shot(shot_dict)
+        espec_img, x_MeV, y_mrad = self.get_proc_shot(shot_dict, debug=debug)
 
         if not vmin:
             vmin = np.min(espec_img)
@@ -527,7 +555,7 @@ class ESpec(Diagnostic):
             vmax = np.max(espec_img)
 
         fig = plt.figure()
-        im = plt.pcolormesh(x_MeV, y_mrad, espec_img, vmin=vmin, vmax=vmax, shading=shading)
+        im = plt.pcolormesh(x_MeV, y_mrad, espec_img, vmin=vmin, vmax=vmax, shading='auto')
         cb = plt.colorbar(im)
         cb.set_label(self.img_units, rotation=270, labelpad=20)
         plt.title(self.shot_string(shot_dict))
