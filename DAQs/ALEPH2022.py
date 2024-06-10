@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import csv
+import re
 from ..DAQ import DAQ
 
 class ALEPH2022(DAQ):
@@ -124,3 +125,42 @@ class ALEPH2022(DAQ):
             print('TO DO: Allow specific shot selection in _read_shot_info()!')
 
         return shot_info
+
+    def build_time_point(self, shot_dict):
+        """Universal function to return a point in time for DAQ, for comparison, say in calibrations
+        """
+        # Need to break run into date then run number
+        # TODO: Burst???
+        if 'run' not in shot_dict:
+            print('build_time_point() error; at least a run needed')
+
+        print(shot_dict)
+
+        run_str = shot_dict['run']
+
+        # assume date string first
+        date_str = str(run_str[0:8])
+        year = int(date_str[0:4])
+        month = int(date_str[4:6])
+        day = int(date_str[6:8])
+
+        # then assume run numbers at end
+        # this could fail for refs etc., but should work for most "real" runs?
+        m = re.search(r'\d+$', run_str) 
+        run = int(m.group())
+
+        # if 'burst' in shot_dict:
+        #     burst_str = shot_dict['burst']
+        #     m = re.search(r'\d+$', burst_str) # gets last numbers
+        #     burst = int(m.group())
+        # else:
+        #     burst = 0
+        burst=0
+        if 'shotnum' in shot_dict:
+            shotnum = shot_dict['shotnum']
+        else:
+            shotnum = 0
+
+        # weight the different components to make a unique increasing number?
+        time_point = year*1e13 + month*1e11 + day*1e9 + run*1e6 + burst*1000 + shotnum
+        return  time_point
