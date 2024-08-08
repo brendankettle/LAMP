@@ -96,7 +96,7 @@ class Diagnostic():
             calib_subfolder = self.config['calib_subfolder']
         else:
             calib_subfolder = '/'
-        return Path(os.path.join(self.ex.config['paths']['calibs_folder'], calib_subfolder, filename))
+        return Path(os.path.join(self.ex.config['paths']['root'],self.ex.config['paths']['calibs_folder'], calib_subfolder, filename))
 
     def load_calib_file(self, filename, file_type=None, options=None):
         calibs  = load_file(self.build_calib_filepath(filename), file_type=file_type, options=options)
