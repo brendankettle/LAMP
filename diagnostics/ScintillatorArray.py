@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import re
+from scipy import ndimage
 
 from ..diagnostic import Diagnostic
 from ..utils.plotting import *
@@ -47,12 +48,45 @@ class ScintillatorArray(Diagnostic):
             roi = self.calib_dict['roi']
             img_data = img_data[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]]
 
+        if 'img_rot' in self.calib_dict:
+            img_data = ndimage.rotate(img_data, self.calib_dict['img_rot'], reshape=False)
+
         rows, cols = np.shape(img_data)
         self.x = np.arange(cols)
         self.y = np.arange(rows)
 
+        scint_sigs = self.get_scint_sigs(img_data)
+
+        plt.figure()
+        im = plt.imshow(scint_sigs)
+        cb = plt.colorbar(im)
+
         return img_data, self.x, self.y
     
+    def get_scint_sigs(self, img_data):
+
+        scint_sigs = np.zeros([self.calib_dict['num_cols'],self.calib_dict['num_rows']])
+
+        scint_centres_x = self.calib_dict['ext_start_x'] + self.calib_dict['ext_spacing_x'] * np.array(range(self.calib_dict['num_cols'])) 
+        scint_centres_y = self.calib_dict['ext_start_y'] + self.calib_dict['ext_spacing_y'] * np.array(range(self.calib_dict['num_rows'])) 
+
+        wr = int(self.calib_dict['ext_sample_width']/2)
+        hr = int(self.calib_dict['ext_sample_height']/2)
+
+        # TODO: Would be better to integrate signal in crystal masked area around each of these points
+        # i.e. get all the signal from a crystal, then give average counts per pixel?
+
+        for ci in range(len(scint_centres_x)):
+            for ri in range(len(scint_centres_y)):
+                x = scint_centres_x[ci]
+                y = scint_centres_y[ri]
+                scint_sigs[ci,ri] = np.mean(img_data[y-hr:y+hr,x-wr:x+wr])
+
+        mm2_per_px = self.calib_dict['scale_x'] * self.calib_dict['scale_y']
+
+        # returning average counts per mm2 of scintalator?
+        return scint_sigs.T / mm2_per_px
+
     # ------------------------------------------------------ #
     # PLOTTING FUNCTIONS
     # TODO: Move some of this to shared plotting class
