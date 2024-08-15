@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import numpy as np
 import pandas as pd
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -63,7 +64,7 @@ class ScintillatorArray(Diagnostic):
 
         return img_data, self.x, self.y
     
-    def get_scint_sigs(self, img_data):
+    def get_scint_sigs(self, img_data, debug=False):
 
         scint_sigs = np.zeros([self.calib_dict['num_cols'],self.calib_dict['num_rows']])
 
@@ -75,12 +76,20 @@ class ScintillatorArray(Diagnostic):
 
         # TODO: Would be better to integrate signal in crystal masked area around each of these points
         # i.e. get all the signal from a crystal, then give average counts per pixel?
+        if(debug):
+            plt.figure()
+            im = plt.imshow(img_data)
+            ax = plt.gca()
 
         for ci in range(len(scint_centres_x)):
             for ri in range(len(scint_centres_y)):
                 x = scint_centres_x[ci]
                 y = scint_centres_y[ri]
                 scint_sigs[ci,ri] = np.mean(img_data[y-hr:y+hr,x-wr:x+wr])
+                if(debug):
+                    rect = patches.Rectangle((x-wr, y-hr), 2*wr, 2*hr, linewidth=1, edgecolor='r', facecolor='none')
+                    ax.add_patch(rect)
+        if(debug): cb = plt.colorbar(im)
 
         mm2_per_px = self.calib_dict['scale_x'] * self.calib_dict['scale_y']
 
