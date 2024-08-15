@@ -22,7 +22,7 @@ class ScintillatorArray(Diagnostic):
         super().__init__(exp_obj, config_filepath)
         return
     
-    def get_proc_shot(self, shot_dict, calib_id=None):
+    def get_proc_shot(self, shot_dict, calib_id=None, debug=False):
         """Return a processed shot using saved or passed calibrations.
         """
 
@@ -58,9 +58,10 @@ class ScintillatorArray(Diagnostic):
 
         scint_sigs = self.get_scint_sigs(img_data)
 
-        plt.figure()
-        im = plt.imshow(scint_sigs)
-        cb = plt.colorbar(im)
+        if debug:
+            plt.figure()
+            im = plt.imshow(scint_sigs)
+            cb = plt.colorbar(im)
 
         return img_data, self.x, self.y
     
