@@ -55,12 +55,6 @@ class ScintillatorArray(Diagnostic):
         self.x = np.arange(cols)
         self.y = np.arange(rows)
 
-        scint_sigs = self.get_scint_sigs(img_data)
-
-        plt.figure()
-        im = plt.imshow(scint_sigs)
-        cb = plt.colorbar(im)
-
         return img_data, self.x, self.y
     
     def get_scint_sigs(self, img_data):

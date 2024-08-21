@@ -27,7 +27,7 @@ class Diagnostic():
         """Wrapper for getting shot data through DAQ"""
         return self.DAQ.get_shot_data(self.config['name'], shot_dict)
     
-    def get_calib(self, calib_id=None):
+    def get_calib(self, calib_id=None, no_proc=False):
         """Take a calibration id of some form, and return calibration dictionary.
             - = None: Try and use pre-saved calibration dict within object
             - = Dictionary: Assume a shot dictionary, and look for configuration using dates
@@ -81,13 +81,14 @@ class Diagnostic():
                 return None
 
         # before returning, if processed file is set, try load it and return contents with dictionary
-        if 'proc_file' in calib_dict:
-            if os.path.exists(self.build_calib_filepath(calib_dict['proc_file'])):
-                proc_calib_dict = self.load_calib_file(calib_dict['proc_file'])
-                dict_update(calib_dict, proc_calib_dict)
-            # might not be processed yet, just print a warnging and move on
-            else:
-                print(f"get_calib() warning; no processed file found for '{calib_dict['proc_file']}'")
+        if not no_proc:
+            if 'proc_file' in calib_dict:
+                if os.path.exists(self.build_calib_filepath(calib_dict['proc_file'])):
+                    proc_calib_dict = self.load_calib_file(calib_dict['proc_file'])
+                    dict_update(calib_dict, proc_calib_dict)
+                # might not be processed yet, just print a warning and move on
+                else:
+                    print(f"get_calib() warning; no processed file found for '{calib_dict['proc_file']}'")
 
         return calib_dict
     

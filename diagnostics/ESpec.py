@@ -212,7 +212,7 @@ class ESpec(Diagnostic):
         """
 
         # Get calibration input
-        self.calib_dict = self.get_calib(calib_id)
+        self.calib_dict = self.get_calib(calib_id, no_proc=True)
 
         # Make a spatial transform (required)
         self.make_transform(self.calib_dict['transform'], view=view)
@@ -360,6 +360,12 @@ class ESpec(Diagnostic):
             disp_spat = disp_curve[0,:]
             disp_spec = disp_curve[1,:]
 
+        # remove any missing points
+        disp_spat = disp_spat[~np.isnan(disp_spec)]
+        disp_spec = disp_spec[~np.isnan(disp_spec)]
+        disp_spat = disp_spat[disp_spec>0]
+        disp_spec = disp_spec[disp_spec>0]
+
         if 'spatial_units' in disp_dict:
             spat_units = disp_dict['spatial_units']
         else:
@@ -386,6 +392,9 @@ class ESpec(Diagnostic):
 
         if view:
             plt.figure()
+            plt.title('Displacement curve')
+            plt.xlabel('mm')
+            plt.ylabel('MeV')
             plt.plot(mm,MeV)
             plt.show(block=False)
 
