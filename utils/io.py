@@ -46,12 +46,16 @@ def save_file(filepath, data, file_type=None, options=None):
             save_pickle(filepath, data)
         elif file_ext.lower() == '.json':
             save_json(filepath, data)
+        elif file_ext.lower() == '.csv':
+            save_csv(filepath, data)
         else:
             print(f"IO error; save_file(); could not auto-read file type, please provide file_type arugment")
-    elif file_type.lower() == '.pickle' or file_ext.lower() == '.pkl':
+    elif file_type.lower() == 'pickle' or file_type.lower() == 'pkl':
         save_pickle(filepath, data)
-    elif file_type.lower() == '.json':
+    elif file_type.lower() == 'json':
         save_json(filepath, data)
+    elif file_type.lower() == 'csv':
+        save_csv(filepath, data)
     else:
         print(f"IO error; save_file(); no known type '{file_type}'")
     return
@@ -59,13 +63,15 @@ def save_file(filepath, data, file_type=None, options=None):
 def load_npy(filepath):
     return np.load(Path(filepath))
 
-def load_csv(filepath, delimiter=',', col_dtypes=None):
-    # Pandas might be better here? problems with mixed data types...
-    return np.genfromtxt(Path(filepath), delimiter=delimiter, dtype=col_dtypes, encoding=None)
+def save_npy(filepath, data):
+    return np.save(Path(filepath),data)
 
-def save_csv(filepath, data):
-    print('TODO: CSV writer!')
-    return
+def load_csv(filepath, delimiter=',', col_dtypes=None, skip_header=0):
+    # Pandas might be better here? problems with mixed data types...
+    return np.genfromtxt(Path(filepath), delimiter=delimiter, dtype=col_dtypes, skip_header=skip_header, encoding=None)
+
+def save_csv(filepath, data, delimiter=","):
+    return np.savetxt(filepath, data, delimiter=delimiter)
 
 def load_pickle(filepath):
     with open(Path(filepath), 'rb') as handle:
