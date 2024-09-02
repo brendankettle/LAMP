@@ -34,7 +34,7 @@ class ESpec(Diagnostic):
         super().__init__(exp_obj, config_filepath)
         return
 
-    def get_proc_shot(self, shot_dict, calib_id=None, roi=None, debug=False):
+    def get_proc_shot(self, shot_dict, calib_id=None, roi=None, apply_disp=True, apply_div=True, debug=False):
         """Return a processed shot using saved or passed calibrations.
         """
 
@@ -59,6 +59,7 @@ class ESpec(Diagnostic):
             plt.tight_layout()
             plt.show(block=False)
 
+        # To Do: background correction should be handled elsewhere and shared?
         if 'bkg_type' in self.calib_dict:
             if self.calib_dict['bkg_type'] == 'flat':
                 if 'bkg_roi' in self.calib_dict:
@@ -85,11 +86,15 @@ class ESpec(Diagnostic):
                         plt.xlabel('new pixels')
                         plt.ylabel('mean counts')
                         plt.tight_layout()
+                        plt.title('Background correction')
                         plt.show(block=False)
 
                         plt.figure()
-                        plt.imshow(bkg_img)
+                        im = plt.imshow(bkg_img)
+                        cb = plt.colorbar(im)
+                        #cb.set_label(self.img_units, rotation=270, labelpad=20)
                         plt.tight_layout()
+                        plt.title('Background correction')
                         plt.show(block=False)
 
                     img = img - bkg_img
@@ -98,9 +103,8 @@ class ESpec(Diagnostic):
             else:
                 print(f"{self.config['name']}: Unknown background correction type '{self.calib_dict['bkg_type']}'")
 
-
         # dispersion?
-        if 'dispersion' in self.calib_dict:
+        if apply_disp and 'dispersion' in self.calib_dict:
             img, MeV = self.apply_dispersion(img, self.calib_dict['dispersion'])
 
             # default to applying to X axis unless set
@@ -117,13 +121,18 @@ class ESpec(Diagnostic):
                 MeV_min = np.min(self.calib_dict['roi_MeV'])
                 MeV_max = np.max(self.calib_dict['roi_MeV'])
                 if axis == 'y':
-                    img = img[(MeV > MeV_min), :] # I'm sure this cam be done in one line, but I'm being lazy...
+                    self.y_mm = self.y_mm[(MeV > MeV_min)]# update spatial axis with ROI selection
+                    img = img[(MeV > MeV_min), :]
                     MeV = MeV[(MeV > MeV_min)]
+                    self.y_mm = self.y_mm[(MeV < MeV_max)] # update spatial axis with ROI selection
                     img = img[(MeV < MeV_max), :]
                     MeV = MeV[(MeV < MeV_max)]
                 else:
+                    # I'm sure this cam be done in one line, but I'm being lazy...
+                    self.x_mm = self.x_mm[(MeV > MeV_min)] # update spatial axis with ROI selection
                     img = img[:, (MeV > MeV_min)]
                     MeV = MeV[(MeV > MeV_min)]
+                    self.x_mm = self.x_mm[(MeV < MeV_max)] # update spatial axis with ROI selection
                     img = img[:, (MeV < MeV_max)]
                     MeV = MeV[(MeV < MeV_max)]
 
@@ -136,7 +145,7 @@ class ESpec(Diagnostic):
                 x = MeV
 
         # divergence?
-        if 'divergence' in self.calib_dict:
+        if apply_div and 'divergence' in self.calib_dict:
             img, mrad = self.apply_divergence(img, self.calib_dict['divergence'])
 
             # default to Y axis
@@ -153,13 +162,17 @@ class ESpec(Diagnostic):
                 mrad_min = np.min(self.calib_dict['roi_mrad'])
                 mrad_max = np.max(self.calib_dict['roi_mrad'])
                 if axis == 'y':
+                    self.y_mm = self.y_mm[(mrad > mrad_min)] # update spatial axis with ROI selection
                     img = img[(mrad > mrad_min), :]
                     mrad = mrad[(mrad > mrad_min)]
+                    self.y_mm = self.y_mm[(mrad < mrad_max)] # update spatial axis with ROI selection
                     img = img[(mrad < mrad_max), :]
                     mrad = mrad[(mrad < mrad_max)]
                 else:
+                    self.x_mm = self.x_mm[(mrad > mrad_min)] # update spatial axis with ROI selection
                     img = img[:, (mrad > mrad_min)]
                     mrad = mrad[(mrad > mrad_min)]
+                    self.x_mm = self.x_mm[(mrad < mrad_max)] # update spatial axis with ROI selection
                     img = img[:, (mrad < mrad_max)]
                     mrad = mrad[(mrad < mrad_max)]
 
@@ -554,22 +567,23 @@ class ESpec(Diagnostic):
 
         return fig, ax
 
-    def plot_proc_shot(self, shot_dict, vmin=None,vmax=None, debug=False):
+    def plot_proc_shot(self, shot_dict, vmin=None, vmax=None, debug=False):
 
-        espec_img, x_MeV, y_mrad = self.get_proc_shot(shot_dict, debug=debug)
+        # below still assumes X = spectral, Y =  divergence
+        espec_img, x, y = self.get_proc_shot(shot_dict, debug=debug)
 
-        if not vmin:
+        if vmin is None:
             vmin = np.min(espec_img)
-        if not vmax:
+        if vmax is None:
             vmax = np.max(espec_img)
 
         fig = plt.figure()
-        im = plt.pcolormesh(x_MeV, y_mrad, espec_img, vmin=vmin, vmax=vmax, shading='auto')
+        im = plt.pcolormesh(x, y, espec_img, vmin=vmin, vmax=vmax, shading='auto')
         cb = plt.colorbar(im)
         cb.set_label(self.img_units, rotation=270, labelpad=20)
         plt.title(self.shot_string(shot_dict))
-        plt.xlabel('Electron energy [MeV]') 
-        plt.ylabel('Beam divergence [mrad]')
+        plt.xlabel('Electron energy [MeV]') # These could be wrong...
+        plt.ylabel('Beam divergence [mrad]') # These could be wrong...
         plt.tight_layout()
         plt.show(block=False)
 
