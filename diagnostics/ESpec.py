@@ -6,7 +6,7 @@ import re
 
 from ..diagnostic import Diagnostic
 from ..utils.image_proc import ImageProc
-from ..utils.dict_update import *
+from ..utils.general import dict_update
 from ..utils.plotting import *
 
 class ESpec(Diagnostic):

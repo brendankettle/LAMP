@@ -3,7 +3,7 @@ from configparser import ConfigParser, ExtendedInterpolation
 import numpy as np
 from pathlib import Path
 from .utils.io import *
-from .utils.dict_update import *
+from .utils.general import dict_update
 
 class Diagnostic():
     """Base class for Diagnostics. 
