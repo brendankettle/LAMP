@@ -66,7 +66,7 @@ def load_npy(filepath):
 def save_npy(filepath, data):
     return np.save(Path(filepath),data)
 
-def load_csv(filepath, delimiter=',', col_dtypes=None, skip_header=0):
+def load_csv(filepath, delimiter=',', col_dtypes=float, skip_header=0):
     # Pandas might be better here? problems with mixed data types...
     return np.genfromtxt(Path(filepath), delimiter=delimiter, dtype=col_dtypes, skip_header=skip_header, encoding=None)
 
