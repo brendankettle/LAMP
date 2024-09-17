@@ -573,9 +573,9 @@ class ESpec(Diagnostic):
         espec_img, x, y = self.get_proc_shot(shot_dict, debug=debug)
 
         if vmin is None:
-            vmin = np.min(espec_img)
+            vmin = np.nanmin(espec_img)
         if vmax is None:
-            vmax = np.max(espec_img)
+            vmax = np.nanmax(espec_img)
 
         fig = plt.figure()
         im = plt.pcolormesh(x, y, espec_img, vmin=vmin, vmax=vmax, shading='auto')
