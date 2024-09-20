@@ -94,6 +94,53 @@ class ImageProc():
         elif type.lower() == 'surf_fit':
             # feed ROIs or data, and then interpolate surface across this before subtracting
             print('Error in bkg_sub: type surf_fit TO DO!')
+
+            # import numpy as np
+            # from sklearn.preprocessing import PolynomialFeatures
+            # from sklearn.linear_model import LinearRegression
+            # import matplotlib.pyplot as plt
+            # from mpl_toolkits.mplot3d import Axes3D
+
+            # # Generate some random 3D data
+            # np.random.seed(0)
+            # n_samples = 100
+            # X = np.random.uniform(-5, 5, n_samples)
+            # Y = np.random.uniform(-5, 5, n_samples)
+            # Z = 3*X**2 + 2*Y + np.random.normal(0, 5, n_samples)  # Example function: Z = 3*X^2 + 2*Y + noise
+
+            # # Prepare the input data for polynomial regression
+            # XY = np.vstack((X, Y)).T  # Combine X and Y into a 2D array
+
+            # # Define the degree of the polynomial
+            # degree = 2
+            # poly = PolynomialFeatures(degree)
+            # XY_poly = poly.fit_transform(XY)
+
+            # # Fit the polynomial regression model
+            # model = LinearRegression()
+            # model.fit(XY_poly, Z)
+
+            # # Predict Z values for the fitted surface
+            # Z_pred = model.predict(XY_poly)
+
+            # # Plotting the original data points
+            # fig = plt.figure()
+            # ax = fig.add_subplot(111, projection='3d')
+            # ax.scatter(X, Y, Z, color='blue', label='Original Data')
+
+            # # Plotting the fitted surface
+            # X_grid, Y_grid = np.meshgrid(np.linspace(X.min(), X.max(), 100), np.linspace(Y.min(), Y.max(), 100))
+            # XY_grid = np.vstack((X_grid.ravel(), Y_grid.ravel())).T
+            # Z_grid = model.predict(poly.transform(XY_grid)).reshape(X_grid.shape)
+            # ax.plot_surface(X_grid, Y_grid, Z_grid, color='red', alpha=0.5, label='Fitted Surface')
+
+            # ax.set_xlabel('X')
+            # ax.set_ylabel('Y')
+            # ax.set_zlabel('Z')
+            # ax.legend()
+            # plt.show()
+
+
             return None
         else:
             print(f'Error in bkg_sub: Unknown type: {type}')
@@ -108,19 +155,19 @@ class ImageProc():
 
             p_px: array of [X,Y] pixel values on original image data. [[X1,Y1],[X2,Y2],...]
             p_t: for pixels above, corresponding array of [X,Y] values on plane being transformed, in it's coords (if real space image, mm?)
-            img_size_t: [X,Y] size of plane being transformed, in it's coords (if real space image, mm?)
-            img_size_px: [X,Y] new size of transformed image in pixels (can upsample)
-            offset: offset of plane being transformed, in it's coords (if real space image, mm?)
+            img_size_t: [X,Y] size of plane being transformed (and new transformed image), in it's coords (if real space image, mm?)
+            img_size_px: [X,Y] size of new transformed image in pixels (can down/up sample)
+            offset: [X,Y] offset of plane being transformed, in it's coords (if real space image, mm?)
             notes: For adding details about how the other variables were choosen, dates etc.
             description: Shorthand name
         """
 
-        # resolution of new output image
+        # uses new image size and new number of pixels, to compute resolution of new output image
         dx = img_size_t[0] / img_size_px[0] # mm / px
         dy = img_size_t[1] / img_size_px[1] # mm / px
         new_pixel_area = dx*dy
 
-        # make new pixel coords for transformed image
+        # make new axis for transformed image, in its coords
         x_t = offset[0] + np.linspace(0,img_size_px[0],num=img_size_px[0]) * dx
         y_t = offset[1] + np.linspace(0,img_size_px[1],num=img_size_px[1]) * dy
 
@@ -142,20 +189,20 @@ class ImageProc():
         # build transform dictionary
         tform_dict = {
             'description': description,
+            'notes': notes,
             'H': H,
-            'new_img_size': (img_size_px[0],img_size_px[1]),
+            'new_img_size': (img_size_px[0],img_size_px[1]), # in pixels, for making image
             'x': x_t,
             'y': y_t,
             'orig_pixel_area': orig_pixel_area, # caluclated pixel area of plane to be transformed in calibration image (mm2 per pixel for spatial transform)
             'new_pixel_area': new_pixel_area, # area of pixel in new output imge (mm2 per pixel for spatial transform)
             'p_px': p_px,
             'p_t': p_t,
-            'notes': notes,
-            'newImgSize': (img_size_px[0],img_size_px[1]), # For backwards capability of old ESpec calibraions
-            'x_mm': x_t, # For backwards capability of old ESpec calibraions, where transformed plane is real space (mm)
-            'y_mm': y_t, # For backwards capability of old ESpec calibraions, where transformed plane is real space (mm)
-            'imgArea0': orig_pixel_area, # For backwards capability of old ESpec calibraions
-            'imgArea1': new_pixel_area, # For backwards capability of old ESpec calibraions
+            # 'newImgSize': (img_size_px[0],img_size_px[1]), # For backwards capability of old ESpec calibraions
+            # 'x_mm': x_t, # For backwards capability of old ESpec calibraions, where transformed plane is real space (mm)
+            # 'y_mm': y_t, # For backwards capability of old ESpec calibraions, where transformed plane is real space (mm)
+            # 'imgArea0': orig_pixel_area, # For backwards capability of old ESpec calibraions
+            # 'imgArea1': new_pixel_area, # For backwards capability of old ESpec calibraions
         }
 
         self.tform_dict = tform_dict

@@ -1,9 +1,11 @@
 import os
 from configparser import ConfigParser, ExtendedInterpolation
 import numpy as np
+import matplotlib.pyplot as plt
 from pathlib import Path
 from .utils.io import *
 from .utils.general import dict_update
+from .utils.image_proc import ImageProc
 
 class Diagnostic():
     """Base class for Diagnostics. 
@@ -107,6 +109,177 @@ class Diagnostic():
         save_file(self.build_calib_filepath(filename), calib_data, file_type=file_type, options=options)
         return
 
+    def make_calib(self, calib_id=None, save=False, view=True):
+        """Master function for generating procssed portion of calibration file
+            E.g transform, dispersion, etc. 
+        """
+
+        # Get calibration input
+        self.calib_dict = self.get_calib(calib_id, no_proc=True)
+
+        # Apply spatial transform?
+        if 'transform' in self.calib_dict:
+            self.make_transform(self.calib_dict['transform'], view=view)
+
+        # Apply dispersion?
+        # the function would be defined in the actual diagnostic module.
+        if 'dispersion' in self.calib_dict:
+            self.make_dispersion(self.calib_dict['dispersion'], view=view)
+
+        # Apply divergence?
+        # the function would be defined in the actual diagnostic module.
+        if 'divergence' in self.calib_dict:
+            self.make_divergence(self.calib_dict['divergence'], view=view)
+
+        # save the full calibration?
+        if save:
+            if 'proc_file' not in self.calib_dict:
+                print('Error, proc_file variable required in calibration if saving.')
+            self.save_calib_file(self.calib_dict['proc_file'], self.calib_dict)
+
+        return self.get_calib()
+    
+    def run_img_calib(self):
+        """Central wrapper function for processing image data using calibration"""
+
+        if 'roi' in self.calib_dict:
+            # pixels or transformed coords?
+            print()
+
+        if 'background' in self.calib_dict:
+            print()
+
+        if 'transform' in self.calib_dict:
+            print()
+        elif 'img_rotation' in self.calib_dict:
+            print()
+
+        return
+
+    def transform(self, img_data, tform_dict=None):
+        """Wrapper function around ImageProc transform"""
+
+        # if not passed, use stored tform_dict, or complain
+        if tform_dict is None:
+            if self.calib_dict['transform'] is None:
+                print('Error, transform dictionary needs to be passed or loaded')
+                return
+        else:
+            self.calib_dict['transform'] = tform_dict
+
+        # if img_data is passed as a shot dictionary or filepath, grab the actual image
+        if isinstance(img_data, dict) or isinstance(img_data, str):
+            img_data = self.get_shot_data(img_data)
+
+        img = ImageProc(img_data)
+        timg, tx, ty = img.transform(self.calib_dict['transform'])
+
+        # offset? shifts the xy cords on transformed screen
+        if 'e_offsets' in self.calib_dict['transform']: # backwards caompatiable with old ESpec calibrationss...
+            self.calib_dict['transform']['zero_offsets'] = self.calib_dict['transform']['e_offsets']
+        x = tx - self.calib_dict['transform']['zero_offsets'][0]
+        y = ty - self.calib_dict['transform']['zero_offsets'][1]
+
+        return timg, x, y
+    
+    def make_transform(self, tcalib_input, view=False):
+        """Generate a transform dictionary for use with spatially transforming raw shot images.
+            This is a wrapper for ImageProc make_transform()
+
+            tcalib_input: A dictionary containing the required information for the transform, or calibration file/id for loading...
+                        Required dictionary keys; 
+                            - tpoints; list of [X,Y], where the first pair is raw pixel, the next is the corresponding transform point, and repeat...
+                            - raw_img; shot dictionary or filepath to raw untransformed calibration image 
+                            - img_size_t; [X,Y] size of plane being transformed (and new transformed image), in it's coords (if real space image, mm?)
+                            - img_size_px; [X,Y] new size of transformed image in pixels (can up/down sample)
+                            - orig_offsets; [X,Y] offset of plane being transformed (original), in it's coords (mm?)
+                            - zero_offsets; [X,Y] cords shift of resulting transformed plane (afterwards), in its coords (mm?)
+                        Optional dictionary keys; description, notes
+            save_path:
+            view:
+        """
+
+        # points are (by convention) passed in a list of [X,Y], where the first is in the pixel point, 
+        # the next is the corresponding transform point, and repeat
+        # so here we pick out every other value for the appropriate seperate arrays
+        points = np.array(tcalib_input['tpoints'])
+        if 'tpoints_shift' in tcalib_input:
+            points = points + tcalib_input['tpoints_shift']
+        p_px, p_t =  points[::2], points[1::2]
+
+        # get raw image using shot dictionary or filepath
+        raw_img = self.get_shot_data(tcalib_input['raw_img'])
+
+        # optionals?
+        if 'description' in tcalib_input:
+            description = tcalib_input['description']
+        else:
+            description = ''
+        if 'notes' in tcalib_input:
+            notes = tcalib_input['notes']
+        else:
+            notes = ''
+
+        # Use image processing library to generate a transform dictionary 
+        img = ImageProc(raw_img)
+
+        if self.calib_dict is None:
+            self.calib_dict = {}
+        if 'transform' not in self.calib_dict:
+            self.calib_dict['transform'] = {}
+
+        # backwards compatability
+        if 'offsets' in tcalib_input:
+            tcalib_input['orig_offsets'] = tcalib_input['offsets']
+
+        # no offset define? assume zero
+        if 'orig_offsets' not in tcalib_input:
+            tcalib_input['orig_offsets'] = [0,0]
+
+        # update dictionary with new dictionary values
+        dict_update(self.calib_dict['transform'], img.make_transform(p_px, p_t, tcalib_input['img_size_t'], tcalib_input['img_size_px'], 
+                                        tcalib_input['orig_offsets'], notes=notes, description=description))
+
+        # Add zero offset for new image
+        if 'zero_offsets' in tcalib_input:
+            self.calib_dict['transform']['zero_offsets'] = tcalib_input['zero_offsets']
+        else:
+            tcalib_input['zero_offsets'] = [0,0]
+
+        # perform transform to check
+        timg, tx, ty = self.transform(raw_img)
+
+        # save current processed image to object along with x and y values
+        self.curr_img = timg
+        self.x_mm = tx
+        self.y_mm = ty
+
+        if view:
+            # if viewing, plot raw image
+            plt.figure()
+            im = plt.imshow(raw_img)
+            plt.plot(p_px[:,0],p_px[:,1],'r+')
+            cb = plt.colorbar(im)
+            cb.set_label('Counts on CCD', rotation=270, labelpad=20)
+            plt.title(description)
+            plt.xlabel('pixels')
+            plt.ylabel('pixels')
+            plt.tight_layout()
+            plt.show(block=False)
+            # then plot transformed
+            plt.figure()
+            im = plt.imshow(timg, extent= (np.min(self.x_mm), np.max(self.x_mm), np.max(self.y_mm), np.min(self.y_mm)))
+            plt.plot(p_t[:,0]-tcalib_input['zero_offsets'][0],p_t[:,1]-tcalib_input['zero_offsets'][1],'r+')
+            cb = plt.colorbar(im)
+            cb.set_label('Counts on CCD', rotation=270, labelpad=20)
+            plt.title(description)
+            plt.xlabel('mm?')
+            plt.ylabel('mm?')
+            plt.tight_layout()
+            plt.show(block=False)
+
+        return self.calib_dict['transform']
+    
     def shot_string(self, shot_dict):
         self.DAQ.shot_string(shot_dict)
         return f"{self.config['name']}, {self.DAQ.shot_string(shot_dict)}"
@@ -128,3 +301,33 @@ class Diagnostic():
             int_data.append(self.get_integrated_signal(shot_dict, roi=roi))
         
         return int_data
+    
+    def to_mm(self, value, units):
+        if units.lower() == 'mm':
+            return value
+        elif units.lower() == 'cm':
+            return (value * 10)
+        elif units.lower() == 'm':
+            return (value * 1e3)
+        else:
+            print(f"to_mm error; unknown spatial units {units}")
+
+    def to_MeV(self, value, units):
+        if units == 'MeV':
+            return value
+        elif units == 'GeV':
+            return (value * 1e3)
+        elif units == 'eV':
+            return (value * 1e-3)
+        else:
+            print(f"to_MeV error; unknown spectral units {units}")
+
+    def to_mrad(self, value, units):
+        if units.lower() == 'mrad':
+            return value
+        elif units.lower() == 'rad':
+            return (value * 1e3)
+        elif units.lower() == 'deg':
+            return (value * (np.pi() / 180) * 1e3)
+        else:
+            print(f"to_mrad error; unknown angular units {units}")
