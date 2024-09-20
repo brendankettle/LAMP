@@ -6,7 +6,7 @@ import re
 
 from ..diagnostic import Diagnostic
 from ..utils.image_proc import ImageProc
-from ..utils.general import dict_update
+from ..utils.general import dict_update, mindex
 from ..utils.plotting import *
 
 class ESpec(Diagnostic):
@@ -363,7 +363,8 @@ class ESpec(Diagnostic):
     # TODO: Move some of this to shared plotting class?
     # ------------------------------------------------------ #
 
-    def montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1):
+    def montage(self, timeframe, x_roi=None, MeV_max=None, y_roi=None, mrad_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1):
+        """This definitely needs fixed to work for other cases and generalised and put in diagnostic class"""
 
         # calling 'universal' DAQ function here, that is probably DAQ specific
         shot_dicts = self.DAQ.get_shot_dicts(self.config['name'],timeframe,exceptions=exceptions)
@@ -389,6 +390,17 @@ class ESpec(Diagnostic):
                 shot_str = ''
 
             shot_labels.append(burst_str + shot_str)
+
+        # convert rois to MeV mrad indices
+        # if 'dispersion' in self.calib_dict:
+        #     print('Converting ROI to MeV')
+        #     x_roi=[mindex(x_MeV,x_roi[0]),mindex(x_MeV,x_roi[1])]
+        #     print(x_roi)
+        # below is a hack! requires x= MeV etc..
+        if MeV_max is not None:
+            x_roi=[0,mindex(x_MeV,MeV_max)]
+        if mrad_roi is not None:
+            y_roi=[mindex(y_mrad,mrad_roi[0]),mindex(y_mrad,mrad_roi[1])]
 
         # or y_MeV?
         fig, ax = plot_montage(images, x_roi=x_roi, y_roi=y_roi, axis=self.x_MeV, x_downsample=x_downsample, 
