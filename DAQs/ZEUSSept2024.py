@@ -19,7 +19,9 @@ class ZEUSSept2024(DAQ):
     def _build_shot_filepath(self, diag_folder, date, run_folder, shotnum, ext):#, burst_folder='Burst0001'):
         """This is used internally, and so can be DAQ specific"""
         # check file?
-        shot_filepath = f'{self.data_folder}/{date}_{run_folder}/{diag_folder}/shot{str(shotnum)}.{ext}'
+        #shot_filepath = f'{self.data_folder}/{date}_{run_folder}/{diag_folder}/shot{str(shotnum)}.{ext}'
+        # DAQ file structure changed after shots on 15th, but before shots on 19th September
+        shot_filepath = f'{self.data_folder}/{date}/{run_folder}/{diag_folder}/shot{str(shotnum)}.{ext}'
         return Path(shot_filepath)
 
     def get_shot_data(self, diag_name, shot_dict):
