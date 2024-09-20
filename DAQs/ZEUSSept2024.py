@@ -121,7 +121,7 @@ class ZEUSSept2024(DAQ):
         """timeframe can be 'all' or a dictionary containing lists of dates, or runs"""
 
         diag_config = self.ex.diags[diag_name].config
-        diag_folder = Path(f"{self.data_folder}/")
+        data_folder = Path(f"{self.data_folder}/")
 
         shot_dicts = []
 
@@ -129,8 +129,8 @@ class ZEUSSept2024(DAQ):
         if isinstance(timeframe, str) and timeframe.lower() == 'all':
             # get date folders
             dates = []
-            for dir_name in os.listdir(diag_folder):
-                if os.path.isdir(os.path.join(diag_folder, dir_name)):
+            for dir_name in os.listdir(data_folder):
+                if os.path.isdir(os.path.join(data_folder, dir_name)):
                     # add filename to list (quick bodge here to try and catch only real date folders)
                     if len(dir_name) == 8:
                         dates.append(int(dir_name))
@@ -141,7 +141,7 @@ class ZEUSSept2024(DAQ):
 
         # now that we have dates, for each, get run(s)
         for date in sorted(dates):
-            date_folder = os.path.join(diag_folder, str(date))
+            date_folder = os.path.join(data_folder, str(date))
             # runs passed
             if isinstance(timeframe, dict) and 'runs' in timeframe:
                 runs = timeframe['runs']
@@ -154,42 +154,53 @@ class ZEUSSept2024(DAQ):
                 for run_name in os.listdir(date_folder):
                     if os.path.isdir(os.path.join(date_folder, run_name)):
                         runs.append(run_name)
-            # now we have date and runs, get bursts
+            # now we have date and runs
             for run in sorted(runs):
                 run_folder = os.path.join(date_folder, str(run))
-                # bursts passed
-                if isinstance(timeframe, dict) and 'bursts' in timeframe:
-                    bursts = timeframe['bursts']
-                # single burst
-                elif isinstance(timeframe, dict) and 'burst' in timeframe:
-                    bursts = [timeframe['burst']]
-                # scan folder
+
+                # no bursts in this DAQ?
+                # # bursts passed
+                # if isinstance(timeframe, dict) and 'bursts' in timeframe:
+                #     bursts = timeframe['bursts']
+                # # single burst
+                # elif isinstance(timeframe, dict) and 'burst' in timeframe:
+                #     bursts = [timeframe['burst']]
+                # # scan folder
+                # else:
+                #     bursts = []
+                #     for burst_name in os.listdir(run_folder):
+                #         if os.path.isdir(os.path.join(run_folder, burst_name)):
+                #             bursts.append(burst_name)
+                # # now we have date, runs, bursts, get shots
+                # for burst in sorted(bursts):
+                #     burst_folder = os.path.join(run_folder, str(burst))
+
+                if 'shotnums' in timeframe:
+                    shotnums = timeframe['shotnums']
+                # scanning for shotnums
                 else:
-                    bursts = []
-                    for burst_name in os.listdir(run_folder):
-                        if os.path.isdir(os.path.join(run_folder, burst_name)):
-                            bursts.append(burst_name)
-                # now we have date, runs, bursts, get shots
-                for burst in sorted(bursts):
-                    burst_folder = os.path.join(run_folder, str(burst))
                     shotnums = []
-                    for filename in os.listdir(burst_folder):
-                        if os.path.isfile(os.path.join(burst_folder, filename)):
-                            if diag_config['data_stem'].lower() in filename.lower():
+                    run_diag_path = os.path.join(run_folder, str(diag_config['data_folder']).strip('/\\'))
+                    for filename in os.listdir(run_diag_path):
+                        if os.path.isfile(os.path.join(run_diag_path, filename)):
+                            #if diag_config['data_stem'].lower() in filename.lower():
+                            if 'shot' in filename.lower():
                                 if exceptions:
                                     if filename in exceptions:
                                         print(f'Skipping {filename}')
                                         continue
-                                segs = os.path.splitext(filename)[0].split("_")
-                                shotnums.append(int(segs[2])) # This gets round the double shots for now, but need to fix this
-                                #m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
-                                #shotnums.append(int(m.group()))
+                                #segs = os.path.splitext(filename)[0].split("hot")
+                                #shotnums.append(int(segs[1])) # This gets round the double shots for now, but need to fix this
+                                m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
+                                shotnums.append(int(m.group()))
                                 #print(f"{date} / {run} / {shotnums[-1]}")
-                    shotnums = sorted(shotnums)
 
-                    # OK, build the list to return!
-                    for shotnum in shotnums:
-                        shot_dicts.append({'date': date, 'run': run, 'burst': burst, 'shotnum': shotnum})
+                shotnums = sorted(shotnums)
+
+                # OK, build the list to return!
+                for shotnum in shotnums:
+                    #shot_dicts.append({'date': date, 'run': run, 'burst': burst, 'shotnum': shotnum})
+                    shot_dicts.append({'date': date, 'run': run, 'shotnum': shotnum})
 
         return shot_dicts
     
