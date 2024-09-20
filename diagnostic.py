@@ -177,6 +177,7 @@ class Diagnostic():
         # offset? shifts the xy cords on transformed screen
         if 'e_offsets' in self.calib_dict['transform']: # backwards caompatiable with old ESpec calibrationss...
             self.calib_dict['transform']['zero_offsets'] = self.calib_dict['transform']['e_offsets']
+
         x = tx - self.calib_dict['transform']['zero_offsets'][0]
         y = ty - self.calib_dict['transform']['zero_offsets'][1]
 
@@ -203,9 +204,10 @@ class Diagnostic():
         # the next is the corresponding transform point, and repeat
         # so here we pick out every other value for the appropriate seperate arrays
         points = np.array(tcalib_input['tpoints'])
-        if 'tpoints_shift' in tcalib_input:
-            points = points + tcalib_input['tpoints_shift']
         p_px, p_t =  points[::2], points[1::2]
+        if 'tpoints_shift' in tcalib_input:
+            p_px = p_px + tcalib_input['tpoints_shift'][0]
+            p_t = p_t + tcalib_input['tpoints_shift'][1]
 
         # get raw image using shot dictionary or filepath
         raw_img = self.get_shot_data(tcalib_input['raw_img'])
