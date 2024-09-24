@@ -24,33 +24,17 @@ class Scintillator(Diagnostic):
     def get_proc_shot(self, shot_dict, calib_id=None):
         """Return a processed shot using saved or passed calibrations.
         """
-
         # set calibration dictionary
         if calib_id:
             self.calib_dict = self.get_calib(calib_id)
         else:
             self.calib_dict = self.get_calib(shot_dict)
 
-        img_data = self.get_shot_data(shot_dict)
-
-        if 'bkg_type' in self.calib_dict:
-            if self.calib_dict['bkg_type'] == 'flat':
-                if 'bkg_roi' in self.calib_dict:
-                    bkg_roi = self.calib_dict['bkg_roi']
-                    bkg_value = np.mean(img_data[bkg_roi[0][1]:bkg_roi[1][1],bkg_roi[0][0]:bkg_roi[1][0]])
-                    img_data = img_data - bkg_value
-                else:
-                    print(f"{self.config['name']}: No bkg_roi provided")
-            else:
-                print(f"{self.config['name']}: Unknown background correction type '{self.calib_dict['bkg_type']}'")
-
-        if 'roi' in self.calib_dict:
-            roi = self.calib_dict['roi']
-            img_data = img_data[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]]
-
-        rows, cols = np.shape(img_data)
-        self.x = np.arange(cols)
-        self.y = np.arange(rows)
+        #img_data = self.get_shot_data(shot_dict)
+        # do standard image loading and calibration. Transforms, background, ROIs etc.
+        img_data, x, y = self.run_img_calib(shot_dict)
+        self.x = x
+        self.y = y
 
         return img_data, self.x, self.y
     

@@ -70,6 +70,50 @@ class ImageProc():
         return self.get_img()
     
     def bkg_sub(self, type, roi=None, axis=None, data=None, options=None, debug=False):
+
+            #if 'bkg_type' in self.calib_dict:
+            # if self.calib_dict['bkg_type'] == 'flat':
+            #     if 'bkg_roi' in self.calib_dict:
+            #         bkg_roi = self.calib_dict['bkg_roi']
+            #         bkg_value = np.mean(img[bkg_roi[0][1]:bkg_roi[1][1],bkg_roi[0][0]:bkg_roi[1][0]])
+            #         img = img - bkg_value
+            #     else:
+            #         print(f"{self.config['name']}: No bkg_roi provided")
+            # if self.calib_dict['bkg_type'] == 'horizontal_poly':
+            #     if 'bkg_roi' in self.calib_dict:
+            #         bkg_roi = self.calib_dict['bkg_roi']
+
+            #         bkg_px = np.arange(bkg_roi[0][0],bkg_roi[1][0])
+            #         bkg_lin = np.mean(img[bkg_roi[0][1]:bkg_roi[1][1],bkg_roi[0][0]:bkg_roi[1][0]], 0)
+            #         bkg_fit = np.polyfit(bkg_px, bkg_lin, 4)
+            #         bkg_func = np.poly1d(bkg_fit)
+            #         all_px = np.arange(0,np.shape(img)[1])
+            #         bkg_img = np.tile(bkg_func(all_px), (np.shape(img)[0],1))
+
+            #         if debug:
+            #             plt.figure()
+            #             plt.plot(bkg_px, bkg_lin)
+            #             plt.plot(all_px,bkg_func(all_px))
+            #             plt.xlabel('new pixels')
+            #             plt.ylabel('mean counts')
+            #             plt.tight_layout()
+            #             plt.title('Background correction')
+            #             plt.show(block=False)
+
+            #             plt.figure()
+            #             im = plt.imshow(bkg_img)
+            #             cb = plt.colorbar(im)
+            #             #cb.set_label(self.img_units, rotation=270, labelpad=20)
+            #             plt.tight_layout()
+            #             plt.title('Background correction')
+            #             plt.show(block=False)
+
+            #         img = img - bkg_img
+            #     else:
+            #         print(f"{self.config['name']}: No bkg_roi provided")
+            # else:
+            #     print(f"{self.config['name']}: Unknown background correction type '{self.calib_dict['bkg_type']}'")
+
         # switch between background type
         if type.lower() == 'img':
             # subtract an image fed into function

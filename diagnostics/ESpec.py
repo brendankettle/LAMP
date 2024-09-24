@@ -45,64 +45,14 @@ class ESpec(Diagnostic):
         else:
             self.calib_dict = self.get_calib(shot_dict)
 
+        # do standard image calibration. Transforms, background, ROIs etc.
+        img, x, y = self.run_img_calib(shot_dict, debug=debug)
         # minimum calibration is spatial transform
-        img, x, y = self.transform(shot_dict, self.calib_dict['transform'])
+        #img, x, y = self.transform(shot_dict, self.calib_dict['transform'])
+
         self.curr_img = img
         self.x_mm = x
         self.y_mm = y
-
-        if debug:
-            plt.figure()
-            im = plt.imshow(img, vmax=(0.2*np.max(img)))
-            cb = plt.colorbar(im)
-            plt.xlabel('new pixels')
-            plt.ylabel('new pixels')
-            plt.tight_layout()
-            plt.show(block=False)
-
-        # To Do: background correction should be handled elsewhere and shared?
-        if 'bkg_type' in self.calib_dict:
-            if self.calib_dict['bkg_type'] == 'flat':
-                if 'bkg_roi' in self.calib_dict:
-                    bkg_roi = self.calib_dict['bkg_roi']
-                    bkg_value = np.mean(img[bkg_roi[0][1]:bkg_roi[1][1],bkg_roi[0][0]:bkg_roi[1][0]])
-                    img = img - bkg_value
-                else:
-                    print(f"{self.config['name']}: No bkg_roi provided")
-            if self.calib_dict['bkg_type'] == 'horizontal_poly':
-                if 'bkg_roi' in self.calib_dict:
-                    bkg_roi = self.calib_dict['bkg_roi']
-
-                    bkg_px = np.arange(bkg_roi[0][0],bkg_roi[1][0])
-                    bkg_lin = np.mean(img[bkg_roi[0][1]:bkg_roi[1][1],bkg_roi[0][0]:bkg_roi[1][0]], 0)
-                    bkg_fit = np.polyfit(bkg_px, bkg_lin, 4)
-                    bkg_func = np.poly1d(bkg_fit)
-                    all_px = np.arange(0,np.shape(img)[1])
-                    bkg_img = np.tile(bkg_func(all_px), (np.shape(img)[0],1))
-
-                    if debug:
-                        plt.figure()
-                        plt.plot(bkg_px, bkg_lin)
-                        plt.plot(all_px,bkg_func(all_px))
-                        plt.xlabel('new pixels')
-                        plt.ylabel('mean counts')
-                        plt.tight_layout()
-                        plt.title('Background correction')
-                        plt.show(block=False)
-
-                        plt.figure()
-                        im = plt.imshow(bkg_img)
-                        cb = plt.colorbar(im)
-                        #cb.set_label(self.img_units, rotation=270, labelpad=20)
-                        plt.tight_layout()
-                        plt.title('Background correction')
-                        plt.show(block=False)
-
-                    img = img - bkg_img
-                else:
-                    print(f"{self.config['name']}: No bkg_roi provided")
-            else:
-                print(f"{self.config['name']}: Unknown background correction type '{self.calib_dict['bkg_type']}'")
 
         # dispersion?
         if apply_disp and 'dispersion' in self.calib_dict:

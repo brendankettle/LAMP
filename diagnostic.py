@@ -3,6 +3,7 @@ from configparser import ConfigParser, ExtendedInterpolation
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+from scipy import ndimage
 from .utils.io import *
 from .utils.general import dict_update
 from .utils.image_proc import ImageProc
@@ -139,22 +140,46 @@ class Diagnostic():
 
         return self.get_calib()
     
-    def run_img_calib(self):
+    def run_img_calib(self, img_data, debug=False):
         """Central wrapper function for processing image data using calibration"""
+
+        # if img_data is passed as a shot dictionary or filepath, grab the actual image
+        if isinstance(img_data, dict) or isinstance(img_data, str):
+            img_data = self.get_shot_data(img_data)
 
         if 'roi' in self.calib_dict:
             # pixels or transformed coords?
-            print()
-
+            # i.e should this be on transformed image or not?
+            # probably seperate definitions...? i.e. ['roi']['transformed']
+            print('To Do! Automatic ROI processing')
+            # roi = self.calib_dict['roi']
+            # img_data = img_data[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]]
+            
         if 'background' in self.calib_dict:
-            print()
+            # Use image_proc class!
+            # should this be on transformed image or not?
+            # could add a flag? i.e. ['background']['stage'] = 'transformed' or 'raw'
+            print('To Do! Automatic Background processing')
 
         if 'transform' in self.calib_dict:
-            print()
+            img_data, x, y = self.transform(img_data, self.calib_dict['transform'])
+            if debug:
+                plt.figure()
+                im = plt.imshow(img_data, vmax=(0.2*np.max(img_data)))
+                cb = plt.colorbar(im)
+                plt.xlabel('new pixels')
+                plt.ylabel('new pixels')
+                plt.tight_layout()
+                plt.show(block=False)
         elif 'img_rotation' in self.calib_dict:
-            print()
+            img_data = ndimage.rotate(img_data, self.calib_dict['img_rotation'], reshape=False)
 
-        return
+        # if x / y not set, use pixel numbers
+        if 'x' not in locals():
+            x = np.arange(np.shape(img_data)[1])
+            y = np.arange(np.shape(img_data)[0])
+
+        return img_data, x, y
 
     def transform(self, img_data, tform_dict=None):
         """Wrapper function around ImageProc transform"""
