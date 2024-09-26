@@ -41,8 +41,6 @@ class ZEUSSept2024(DAQ):
             print(f'Error, Could not find {str(shot_filepath_try)} or {str(shot_filepath)}') 
             return False
         
-        print(shot_filepath)
-        
         return shot_filepath
 
     def get_shot_data(self, diag_name, shot_dict):
