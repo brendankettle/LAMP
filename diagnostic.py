@@ -175,6 +175,7 @@ class Diagnostic():
             # non-transform functions
             if 'img_rotation' in self.calib_dict:
                 img_data = ndimage.rotate(img_data, self.calib_dict['img_rotation'], reshape=False)
+                
             if 'scale' in self.calib_dict:
                 x = np.arange(np.shape(img_data)[1]) * self.calib_dict['scale']['pixel_width']
                 y = np.arange(np.shape(img_data)[0]) * self.calib_dict['scale']['pixel_height']
