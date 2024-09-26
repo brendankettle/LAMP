@@ -21,7 +21,7 @@ class Scintillator(Diagnostic):
         super().__init__(exp_obj, config_filepath)
         return
     
-    def get_proc_shot(self, shot_dict, calib_id=None):
+    def get_proc_shot(self, shot_dict, calib_id=None, debug=False):
         """Return a processed shot using saved or passed calibrations.
         """
         # set calibration dictionary

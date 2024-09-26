@@ -16,13 +16,34 @@ class ZEUSSept2024(DAQ):
         super().__init__(exp_obj)
         return
     
-    def _build_shot_filepath(self, diag_folder, date, run_folder, shotnum, ext):#, burst_folder='Burst0001'):
+    def _build_shot_filepath(self, diag_folder, date, run_folder, shotnum, ext, data_stem=None, burst_folder='Burst0001'):
         """This is used internally, and so can be DAQ specific"""
-        # check file?
-        #shot_filepath = f'{self.data_folder}/{date}_{run_folder}/{diag_folder}/shot{str(shotnum)}.{ext}'
-        # DAQ file structure changed after shots on 15th, but before shots on 19th September
-        shot_filepath = f'{self.data_folder}/{date}/{run_folder}/{diag_folder}/shot{str(shotnum)}.{ext}'
-        return Path(shot_filepath)
+        # Try new DAQ; file structure changed after shots on 15th, but before shots on 19th September. Then back to Apollo later...
+        shot_filepath_try = Path(f'{self.data_folder}/{date}/{run_folder}/{diag_folder}/shot{str(shotnum)}.{ext}')
+
+        if shot_filepath_try.is_file():
+            shot_filepath = shot_filepath_try
+        else:
+            # check for Apollo format instead?
+            if not data_stem:
+                data_stem = f'{diag_folder}_'
+            shot_filepath = Path(f'{self.data_folder}/{date}/{run_folder}/{burst_folder}/{diag_folder}/{data_stem}shot_{str(shotnum).zfill(5)}.{ext}')
+            # .tif or .tiff??? this is definitely a bodge...
+            if not shot_filepath.is_file():
+                if ext.lower() == 'tif':
+                    ext = 'tiff'
+                elif ext.lower() == 'tiff':
+                    ext = 'tif'
+                shot_filepath = Path(f'{self.data_folder}/{date}/{run_folder}/{burst_folder}/{diag_folder}/{data_stem}shot_{str(shotnum).zfill(5)}.{ext}')
+
+
+        if not shot_filepath.is_file():
+            print(f'Error, Could not find {str(shot_filepath_try)} or {str(shot_filepath)}') 
+            return False
+        
+        print(shot_filepath)
+        
+        return shot_filepath
 
     def get_shot_data(self, diag_name, shot_dict):
 
@@ -43,12 +64,17 @@ class ZEUSSept2024(DAQ):
                     print(f"get_shot_data() error: {self.__name} DAQ requires a shot_dict['{param}'] value")
                     return None
                 
-            # if 'burst' in shot_dict:
-            #     burst = shot_dict['burst']
-            # else:
-            #     burst = 'Burst0001'
+            # Apollo?
+            if 'burst' in shot_dict:
+                burst = shot_dict['burst']
+            else:
+                burst = 'Burst0001'
+            if 'data_stem' in diag_config:
+                data_stem = diag_config['data_stem']
+            else:
+                data_stem = None
 
-            shot_filepath = self._build_shot_filepath(diag_config['data_folder'], shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], diag_config['data_ext'])#, burst_folder=burst)
+            shot_filepath = self._build_shot_filepath(diag_config['data_folder'], shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], diag_config['data_ext'], data_stem = data_stem, burst_folder=burst)
 
             if diag_config['data_type'] == 'image':
                 shot_data = self.load_imdata(shot_filepath)
