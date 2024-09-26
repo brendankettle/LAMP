@@ -171,13 +171,30 @@ class Diagnostic():
                 plt.ylabel('new pixels')
                 plt.tight_layout()
                 plt.show(block=False)
-        elif 'img_rotation' in self.calib_dict:
-            img_data = ndimage.rotate(img_data, self.calib_dict['img_rotation'], reshape=False)
+        else:
+            # non-transform functions
+            if 'img_rotation' in self.calib_dict:
+                img_data = ndimage.rotate(img_data, self.calib_dict['img_rotation'], reshape=False)
+            if 'scale' in self.calib_dict:
+                x = np.arange(np.shape(img_data)[1]) * self.calib_dict['scale']['pixel_width']
+                y = np.arange(np.shape(img_data)[0]) * self.calib_dict['scale']['pixel_height']
+                if 'units' in self.calib_dict['scale']:
+                    self.x_units = self.calib_dict['scale']['units']
+                    self.y_units = self.calib_dict['scale']['units']
+                if 'x_units' in self.calib_dict['scale']:
+                    self.x_units = self.calib_dict['scale']['x_units']
+                if 'y_units' in self.calib_dict['scale']:
+                    self.x_units = self.calib_dict['scale']['y_units']
 
         # if x / y not set, use pixel numbers
         if 'x' not in locals():
             x = np.arange(np.shape(img_data)[1])
+        if 'y' not in locals():
             y = np.arange(np.shape(img_data)[0])
+
+        self.x = x
+        self.y = y
+        self.curr_img = img_data
 
         return img_data, x, y
 

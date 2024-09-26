@@ -50,6 +50,8 @@ class ESpec(Diagnostic):
         # minimum calibration is spatial transform
         #img, x, y = self.transform(shot_dict, self.calib_dict['transform'])
 
+        # assuming mm here? 
+        # either don't or use conversion functions...
         self.curr_img = img
         self.x_mm = x
         self.y_mm = y
