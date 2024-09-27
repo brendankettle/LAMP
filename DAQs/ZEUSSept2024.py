@@ -181,50 +181,67 @@ class ZEUSSept2024(DAQ):
             # now we have date and runs
             for run in sorted(runs):
                 run_folder = os.path.join(date_folder, str(run))
-
-                # no bursts in this DAQ?
-                # # bursts passed
-                # if isinstance(timeframe, dict) and 'bursts' in timeframe:
-                #     bursts = timeframe['bursts']
-                # # single burst
-                # elif isinstance(timeframe, dict) and 'burst' in timeframe:
-                #     bursts = [timeframe['burst']]
-                # # scan folder
-                # else:
-                #     bursts = []
-                #     for burst_name in os.listdir(run_folder):
-                #         if os.path.isdir(os.path.join(run_folder, burst_name)):
-                #             bursts.append(burst_name)
-                # # now we have date, runs, bursts, get shots
-                # for burst in sorted(bursts):
-                #     burst_folder = os.path.join(run_folder, str(burst))
-
-                if 'shotnums' in timeframe:
-                    shotnums = timeframe['shotnums']
-                # scanning for shotnums
+                
+                # bursts passed
+                if isinstance(timeframe, dict) and 'bursts' in timeframe:
+                    bursts = timeframe['bursts']
+                # single burst
+                elif isinstance(timeframe, dict) and 'burst' in timeframe:
+                    bursts = [timeframe['burst']]
+                    
+                # scan folder for Burst folders e.g. 25th and later
                 else:
-                    shotnums = []
-                    run_diag_path = os.path.join(run_folder, str(diag_config['data_folder']).strip('/\\'))
-                    for filename in os.listdir(run_diag_path):
-                        if os.path.isfile(os.path.join(run_diag_path, filename)):
-                            #if diag_config['data_stem'].lower() in filename.lower():
-                            if 'shot' in filename.lower():
-                                if exceptions:
-                                    if filename in exceptions:
+                    bursts = []
+                    for burst_name in os.listdir(run_folder):
+                        if os.path.isdir(os.path.join(run_folder, burst_name)) and burst_name.lower().startswith("burst"):
+                            bursts.append(burst_name)
+                    
+                    # ignore burst if dont exist e.g. per 25th datsa
+                    if not bursts:
+                        burst = None
+    
+                if bursts: 
+                    print("Bursts found on this date/run ", bursts)
+                    for burst in sorted(bursts):
+                        burst_folder = os.path.join(run_folder, str(burst))
+
+                        if 'shotnums' in timeframe:
+                            shotnums = timeframe['shotnums']
+                        # scanning for shotnums
+                        else:
+                            shotnums = []
+                            run_diag_path = os.path.join(run_folder, burst, str(diag_config['data_folder']).strip('/\\'))
+                            for filename in os.listdir(run_diag_path):
+                                if os.path.isfile(os.path.join(run_diag_path, filename)) and 'shot' in filename.lower():
+                                    if exceptions and filename in exceptions:
                                         print(f'Skipping {filename}')
                                         continue
-                                #segs = os.path.splitext(filename)[0].split("hot")
-                                #shotnums.append(int(segs[1])) # This gets round the double shots for now, but need to fix this
-                                m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
+                                    m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
+                                    if m:
+                                        shotnums.append(int(m.group()))
+                        shotnums = sorted(shotnums)
+
+                        # Append each shotnum with the corresponding burst
+                        for shotnum in shotnums:
+                            shot_dicts.append({'date': date, 'run': run, 'burst': burst, 'shotnum': shotnum})
+
+    
+                else: 
+                    print("No bursts found on this date/run")
+                    run_diag_path = os.path.join(run_folder, str(diag_config['data_folder']).strip('/\\'))
+                    shotnums = []
+                    for filename in os.listdir(run_diag_path):
+                        if os.path.isfile(os.path.join(run_diag_path, filename)) and 'shot' in filename.lower():
+                            if exceptions and filename in exceptions:
+                                print(f'Skipping {filename}')
+                                continue
+                            m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
+                            if m:
                                 shotnums.append(int(m.group()))
-                                #print(f"{date} / {run} / {shotnums[-1]}")
-
-                shotnums = sorted(shotnums)
-
-                # OK, build the list to return!
-                for shotnum in shotnums:
-                    #shot_dicts.append({'date': date, 'run': run, 'burst': burst, 'shotnum': shotnum})
-                    shot_dicts.append({'date': date, 'run': run, 'shotnum': shotnum})
+                                
+                    shotnums = sorted(shotnums)
+                    for shotnum in shotnums:
+                        shot_dicts.append({'date': date, 'run': run, 'shotnum': shotnum})
 
         return shot_dicts
     
