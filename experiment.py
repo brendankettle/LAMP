@@ -76,7 +76,7 @@ class Experiment:
             raise Exception(f'Could not find Diagnostics module: {diag_module}')
 
         if callable(diag_class := getattr(diag_lib, diag_type)):
-            print(f'Adding Diagnostic: {diag_name}')
+            print(f'Adding Diagnostic: {diag_name} [{diag_type}]')
             self.diags[diag_name] = diag_class(self, self.diag_config[diag_name])
         else:
             raise Exception(f'Could not find Diagnostic object: {diag_type}')
@@ -91,5 +91,19 @@ class Experiment:
     def list_diagnostics(self):
         for diag_name in self.diags.keys():
             print(f"{diag_name} [{self.diag_config[diag_name]['type']}]")
+        return
+    
+    def make_call_calibs(self):
+        """Loop through all diagnostics, for each, loop through calibrations, if proc file set, make"""
+        for diag_name in self.diags.keys():
+            print(f"Making calibrations for {diag_name} [{self.diag_config[diag_name]['type']}]")
+            diag = self.get_diagnostic(diag_name)
+            for calib_id in diag.list_calibs():
+                calib = diag.get_calib(calib_id, no_proc=True)
+                if 'proc_file' in calib:
+                    print(f'Processing [{calib_id}]')
+                    diag.make_calib(calib_id, save=True, view=False)
+                else:
+                    print(f'Skipping [{calib_id}] (No processed savepath provided)')
         return
 

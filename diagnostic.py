@@ -109,6 +109,10 @@ class Diagnostic():
     def save_calib_file(self, filename, calib_data, file_type=None, options=None):
         save_file(self.build_calib_filepath(filename), calib_data, file_type=file_type, options=options)
         return
+    
+    def list_calibs(self):
+        all_calibs = self.load_calib_file(self.config['calib_file'])
+        return list(all_calibs.keys())
 
     def make_calib(self, calib_id=None, save=False, view=True):
         """Master function for generating procssed portion of calibration file
