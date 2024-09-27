@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import re
+from scipy.optimize import curve_fit
 
 from ..diagnostic import Diagnostic
 from ..utils.plotting import *
@@ -108,6 +109,82 @@ class Scintillator(Diagnostic):
         #ax.set_ylabel(r'$E$ [MeV]')
 
         return fig, ax
+        
+    def Plot_scan_average_over_shots(self, timeframe, skipshots, dist_to_screen, n_per_pos, exceptions=None, x_axis=True, y_axis=False):
+    # Function written by CMcA to plot horizontal lineout and calculate divergence of the beam from FWHM calc
+    # TODO = Get skipshots to work to avoid misfires
+    
+        def gaus(x,a,x0,sigma):
+            return a*np.exp(-(x-x0)**2/(2*sigma**2))
+
+        
+        shot_dicts = self.DAQ.get_shot_dicts(self.config['name'],timeframe,exceptions=exceptions)
+        shot_labels = []
+        scan_average = []
+        scan_sum = []
+        sum_potter = []
+        fwhm_vals = []
+        sum_pixels = []
+        k = 0
+        fig1 = plt.figure(figsize=(3,2), dpi=150)
+        for n, shot_dict in enumerate(shot_dicts):
+            img, x, y = self.get_proc_shot(shot_dict)
+            print(shot_dict)
+#             sum_pixels.append(np.sum(img[200:800, 200:800]))
+            if x_axis == True:
+            	lineout = img[490:510,:]
+            elif y_axis == True:
+            	lineout = img[:,490:510]
+            
+            average = np.mean(lineout, axis=0)
+            scan_average.append(average)
+#             scan_sum.append(sum_pixels)
+            if n == 0:
+            	pass
+            elif (n+1)%n_per_pos == 0:
+            	k+=1
+            	average = np.mean(scan_average, axis=0)
+#             	summer = np.mean(scan_sum)
+            	err = np.std(scan_average, axis=0)
+            	plt.plot(np.arange(len(average))*0.305, average, label='Set '+str(k))
+            	plt.fill_between(np.arange(len(average))*0.305, average+err, average-err, alpha=0.2)
+            	
+            	x = np.arange(len(average))*0.305
+            	x1 = x
+            	isel = (x<=125)|(x>=175)
+            	x = x[isel]
+            	y = average
+            	y = y[isel]
+            	
+            	popt,pcov = curve_fit(gaus,x,y,p0=[3000,150,30])
+#             	plt.plot(x1,gaus(x1,*popt),linestyle=':')
+            	
+            	fwhm = np.where(y>=np.max(y)/2)
+            	fwhm = fwhm[0]
+            	
+            	fwhm_vals.append((fwhm[-1]-fwhm[0])*0.305)
+            	scan_average = []
+            	
+            	
+        plt.legend(fontsize=6, handlelength=0.2)
+        plt.xlabel('X [mm]')
+        plt.title('Averaged lineouts')
+        plt.tight_layout()
+        
+        fig2 = plt.figure(figsize=(3,2), dpi=150)
+        plt.plot(np.arctan((np.array(fwhm_vals)*0.305)/dist_to_screen)*1e3)
+        plt.ylabel('Divergence [mrad]')
+        plt.xlabel('Set no.')
+        plt.title('Divergence with scan')
+        
+#         plt.twinx()
+#         plt.plot(sum_potter)
+#         plt.ylabel('Sum pixel count')
+        
+        plt.tight_layout()
+    
+
+        return fig1, fig2
     
         # def plot_histogram(self, timeframe, num_bins=100):
 
