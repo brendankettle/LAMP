@@ -55,13 +55,14 @@ class Diagnostic():
             # loop through calibrations and 
             calib_dict = None
             for this_calib_id in all_calibs:
-                start_shot_dict  = all_calibs[this_calib_id]['start']
-                calib_start  = self.DAQ.build_time_point(start_shot_dict)
-                end_shot_dict = all_calibs[this_calib_id]['end']
-                calib_end  = self.DAQ.build_time_point(end_shot_dict)
-                if shot_time > calib_start and shot_time < calib_end:
-                    calib_dict = all_calibs[this_calib_id]
-                    break
+                if 'start' in all_calibs[this_calib_id]:
+                    start_shot_dict  = all_calibs[this_calib_id]['start']
+                    calib_start  = self.DAQ.build_time_point(start_shot_dict)
+                    end_shot_dict = all_calibs[this_calib_id]['end']
+                    calib_end  = self.DAQ.build_time_point(end_shot_dict)
+                    if shot_time > calib_start and shot_time < calib_end:
+                        calib_dict = all_calibs[this_calib_id]
+                        break
             if not calib_dict:
                 print("get_calib() error; Could not place shot in calibration timeline")        
                 return None
@@ -77,8 +78,13 @@ class Diagnostic():
                 if calib_id in all_calibs:
                     calib_dict = all_calibs[calib_id]
                 else:
-                    print(f"get_calib() error; No calibration input ID found for {calib_id} in master calib input file")
-                    return None
+                    # default calibration id set?
+                    if 'calib_default' in self.config:
+                        print(f"Using default calibraiton: {self.config['calib_default']}")
+                        calib_dict = all_calibs[self.config['calib_default']]
+                    else:
+                        print(f"get_calib() error; No calibration input ID found for {calib_id} in master calib input file")
+                        return None
             else:
                 print(f"get_calib() error; Unknown calibration found for {calib_id}")
                 return None
@@ -99,7 +105,7 @@ class Diagnostic():
         if 'calib_subfolder' in self.config:
             calib_subfolder = self.config['calib_subfolder']
         else:
-            calib_subfolder = '/'
+            calib_subfolder = ''
         return Path(os.path.join(self.ex.config['paths']['root'],self.ex.config['paths']['calibs_folder'], calib_subfolder, filename))
 
     def load_calib_file(self, filename, file_type=None, options=None):
