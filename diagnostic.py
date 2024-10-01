@@ -159,11 +159,12 @@ class Diagnostic():
 
         if 'roi' in self.calib_dict:
             # pixels or transformed coords?
-            # i.e should this be on transformed image or not?
-            # probably seperate definitions...? i.e. ['roi']['transformed']
-            print('To Do! Automatic ROI processing')
-            # roi = self.calib_dict['roi']
-            # img_data = img_data[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]]
+            if 'pixels' in self.calib_dict['roi']:
+                roi = self.calib_dict['roi']['pixels']
+                img_data = img_data[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]]
+            if 'transformed' in self.calib_dict['roi']:
+                # this will probably have to go later? (after transform)
+                print('To Do! ROI processing for transformed Co-ords... etc.')
             
         if 'background' in self.calib_dict:
             # Use image_proc class!

@@ -4,6 +4,7 @@ This document is for a general list of To-Dos, bug tracking etc. while LAMP is i
 
 - Make sure filenames and lists work instead of shot dictionaries for shot loading. I.e usual focal spot images saved out of DAQ for example
 - data_type for diagnostics could be set in diagnostic class?
+- Merge ScintillatorArray into Scintillator
 - plot_proc_shot can be general? if particular diagnostic info needed, get it (i.e. axis units)
 - In fact, general get_proc_shot could be in diagnostic.py??
 - unit_convert function? (val,from,to). E.g. m to mm, eV to J? Error if not compatiable.
