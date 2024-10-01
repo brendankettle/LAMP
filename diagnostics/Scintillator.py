@@ -16,6 +16,7 @@ class Scintillator(Diagnostic):
     __version = 0.1
     __authors = ['Brendan Kettle']
     __requirements = ''
+    data_type = 'image'
 
     def __init__(self, exp_obj, config_filepath):
         """Initiate parent base Diagnostic class to get all shared attributes and funcs"""
@@ -71,44 +72,24 @@ class Scintillator(Diagnostic):
         # returning average counts per mm2 of scintalator?
         return scint_sigs.T / mm2_per_px
 
+    def circ_to_depth(self,img):
+        # assuming equal vert/hor viewing
+        radius = int((np.shape(img)[0]+np.shape(img)[1])/2/2)
+
+        centre_x = radius
+
+        depth_img = np.zeros((np.shape(img)[0],np.shape(img)[1]))
+        # loop through rows
+        for ri in range(0,np.shape(img)[0]):
+            height = radius - ri
+            first_px = radius - int(np.sqrt(radius**2-height**2))
+            depth_img[ri,0:(2*radius)-(2*first_px)] = img[ri,first_px:(2*radius)-first_px]
+
+        return depth_img
+
     # ------------------------------------------------------ #
     # PLOTTING FUNCTIONS
-    # TODO: Move some of this to shared plotting class
     # ------------------------------------------------------ #
-
-    def montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1):
-
-        # calling 'universal' DAQ function here, that is probably DAQ specific
-        shot_dicts = self.DAQ.get_shot_dicts(self.config['name'],timeframe,exceptions=exceptions)
-
-        shot_labels = []
-        for shot_dict in shot_dicts:
-            img, x, y = self.get_proc_shot(shot_dict)
-
-            if 'images' in locals():
-                images = np.concatenate((images, np.atleast_3d(img)), axis=2)
-            else:
-                images = np.atleast_3d(img)
-
-            if 'burst' in shot_dict:
-                m = re.search(r'\d+$', str(shot_dict['burst'])) # gets last numbers
-                burst = int(m.group())
-                burst_str = str(burst) + '|'
-            else:
-                burst_str = ''
-            if 'shotnum' in shot_dict:
-                shot_str = str(shot_dict['shotnum'])
-            else:
-                shot_str = ''
-            shot_labels.append(burst_str + shot_str)
-
-        # or y_MeV?
-        fig, ax = plot_montage(images, x_roi=x_roi, y_roi=y_roi, x_downsample=x_downsample, y_downsample=y_downsample, 
-                               title=self.shot_string(timeframe), vmin=vmin, vmax=vmax, 
-                               transpose=transpose, num_rows=num_rows, shot_labels=shot_labels)
-        #ax.set_ylabel(r'$E$ [MeV]')
-
-        return fig, ax
         
     def Plot_scan_average_over_shots(self, timeframe, skipshots, dist_to_screen, n_per_pos, exceptions=None, x_axis=True, y_axis=False):
     # Function written by CMcA to plot horizontal lineout and calculate divergence of the beam from FWHM calc

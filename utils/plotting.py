@@ -95,7 +95,7 @@ def plot_montage(images, x_roi=None, y_roi=None, axis=None, x_downsample=1, y_do
         xaxis = np.arange(montage.shape[1])
     else:
         yaxis = axis[y_roi[0]:y_roi[1]:y_downsample]
-        xaxis = np.arange(montage.shape[1]) # should this just be np.arange(montage.shape[1]) as well?
+        xaxis = np.arange(montage.shape[1]) 
 
     if not shot_labels:
         shot_labels = np.arange(count)+1

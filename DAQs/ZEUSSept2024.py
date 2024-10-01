@@ -77,7 +77,7 @@ class ZEUSSept2024(DAQ):
             if diag_config['data_type'] == 'image':
                 shot_data = self.load_imdata(shot_filepath)
             else:
-                print('Non-image data loading not yet supported... probably need to add text at least?')
+                shot_data = self.load_data(shot_filepath)
 
         # raw filepath?
         else:
@@ -201,7 +201,7 @@ class ZEUSSept2024(DAQ):
                         burst = None
     
                 if bursts: 
-                    print("Bursts found on this date/run ", bursts)
+                    # print("Bursts found on this date/run ", bursts)
                     for burst in sorted(bursts):
                         burst_folder = os.path.join(run_folder, str(burst))
 

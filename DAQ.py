@@ -1,6 +1,7 @@
 from matplotlib import image
 import numpy as np
 from pathlib import Path
+from .utils.io import load_file
 
 class DAQ():
     """Base class for DAQs
@@ -14,6 +15,10 @@ class DAQ():
     def load_imdata(self, shot_filepath, data_type=float):
         imdata = image.imread(Path(shot_filepath)).astype(data_type)
         return imdata
+
+    def load_data(self, shot_filepath, data_type=None):
+        data = load_file(Path(shot_filepath), file_type=data_type)
+        return data
     
     def shot_string(self, shot_dict):
 

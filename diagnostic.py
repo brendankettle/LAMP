@@ -4,9 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy import ndimage
+import re
 from .utils.io import *
 from .utils.general import dict_update
 from .utils.image_proc import ImageProc
+from .utils.plotting import plot_montage
 
 class Diagnostic():
     """Base class for Diagnostics. 
@@ -21,6 +23,7 @@ class Diagnostic():
         # ToDo: if diagnostic config filepath passed as opposed to array, go get config
         # self.load_config(config_filepath)
         self.config = config
+        self.config['data_type'] = self.data_type # need to define data type in child class. I.e image or text?
         return
 
     def __repr__(self):
@@ -30,6 +33,10 @@ class Diagnostic():
         """Wrapper for getting shot data through DAQ"""
         return self.DAQ.get_shot_data(self.config['name'], shot_dict)
     
+    def set_calib(self, calib_id):
+        self.calib_dict = self.get_calib(calib_id)
+        return
+
     def get_calib(self, calib_id=None, no_proc=False):
         """Take a calibration id of some form, and return calibration dictionary.
             - = None: Try and use pre-saved calibration dict within object
@@ -357,7 +364,7 @@ class Diagnostic():
             int_data.append(self.get_integrated_signal(shot_dict, roi=roi))
         
         return int_data
-    
+
     def to_mm(self, value, units):
         if units.lower() == 'mm':
             return value
@@ -387,3 +394,56 @@ class Diagnostic():
             return (value * (np.pi() / 180) * 1e3)
         else:
             print(f"to_mrad error; unknown angular units {units}")
+
+
+    def montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=False, num_rows=1):
+        """Default wrapper function. This can be overwritten by diagnostic with more options"""
+
+        axis_label = ''
+        axis = None
+
+        if not self.calib_dict:
+            print('Missing Calibration before using Montage...')
+            return False
+
+        fig, ax = self.make_montage(timeframe, x_roi=x_roi, y_roi=y_roi, axis=axis, axis_label=axis_label, x_downsample=x_downsample, 
+                               y_downsample=y_downsample, vmin=vmin, vmax=vmax, transpose=transpose, num_rows=num_rows)
+
+        return fig, ax
+
+    def make_montage(self, timeframe, x_roi=None, y_roi=None, axis=None, axis_label=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1):
+        """This actually builds the montage shots, and feeds into the plotting functions"""
+
+        # calling 'universal' DAQ function here, that is probably DAQ specific
+        shot_dicts = self.DAQ.get_shot_dicts(self.config['name'],timeframe,exceptions=exceptions)
+
+        shot_labels = []
+        for shot_dict in shot_dicts:
+            # To Do, if no get_proc_shot, just use raw data?
+            img, x, y = self.get_proc_shot(shot_dict)
+
+            if 'images' in locals():
+                images = np.concatenate((images, np.atleast_3d(img)), axis=2)
+            else:
+                images = np.atleast_3d(img)
+
+            # try build a shot label
+            if 'burst' in shot_dict:
+                m = re.search(r'\d+$', str(shot_dict['burst'])) # gets last numbers
+                burst = int(m.group())
+                burst_str = str(burst) + '|'
+            else:
+                burst_str = ''
+            if 'shotnum' in shot_dict:
+                shot_str = str(shot_dict['shotnum'])
+            else:
+                shot_str = ''
+
+            shot_labels.append(burst_str + shot_str)
+
+        fig, ax = plot_montage(images, x_roi=x_roi, y_roi=y_roi, axis=axis, x_downsample=x_downsample, 
+                               y_downsample=y_downsample, title=self.shot_string(timeframe), vmin=vmin, vmax=vmax, 
+                               transpose=transpose, num_rows=num_rows, shot_labels=shot_labels)
+        ax.set_ylabel(axis_label)
+
+        return fig, ax

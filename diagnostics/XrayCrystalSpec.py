@@ -12,6 +12,7 @@ class XrayCrystalSpec(Diagnostic):
     __version = 0.1
     __authors = ['Brendan Kettle']
     __requirements = ''
+    data_type = 'image'
 
     def __init__(self, exp_obj, config_filepath):
         """Initiate parent base Diagnostic class to get all shared attributes and funcs"""

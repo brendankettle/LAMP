@@ -20,6 +20,7 @@ class ESpec(Diagnostic):
     __version = 0.1
     __authors = ['Brendan Kettle']
     __requirements = 'cv2'
+    data_type = 'image'
 
     # my (BK) thinking is that it is better to keep track of all the different units for the x/y axis
     # also, sticking to the same units (mm/MeV/mrad) helps make it easier to convert from different calibrations and simplify plotting
@@ -312,53 +313,36 @@ class ESpec(Diagnostic):
 
     # ------------------------------------------------------ #
     # PLOTTING FUNCTIONS
-    # TODO: Move some of this to shared plotting class?
     # ------------------------------------------------------ #
 
-    def montage(self, timeframe, x_roi=None, MeV_max=None, y_roi=None, mrad_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1):
+    def montage(self, timeframe, x_roi=None, MeV_roi=None, y_roi=None, mrad_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1):
         """This definitely needs fixed to work for other cases and generalised and put in diagnostic class"""
 
-        # calling 'universal' DAQ function here, that is probably DAQ specific
-        shot_dicts = self.DAQ.get_shot_dicts(self.config['name'],timeframe,exceptions=exceptions)
+        axis_label = r'$E$ [MeV]'
 
-        shot_labels = []
-        for shot_dict in shot_dicts:
-            espec_img, x_MeV, y_mrad = self.get_proc_shot(shot_dict)
-
-            if 'images' in locals():
-                images = np.concatenate((images, np.atleast_3d(espec_img)), axis=2)
-            else:
-                images = np.atleast_3d(espec_img)
-
-            if 'burst' in shot_dict:
-                m = re.search(r'\d+$', str(shot_dict['burst'])) # gets last numbers
-                burst = int(m.group())
-                burst_str = str(burst) + '|'
-            else:
-                burst_str = ''
-            if 'shotnum' in shot_dict:
-                shot_str = str(shot_dict['shotnum'])
-            else:
-                shot_str = ''
-
-            shot_labels.append(burst_str + shot_str)
+        if not self.calib_dict:
+            print('Missing Calibration before using Montage...')
+            return False
 
         # convert rois to MeV mrad indices
-        # if 'dispersion' in self.calib_dict:
-        #     print('Converting ROI to MeV')
-        #     x_roi=[mindex(x_MeV,x_roi[0]),mindex(x_MeV,x_roi[1])]
-        #     print(x_roi)
-        # below is a hack! requires x= MeV etc..
-        if MeV_max is not None:
-            x_roi=[0,mindex(x_MeV,MeV_max)]
-        if mrad_roi is not None:
-            y_roi=[mindex(y_mrad,mrad_roi[0]),mindex(y_mrad,mrad_roi[1])]
+        if 'dispersion' in self.calib_dict:
+            MeV = self.calib_dict['dispersion']['MeV']
+            axis = MeV
+            if MeV_roi is not None:
+                if self.calib_dict['dispersion']['axis'].lower() == 'x':
+                    x_roi=[mindex(MeV,MeV_roi[0]),mindex(MeV,MeV_roi[1])]
+                else:
+                    y_roi=[mindex(MeV,MeV_roi[0]),mindex(MeV,MeV_roi[1])]
+        else:
+            axis = self.x
+        if 'divergence' in self.calib_dict and mrad_roi is not None:
+            if self.calib_dict['divergence']['axis'].lower == 'y':
+                y_roi=[mindex(self.y_mrad,mrad_roi[0]),mindex(self.y_mrad,mrad_roi[1])]
+            else:
+                x_roi=[mindex(self.x_mrad,mrad_roi[0]),mindex(self.x_mrad,mrad_roi[1])]
 
-        # or y_MeV?
-        fig, ax = plot_montage(images, x_roi=x_roi, y_roi=y_roi, axis=self.x_MeV, x_downsample=x_downsample, 
-                               y_downsample=y_downsample, title=self.shot_string(timeframe), vmin=vmin, vmax=vmax, 
-                               transpose=transpose, num_rows=num_rows, shot_labels=shot_labels)
-        ax.set_ylabel(r'$E$ [MeV]')
+        fig, ax = self.make_montage(timeframe, x_roi=x_roi, y_roi=y_roi, axis=axis, axis_label=axis_label, x_downsample=x_downsample, 
+                               y_downsample=y_downsample, vmin=vmin, vmax=vmax, transpose=transpose, num_rows=num_rows)
 
         return fig, ax
 

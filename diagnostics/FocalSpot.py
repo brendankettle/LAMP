@@ -11,6 +11,7 @@ class FocalSpot(Diagnostic):
     __version = 0.1
     __authors = ['Brendan Kettle']
     __requirements = ''
+    data_type = 'image'
 
     curr_img = None
     img_units = 'Counts'

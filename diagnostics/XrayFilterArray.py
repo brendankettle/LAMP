@@ -23,6 +23,7 @@ class XrayFilterArray(Diagnostic):
     __version = 0.1
     __authors = ['Brendan Kettle']
     __requirements = ''
+    data_type = 'image'
 
     filter_specs = None
     filter_positions = None
