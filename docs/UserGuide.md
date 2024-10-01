@@ -17,6 +17,10 @@ Crucially, the diagnostics code should not depend on the specifics of the shot d
 **Calibrations** are key to setting up diagnostics. 
 ~~A history file defines which calibrations apply when. An input file defines the required information for generating a calibration file.~~
 
+## Requirements
+toml
+opencv?
+
 ### Starting a new experiment
 
 1.	Decide on your folder structure. Examples are (will be) given in /templates/.

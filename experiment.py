@@ -42,7 +42,9 @@ class Experiment:
             except ImportError:
                 raise Exception(f'Error importing DAQ module: {DAQ_module}')
             #self.DAQ = DAQ_lib.DAQ(self)
-            if callable(DAQ_class := getattr(DAQ_lib, self.config['setup']['DAQ'])):
+            #if callable(DAQ_class := getattr(DAQ_lib, self.config['setup']['DAQ'])):
+            DAQ_class = getattr(DAQ_lib, self.config['setup']['DAQ'])
+            if callable(DAQ_class):
                 print(f"Using DAQ: {self.config['setup']['DAQ']}")
                 self.DAQ = DAQ_class(self)
 
@@ -75,7 +77,9 @@ class Experiment:
         except ImportError:
             raise Exception(f'Could not find Diagnostics module: {diag_module}')
 
-        if callable(diag_class := getattr(diag_lib, diag_type)):
+        #if callable(diag_class := getattr(diag_lib, diag_type)):
+        diag_class = getattr(diag_lib, diag_type)
+        if callable(diag_class):
             print(f'Adding Diagnostic: {diag_name} [{diag_type}]')
             self.diags[diag_name] = diag_class(self, self.diag_config[diag_name])
         else:
