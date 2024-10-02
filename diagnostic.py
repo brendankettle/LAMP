@@ -164,6 +164,22 @@ class Diagnostic():
         if isinstance(img_data, dict) or isinstance(img_data, str):
             img_data = self.get_shot_data(img_data)
 
+        img = ImageProc(data=img_data)
+
+        if 'dark' in self.calib_dict:
+            dark_data = self.get_shot_data(self.calib_dict['dark']['data'])
+            img.subtract(dark_data)
+            #print('Removing dark image')
+
+        if 'background' in self.calib_dict:
+            #print('Automatic Background processing a work in progress!')
+            if 'stage' in self.calib_dict['background'] and self.calib_dict['background']['stage'].lower() == 'original':
+                img.bkg_sub(self.calib_dict['background']['type'], roi=self.calib_dict['background']['roi'])
+
+        # FIX!
+        #  currently now transition to back data, not ImageProc object, but this should be fixed!
+        img_data = img.get_img()
+
         if 'roi' in self.calib_dict:
             # pixels or transformed coords?
             if 'pixels' in self.calib_dict['roi']:
@@ -172,12 +188,6 @@ class Diagnostic():
             if 'transformed' in self.calib_dict['roi']:
                 # this will probably have to go later? (after transform)
                 print('To Do! ROI processing for transformed Co-ords... etc.')
-            
-        if 'background' in self.calib_dict:
-            # Use image_proc class!
-            # should this be on transformed image or not?
-            # could add a flag? i.e. ['background']['stage'] = 'transformed' or 'raw'
-            print('To Do! Automatic Background processing')
 
         if 'transform' in self.calib_dict:
             img_data, x, y = self.transform(img_data, self.calib_dict['transform'])
@@ -232,7 +242,13 @@ class Diagnostic():
         if isinstance(img_data, dict) or isinstance(img_data, str):
             img_data = self.get_shot_data(img_data)
 
-        img = ImageProc(img_data)
+        # just  double check not passing an ImageProc object already
+        if isinstance(img_data, ImageProc):
+            img = img_data
+            #print('Passing ImageProc...')
+        else:
+            img = ImageProc(img_data)
+
         timg, tx, ty = img.transform(self.calib_dict['transform'])
 
         # offset? shifts the xy cords on transformed screen

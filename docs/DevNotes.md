@@ -2,11 +2,10 @@ This document is for a general list of To-Dos, bug tracking etc. while LAMP is i
 
 # To Do
 
-- data_type for diagnostics could be set in diagnostic class?
-- load_data could include load_imdata? or at least suss this out in DAQ
 - plot_proc_shot can be general? if particular diagnostic info needed, get it (i.e. axis units)
 - In fact, general get_proc_shot could be in diagnostic.py??
 - Montage X axis? (not just shot string - although should have that as well)
+- Do Montage pixel ROIs apply after resampling?? I don't think they do...
 - unit_convert function? (val,from,to). E.g. m to mm, eV to J? Error if not compatiable.
 - finish background subtraction functions/module in ImageProc
 - MoU or disclaimer. How LAMP collaboration works.

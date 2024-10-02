@@ -3,6 +3,7 @@ import cv2 as cv
 from matplotlib.image import imread 
 import matplotlib.pyplot as plt 
 from pathlib import Path
+from scipy.signal import fftconvolve
 
 """NB: functions/modules should not be coupled into the DAQ or diagnostics; should be independent!"""
 
@@ -20,7 +21,7 @@ class ImageProc():
     def __init__(self, filepath=None, data=None):
         if data is not None:
             self.set_img(data)
-        if not isinstance(filepath, str):
+        elif not isinstance(filepath, str):
             data = filepath
             self.set_img(data) # assume data passed first? (not filepath string)
         elif filepath is not None:
@@ -71,54 +72,20 @@ class ImageProc():
     
     def bkg_sub(self, type, roi=None, axis=None, data=None, options=None, debug=False):
 
-            #if 'bkg_type' in self.calib_dict:
-            # if self.calib_dict['bkg_type'] == 'flat':
-            #     if 'bkg_roi' in self.calib_dict:
-            #         bkg_roi = self.calib_dict['bkg_roi']
-            #         bkg_value = np.mean(img[bkg_roi[0][1]:bkg_roi[1][1],bkg_roi[0][0]:bkg_roi[1][0]])
-            #         img = img - bkg_value
-            #     else:
-            #         print(f"{self.config['name']}: No bkg_roi provided")
-            # if self.calib_dict['bkg_type'] == 'horizontal_poly':
-            #     if 'bkg_roi' in self.calib_dict:
-            #         bkg_roi = self.calib_dict['bkg_roi']
-
-            #         bkg_px = np.arange(bkg_roi[0][0],bkg_roi[1][0])
-            #         bkg_lin = np.mean(img[bkg_roi[0][1]:bkg_roi[1][1],bkg_roi[0][0]:bkg_roi[1][0]], 0)
-            #         bkg_fit = np.polyfit(bkg_px, bkg_lin, 4)
-            #         bkg_func = np.poly1d(bkg_fit)
-            #         all_px = np.arange(0,np.shape(img)[1])
-            #         bkg_img = np.tile(bkg_func(all_px), (np.shape(img)[0],1))
-
-            #         if debug:
-            #             plt.figure()
-            #             plt.plot(bkg_px, bkg_lin)
-            #             plt.plot(all_px,bkg_func(all_px))
-            #             plt.xlabel('new pixels')
-            #             plt.ylabel('mean counts')
-            #             plt.tight_layout()
-            #             plt.title('Background correction')
-            #             plt.show(block=False)
-
-            #             plt.figure()
-            #             im = plt.imshow(bkg_img)
-            #             cb = plt.colorbar(im)
-            #             #cb.set_label(self.img_units, rotation=270, labelpad=20)
-            #             plt.tight_layout()
-            #             plt.title('Background correction')
-            #             plt.show(block=False)
-
-            #         img = img - bkg_img
-            #     else:
-            #         print(f"{self.config['name']}: No bkg_roi provided")
-            # else:
-            #     print(f"{self.config['name']}: Unknown background correction type '{self.calib_dict['bkg_type']}'")
-
         # switch between background type
         if type.lower() == 'img':
             # subtract an image fed into function
             self.bkg = data
             self.set_img(self.get_img() - self.bkg)
+
+        elif type.lower() == 'flat':
+                if roi is not None:
+                    img_data = self.get_img()
+                    self.bkg =  np.mean(img_data[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]])
+                    self.set_img(self.get_img() - self.bkg)
+                else:
+                    print("Background  error: No roi provided for type=flat")
+
         elif type.lower() == 'grad_fit':
             # fit a polynomial to an ROI average along one axis (gradient), and extrapolate across image
             # good for constant gradients in one direction
@@ -135,6 +102,39 @@ class ImageProc():
                 #if isinstance(object, list):
                 print('Average across X')
 
+        # if self.calib_dict['bkg_type'] == 'horizontal_poly':
+        #     if 'bkg_roi' in self.calib_dict:
+        #         bkg_roi = self.calib_dict['bkg_roi']
+
+        #         bkg_px = np.arange(bkg_roi[0][0],bkg_roi[1][0])
+        #         bkg_lin = np.mean(img[bkg_roi[0][1]:bkg_roi[1][1],bkg_roi[0][0]:bkg_roi[1][0]], 0)
+        #         bkg_fit = np.polyfit(bkg_px, bkg_lin, 4)
+        #         bkg_func = np.poly1d(bkg_fit)
+        #         all_px = np.arange(0,np.shape(img)[1])
+        #         bkg_img = np.tile(bkg_func(all_px), (np.shape(img)[0],1))
+
+        #         if debug:
+        #             plt.figure()
+        #             plt.plot(bkg_px, bkg_lin)
+        #             plt.plot(all_px,bkg_func(all_px))
+        #             plt.xlabel('new pixels')
+        #             plt.ylabel('mean counts')
+        #             plt.tight_layout()
+        #             plt.title('Background correction')
+        #             plt.show(block=False)
+
+        #             plt.figure()
+        #             im = plt.imshow(bkg_img)
+        #             cb = plt.colorbar(im)
+        #             #cb.set_label(self.img_units, rotation=270, labelpad=20)
+        #             plt.tight_layout()
+        #             plt.title('Background correction')
+        #             plt.show(block=False)
+
+        #         img = img - bkg_img
+        #     else:
+        #         print(f"{self.config['name']}: No bkg_roi provided")
+        
         elif type.lower() == 'surf_fit':
             # feed ROIs or data, and then interpolate surface across this before subtracting
             print('Error in bkg_sub: type surf_fit TO DO!')
@@ -193,6 +193,88 @@ class ImageProc():
         return self.get_img()
     
     # def median_filter?
+
+    def savgol_filter(self, window_size, order, derivative=None):
+        """2D version of Savitzky Golay Filtering
+        https://scipy.github.io/old-wiki/pages/Cookbook/SavitzkyGolay"""
+
+        z = self.get_img()
+
+        # number of terms in the polynomial expression
+        n_terms = ( order + 1 ) * ( order + 2)  / 2.0
+        
+        if  window_size % 2 == 0:
+            raise ValueError('window_size must be odd')
+        
+        if window_size**2 < n_terms:
+            raise ValueError('order is too high for the window size')
+
+        half_size = window_size // 2
+        
+        # exponents of the polynomial. 
+        # p(x,y) = a0 + a1*x + a2*y + a3*x^2 + a4*y^2 + a5*x*y + ... 
+        # this line gives a list of two item tuple. Each tuple contains 
+        # the exponents of the k-th term. First element of tuple is for x
+        # second element for y.
+        # Ex. exps = [(0,0), (1,0), (0,1), (2,0), (1,1), (0,2), ...]
+        exps = [ (k-n, n) for k in range(order+1) for n in range(k+1) ]
+        
+        # coordinates of points
+        ind = np.arange(-half_size, half_size+1, dtype=np.float64)
+        dx = np.repeat( ind, window_size )
+        dy = np.tile( ind, [window_size, 1]).reshape(window_size**2, )
+
+        # build matrix of system of equation
+        A = np.empty( (window_size**2, len(exps)) )
+        for i, exp in enumerate( exps ):
+            A[:,i] = (dx**exp[0]) * (dy**exp[1])
+            
+        # pad input array with appropriate values at the four borders
+        new_shape = z.shape[0] + 2*half_size, z.shape[1] + 2*half_size
+        Z = np.zeros( (new_shape) )
+        # top band
+        band = z[0, :]
+        Z[:half_size, half_size:-half_size] =  band -  np.abs( np.flipud( z[1:half_size+1, :] ) - band )
+        # bottom band
+        band = z[-1, :]
+        Z[-half_size:, half_size:-half_size] = band  + np.abs( np.flipud( z[-half_size-1:-1, :] )  -band ) 
+        # left band
+        band = np.tile( z[:,0].reshape(-1,1), [1,half_size])
+        Z[half_size:-half_size, :half_size] = band - np.abs( np.fliplr( z[:, 1:half_size+1] ) - band )
+        # right band
+        band = np.tile( z[:,-1].reshape(-1,1), [1,half_size] )
+        Z[half_size:-half_size, -half_size:] =  band + np.abs( np.fliplr( z[:, -half_size-1:-1] ) - band )
+        # central band
+        Z[half_size:-half_size, half_size:-half_size] = z
+        
+        # top left corner
+        band = z[0,0]
+        Z[:half_size,:half_size] = band - np.abs( np.flipud(np.fliplr(z[1:half_size+1,1:half_size+1]) ) - band )
+        # bottom right corner
+        band = z[-1,-1]
+        Z[-half_size:,-half_size:] = band + np.abs( np.flipud(np.fliplr(z[-half_size-1:-1,-half_size-1:-1]) ) - band ) 
+        
+        # top right corner
+        band = Z[half_size,-half_size:]
+        Z[:half_size,-half_size:] = band - np.abs( np.flipud(Z[half_size+1:2*half_size+1,-half_size:]) - band ) 
+        # bottom left corner
+        band = Z[-half_size:,half_size].reshape(-1,1)
+        Z[-half_size:,:half_size] = band - np.abs( np.fliplr(Z[-half_size:, half_size+1:2*half_size+1]) - band ) 
+
+        # solve system and convolve
+        if derivative == None:
+            m = np.linalg.pinv(A)[0].reshape((window_size, -1))
+            return fftconvolve(Z, m, mode='valid')
+        elif derivative == 'col':
+            c = np.linalg.pinv(A)[1].reshape((window_size, -1))
+            return fftconvolve(Z, -c, mode='valid')        
+        elif derivative == 'row':
+            r = np.linalg.pinv(A)[2].reshape((window_size, -1))
+            return fftconvolve(Z, -r, mode='valid')        
+        elif derivative == 'both':
+            c = np.linalg.pinv(A)[1].reshape((window_size, -1))
+            r = np.linalg.pinv(A)[2].reshape((window_size, -1))
+            return fftconvolve(Z, -r, mode='valid'), fftconvolve(Z, -c, mode='valid') 
 
     def make_transform(self, p_px, p_t, img_size_t, img_size_px, offset = [0,0], notes = '', description='Image transform dictionary'):
         """Function to create a transform dictionary, for use with self.transform()

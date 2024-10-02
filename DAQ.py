@@ -16,8 +16,8 @@ class DAQ():
         imdata = image.imread(Path(shot_filepath)).astype(data_type)
         return imdata
 
-    def load_data(self, shot_filepath, data_type=None):
-        data = load_file(Path(shot_filepath), file_type=data_type)
+    def load_data(self, shot_filepath, file_type=None):
+        data = load_file(Path(shot_filepath), file_type=file_type)
         return data
     
     def shot_string(self, shot_dict):
