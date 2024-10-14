@@ -311,6 +311,114 @@ class ESpec(Diagnostic):
 
         return img_data, mrad
 
+    # Charge calibration functions
+    def QL_to_PSL(self, X, R=25, S=4000, L=5, G=16, scanner='GE'):
+        if scanner.lower() == 'ge':
+            # Maddox. For use on .gel files!
+            # For S, you will need to know the PMT value at the time of scanning and use a calibration for S=4000/h(V)
+            # Example values are for example; https://doi.org/10.1063/1.4886390
+            # However, the livermore report gives more details on actual fit? LLNL-JRNL-606753
+            # from ImageJ script 'PSL Convert from .gel';
+            # (0.000023284*X*X/100000)*(Res/100)*(Res/100)*(4000/S)*316.2
+            # below is the same, without assuming L=5, or G=16
+            # the difference between gel and tif is a sqrt, then linear scale factor. For dynamic range reasons.
+            return ((X/((pow(2,G))-1))**2)*((R/100)**2)*(4000/S)*pow(10,(L/2))
+        elif scanner.lower() == 'fuji':
+            # Vlad. For use on .tif files from FUJI machines
+            g = pow(2,G) - 1
+            return (R/100)**2 * (4000/S) * pow(10, L*(X/g - 0.5))
+
+    def PSLtofC(self,PSL_val,IP_type='MS'):
+        # https://dx.doi.org/10.1063/1.4936141
+        if IP_type == 'TR':
+            # above claims 0.005 PSL per electron for TR type. Error bar is 20%
+            # 1 Coulumb is 6.241509×10^18 electrons
+            # Therefore 1 C = 3.1207545e+16 PSL
+            # or 0.032043 fC per PSL
+            # From Jon Woods thesis, it takes 350 electrons to produce 1 PSL for TR.
+            # 350 electrons is 0.056076183 fC (per PSL)
+            # but the paper above is experimental measurements... gonna use it. Sorry Jon!
+            return (PSL_val/(0.005*6.241509e18))*1e15 
+        elif IP_type == 'SR':
+            # as per above, but 0.0065 PSL per electron
+            return (PSL_val/(0.0065*6.241509e18))*1e15
+        elif IP_type == 'MS':
+            # as per above, but 0.023 PSL per electron
+            # ~0.007 fc per PSL
+            return (PSL_val/(0.023*6.241509e18))*1e15 
+        else:
+            print('Error in PSLtofC(): Unkown Image Plate type')
+            return None
+
+    def IP_fade(self, t, IP_type='MS'):
+        """ This is a normalisation factor 0->1 for signal fading on Image plate. Used on PSL values. https://dx.doi.org/10.1063/1.4936141"""
+        if IP_type == 'TR':
+            A1=0.535
+            B1=23.812
+            A2=0.465
+            B2=3837.2
+        elif IP_type == 'MS':
+            A1=0.334
+            B1=107.32
+            A2=0.666
+            B2=33974
+        elif IP_type == 'SR':
+            A1=0.579
+            B1=15.052
+            A2=0.421
+            B2=3829.5
+        else:
+            print('Error in fade_time(): Unkown Image Plate type')
+            return None
+
+        if t > 4000:
+            print('Warning, fade time factor fit not confirmed for t > 4000. ')
+        
+        f=A1*np.exp(-t/B1)+A2*np.exp(-t/B2)
+        return f
+
+    def IP_rescan_factor(self, filepath1, filepath2, roi=None, R=25, S=4000, bins=200, debug=True):
+        imgA = ImageProc(filepath1)
+        imgA_orig = imgA.get_img()
+        imgA_res= imgA_orig # resampling??? be careful with R below, etc.
+        imgA_PSL = self.QL_to_PSL(imgA_res, R=R, S=S)
+        #imgA_PSL = imgA_PSL / self.IP_fade(fade_t) # fade times cancel anyway in ratio (if they are close)? this rescan factor takes any difference into account anyway... Would also need IP type
+        imgA_PSL[imgA_PSL < 1e-6] = 1e-6
+        imgB = ImageProc(filepath2)
+        imgB_orig = imgB.get_img()
+        imgB_res= imgB_orig # resampling??? be careful with R below, etc.
+        imgB_PSL = self.QL_to_PSL(imgB_res, R=R, S=S)
+        #imgB_PSL = imgB_PSL / self.IP_fade(fade_t)
+        imgB_PSL[imgB_PSL < 1e-6] = 1e-6
+
+        if roi is None:
+            roi = [[0,0],[np.shape(imgA_orig)[1],np.shape(imgA_orig)[0]]]
+
+        img_ratio = imgB_PSL[int(roi[0][1]):int(roi[1][1]),int(roi[0][0]):int(roi[1][0])] / imgA_PSL[int(roi[0][1]):int(roi[1][1]),int(roi[0][0]):int(roi[1][0])]
+        img_ratio[img_ratio>2] = 0
+        hist_data, bin_edges = np.histogram(img_ratio.flatten(), bins=bins) # this might need a bit of playing!
+        bin_edges = (bin_edges[1:] + bin_edges[:-1])/2
+        bin_edges_roi = bin_edges[(bin_edges>0.1) & (bin_edges<0.9)]
+        maxi = np.argmax(hist_data[(bin_edges>0.1) & (bin_edges<0.9)]) 
+
+        if debug:
+            plt.figure()
+            plt.plot(bin_edges, hist_data) 
+            plt.xlabel('Value')
+            plt.ylabel('Frequency')
+            plt.title('Histogram of Flattened 2D Array')
+            plt.show(block=False)
+
+        return bin_edges_roi[maxi]
+
+    def IP_rescan_product(self, filenames, roi=None, R=25, S=4000, bins=200, debug=True):
+        """Assuming they are in order from first scan to last"""
+        rescan_product = 1
+        for fi in range(1,len(filenames)):
+            rescan_product = rescan_product * self.IP_rescan_factor(filenames[fi-1],filenames[fi], roi=roi, R=R, S=S, bins=bins, debug=debug)
+
+        return rescan_product
+
     # ------------------------------------------------------ #
     # PLOTTING FUNCTIONS
     # ------------------------------------------------------ #
