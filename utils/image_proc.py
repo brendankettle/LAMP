@@ -42,7 +42,7 @@ class ImageProc():
     def load_img(self, filepath):
         # Only if not using DAQ...
         #img = imread(Path(filepath)).astype(float)
-        img = cv.imread(filepath, cv.IMREAD_UNCHANGED)
+        img = cv.imread(filepath, cv.IMREAD_UNCHANGED).astype(float)
         assert img is not None, f"file could not be read, check with os.path.exists(): {filepath}"
         self.set_img(img)
         return self.get_img()
@@ -70,7 +70,7 @@ class ImageProc():
         self.set_img(res_img)
         return self.get_img()
     
-    def bkg_sub(self, type, roi=None, axis=None, data=None, options=None, debug=False):
+    def bkg_sub(self, type, roi=None, axis=None, data=None, order=None, options=None, debug=True):
 
         # switch between background type
         if type.lower() == 'img':
@@ -84,56 +84,66 @@ class ImageProc():
                     self.bkg =  np.mean(img_data[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]])
                     self.set_img(self.get_img() - self.bkg)
                 else:
-                    print("Background  error: No roi provided for type=flat")
+                    print("bkg_sub  error: No roi provided for type=flat")
 
-        elif type.lower() == 'grad_fit':
+        elif type.lower() == 'gradient':
             # fit a polynomial to an ROI average along one axis (gradient), and extrapolate across image
             # good for constant gradients in one direction
+
+            if roi is None:
+                print("bkg_sub error: No roi provided for type=gradient")
+                return
 
             # multiples ROIs?
             if len(np.shape(roi)) > 2:
                 print('bkg_sub error: List of ROIs not surpported yet')
+                return
 
-            if 'y' in options or 'vert' in options:
-                # fitting vertical gradient
-                print('Average across Y')
+            if order:
+                polyorder = order
             else:
-                # default to x axis
-                #if isinstance(object, list):
-                print('Average across X')
+                polyorder = 4
 
-        # if self.calib_dict['bkg_type'] == 'horizontal_poly':
-        #     if 'bkg_roi' in self.calib_dict:
-        #         bkg_roi = self.calib_dict['bkg_roi']
+            if axis == 'Y' or axis == 'y' or axis == 'vert':
+                # fitting vertical gradient
+                print('Average across Y.. not tested yet... copy code from X... (below this)')
+            elif axis == 'X' or axis == 'X' or axis == 'horizontal':
+                # fitting to a horizontal gradient
+                bkg_px = np.arange(roi[0][0],roi[1][0])
+                bkg_lin = np.mean(self.get_img()[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]], 0)
+                bkg_fit = np.polyfit(bkg_px, bkg_lin, polyorder)
+                bkg_func = np.poly1d(bkg_fit)
+                all_px = np.arange(0,np.shape(self.get_img())[1])
+                all_bkg_func = bkg_func(all_px)
+                if (options != 'Ext') and (polyorder > 4):
+                    # don't extrapolate over high orders by default?
+                    all_bkg_func[0:roi[0][0]] = bkg_func(roi[0][0])
+                    all_bkg_func[roi[1][0]:] = bkg_func(roi[1][0])
+                bkg_img = np.tile(all_bkg_func, (np.shape(self.get_img())[0],1))
 
-        #         bkg_px = np.arange(bkg_roi[0][0],bkg_roi[1][0])
-        #         bkg_lin = np.mean(img[bkg_roi[0][1]:bkg_roi[1][1],bkg_roi[0][0]:bkg_roi[1][0]], 0)
-        #         bkg_fit = np.polyfit(bkg_px, bkg_lin, 4)
-        #         bkg_func = np.poly1d(bkg_fit)
-        #         all_px = np.arange(0,np.shape(img)[1])
-        #         bkg_img = np.tile(bkg_func(all_px), (np.shape(img)[0],1))
+                if debug:
+                    plt.figure()
+                    plt.plot(bkg_px, bkg_lin, label='Lineout data')
+                    plt.plot(all_px,all_bkg_func, label='Fit')
+                    plt.xlabel('new pixels')
+                    plt.ylabel('mean counts')
+                    plt.tight_layout()
+                    plt.legend()
+                    plt.title('Background correction')
+                    plt.show(block=False)
 
-        #         if debug:
-        #             plt.figure()
-        #             plt.plot(bkg_px, bkg_lin)
-        #             plt.plot(all_px,bkg_func(all_px))
-        #             plt.xlabel('new pixels')
-        #             plt.ylabel('mean counts')
-        #             plt.tight_layout()
-        #             plt.title('Background correction')
-        #             plt.show(block=False)
+                    plt.figure()
+                    im = plt.imshow(bkg_img)
+                    cb = plt.colorbar(im)
+                    #cb.set_label(self.img_units, rotation=270, labelpad=20)
+                    plt.tight_layout()
+                    plt.title('Background correction')
+                    plt.show(block=False)
+            else:
+                print('bkg_sub error: No axis provided for type=gradient')
 
-        #             plt.figure()
-        #             im = plt.imshow(bkg_img)
-        #             cb = plt.colorbar(im)
-        #             #cb.set_label(self.img_units, rotation=270, labelpad=20)
-        #             plt.tight_layout()
-        #             plt.title('Background correction')
-        #             plt.show(block=False)
+            self.set_img(self.get_img()- bkg_img)
 
-        #         img = img - bkg_img
-        #     else:
-        #         print(f"{self.config['name']}: No bkg_roi provided")
         
         elif type.lower() == 'surf_fit':
             # feed ROIs or data, and then interpolate surface across this before subtracting
