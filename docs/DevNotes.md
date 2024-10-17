@@ -2,6 +2,8 @@ This document is for a general list of To-Dos, bug tracking etc. while LAMP is i
 
 # To Do
 
+- Transform fluctuations? I think cv2 uses homography, not affine transform. But Skimage has prespective transform / warp, might work better? Need some testing?
+- Unit_convert(val,from,to)? Error out if not possible.
 - plot_proc_shot can be general? if particular diagnostic info needed, get it (i.e. axis units)
 - In fact, general get_proc_shot could be in diagnostic.py??
 - Montage X axis? (not just shot string - although should have that as well)

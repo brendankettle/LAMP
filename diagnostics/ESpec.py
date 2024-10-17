@@ -312,7 +312,7 @@ class ESpec(Diagnostic):
         return img_data, mrad
 
     # Charge calibration functions
-    def QL_to_PSL(self, X, R=25, S=4000, L=5, G=16, scanner='GE'):
+    def QLtoPSL(self, X, R=25, S=4000, L=5, G=16, scanner='GE'):
         if scanner.lower() == 'ge':
             # Maddox. For use on .gel files!
             # For S, you will need to know the PMT value at the time of scanning and use a calibration for S=4000/h(V)
@@ -381,13 +381,13 @@ class ESpec(Diagnostic):
         imgA = ImageProc(filepath1)
         imgA_orig = imgA.get_img()
         imgA_res= imgA_orig # resampling??? be careful with R below, etc.
-        imgA_PSL = self.QL_to_PSL(imgA_res, R=R, S=S)
+        imgA_PSL = self.QLtoPSL(imgA_res, R=R, S=S)
         #imgA_PSL = imgA_PSL / self.IP_fade(fade_t) # fade times cancel anyway in ratio (if they are close)? this rescan factor takes any difference into account anyway... Would also need IP type
         imgA_PSL[imgA_PSL < 1e-6] = 1e-6
         imgB = ImageProc(filepath2)
         imgB_orig = imgB.get_img()
         imgB_res= imgB_orig # resampling??? be careful with R below, etc.
-        imgB_PSL = self.QL_to_PSL(imgB_res, R=R, S=S)
+        imgB_PSL = self.QLtoPSL(imgB_res, R=R, S=S)
         #imgB_PSL = imgB_PSL / self.IP_fade(fade_t)
         imgB_PSL[imgB_PSL < 1e-6] = 1e-6
 

@@ -56,6 +56,14 @@ class Experiment:
             for diag_name in self.diag_config: 
                 self.add_diagnostic(diag_name)
 
+        # loop through metas and add
+        self.metas = {}
+        meta_config_filepath = Path(root_folder + 'metas.toml')
+        if os.path.exists(meta_config_filepath):
+            self.meta_config = load_file(meta_config_filepath)
+            for meta_name in self.meta_config: 
+                self.add_meta(meta_name)
+
     def add_diagnostic(self, diag_name):
 
         # TODO: add from seperate file?
@@ -97,6 +105,47 @@ class Experiment:
             print(f"{diag_name} [{self.diag_config[diag_name]['type']}]")
         return
     
+    def add_meta(self, meta_name):
+
+        if not self.meta_config:
+            raise Exception('No meta config file loaded')
+        if meta_name not in self.meta_config:
+            raise Exception(f'Could not find diagnostic: {meta_name}')
+
+        self.meta_config[meta_name]['name'] = meta_name
+
+        if 'type' in self.meta_config[meta_name]:
+            meta_type = self.meta_config[meta_name]['type']
+        else:
+            raise Exception(f'No meta type defined for: {meta_name}')
+
+        meta_module = 'LAMP.metas.' + meta_type
+        try:
+            meta_lib = importlib.import_module(meta_module)
+        except ImportError:
+            raise Exception(f'Could not find Meta module: {meta_module}')
+
+        meta_class = getattr(meta_lib, meta_type)
+        if callable(meta_class):
+            print(f'Adding Meta: {meta_name} [{meta_type}]')
+            self.metas[meta_name] = meta_class(self, self.meta_config[meta_name])
+        else:
+            raise Exception(f'Could not find Meta object: {meta_type}')
+
+        return self.get_meta(meta_name)
+     
+        return 
+    
+    def get_meta(self, meta_name):
+        if meta_name not in self.metas:
+            raise Exception(f'Could not find Meta: {meta_name}')
+        return self.metas[meta_name]
+
+    def list_metas(self):
+        for meta_name in self.metas.keys():
+            print(f"{meta_name} [{self.meta_config[meta_name]['type']}]")
+        return
+
     def make_call_calibs(self):
         """Loop through all diagnostics, for each, loop through calibrations, if proc file set, make"""
         for diag_name in self.diags.keys():

@@ -12,7 +12,7 @@ class GeminiMirage(DAQ):
     __authors = ['Brendan Kettle']
 
     def __init__(self, exp_obj):
-        """Initiate parent base Diagnostic class to get all shared attributes and funcs"""
+        """Initiate parent base DAQ class to get all shared attributes and funcs"""
         super().__init__(exp_obj)
         return
 
