@@ -160,6 +160,33 @@ class Diagnostic():
     def run_img_calib(self, img_data, debug=False):
         """Central wrapper function for processing image data using calibration"""
 
+        # background correction wrapper called at the appropriate stage
+        def do_bkg_sub():
+            if 'type' not in self.calib_dict['background']:
+                print('run_img_calib() error: background error: No type set')
+            if 'axis' in self.calib_dict['background']:
+                axis = self.calib_dict['background']['axis']
+            else:
+                axis = None
+            if 'order' in self.calib_dict['background']:
+                order = self.calib_dict['background']['order']
+            else:
+                order = None
+            if 'options' in self.calib_dict['background']:
+                options = self.calib_dict['background']['options']
+            else:
+                options = None
+            if 'data' in self.calib_dict['background']:
+                bkg_data = self.calib_dict['background']['data']
+            else:
+                bkg_data = None
+            if 'roi' in self.calib_dict['background']:
+                bkg_roi = self.calib_dict['background']['roi']
+            else:
+                bkg_roi = None
+            img.bkg_sub(self.calib_dict['background']['type'], roi=bkg_roi, axis=axis, order=order, data=bkg_data, options=options, debug=debug)
+
+
         # if img_data is passed as a shot dictionary or filepath, grab the actual image
         if isinstance(img_data, dict) or isinstance(img_data, str):
             img_data = self.get_shot_data(img_data)
@@ -172,12 +199,11 @@ class Diagnostic():
             #print('Removing dark image')
 
         if 'background' in self.calib_dict:
-            #print('Automatic Background processing a work in progress!')
             if 'stage' in self.calib_dict['background'] and self.calib_dict['background']['stage'].lower() == 'original':
-                img.bkg_sub(self.calib_dict['background']['type'], roi=self.calib_dict['background']['roi'])
+                do_bkg_sub()
 
         # FIX!
-        #  currently now transition to back data, not ImageProc object, but this should be fixed!
+        #  currently now transition back to data, not ImageProc object, but this should be fixed!
         img_data = img.get_img()
 
         if 'roi' in self.calib_dict:
@@ -215,17 +241,24 @@ class Diagnostic():
                 if 'y_units' in self.calib_dict['scale']:
                     self.x_units = self.calib_dict['scale']['y_units']
 
+        # Fix! switching back to img object again...
+        img = ImageProc(data=img_data)
+
+        if 'background' in self.calib_dict:
+            if 'stage' in self.calib_dict['background'] and self.calib_dict['background']['stage'].lower() == 'transformed':
+                do_bkg_sub()
+
         # if x / y not set, use pixel numbers
         if 'x' not in locals():
-            x = np.arange(np.shape(img_data)[1])
+            x = np.arange(np.shape(img.get_img())[1])
         if 'y' not in locals():
-            y = np.arange(np.shape(img_data)[0])
+            y = np.arange(np.shape(img.get_img())[0])
 
         self.x = x
         self.y = y
-        self.curr_img = img_data
+        self.curr_img = img.get_img()
 
-        return img_data, x, y
+        return img.get_img(), x, y
 
     def transform(self, img_data, tform_dict=None):
         """Wrapper function around ImageProc transform"""

@@ -139,15 +139,23 @@ class ImageProc():
                     plt.tight_layout()
                     plt.title('Background correction')
                     plt.show(block=False)
+
+                    plt.figure()
+                    im = plt.imshow(self.get_img()- bkg_img, vmax=0.2*np.max(self.get_img()- bkg_img))
+                    cb = plt.colorbar(im)
+                    #cb.set_label(self.img_units, rotation=270, labelpad=20)
+                    plt.tight_layout()
+                    plt.title('Background corrected image')
+                    plt.show(block=False)
             else:
                 print('bkg_sub error: No axis provided for type=gradient')
 
             self.set_img(self.get_img()- bkg_img)
 
         
-        elif type.lower() == 'surf_fit':
+        elif type.lower() == 'surface':
             # feed ROIs or data, and then interpolate surface across this before subtracting
-            print('Error in bkg_sub: type surf_fit TO DO!')
+            print('Error in bkg_sub: type surface TO DO!')
 
             # import numpy as np
             # from sklearn.preprocessing import PolynomialFeatures

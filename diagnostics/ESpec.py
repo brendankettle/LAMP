@@ -442,7 +442,7 @@ class ESpec(Diagnostic):
                 else:
                     y_roi=[mindex(MeV,MeV_roi[0]),mindex(MeV,MeV_roi[1])]
         else:
-            axis = self.x
+            axis = self.x #???
         if 'divergence' in self.calib_dict and mrad_roi is not None:
             if self.calib_dict['divergence']['axis'].lower == 'y':
                 y_roi=[mindex(self.y_mrad,mrad_roi[0]),mindex(self.y_mrad,mrad_roi[1])]
