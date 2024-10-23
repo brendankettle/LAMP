@@ -101,7 +101,9 @@ class Diagnostic():
             if 'proc_file' in calib_dict:
                 if os.path.exists(self.build_calib_filepath(calib_dict['proc_file'])):
                     proc_calib_dict = self.load_calib_file(calib_dict['proc_file'])
-                    dict_update(calib_dict, proc_calib_dict)
+                    #dict_update(calib_dict, proc_calib_dict)
+                    # actually, treat calibration file details as highest priorities, so they overwrite anything in processed dictionary
+                    calib_dict = dict_update(proc_calib_dict, calib_dict)
                 # might not be processed yet, just print a warning and move on
                 else:
                     print(f"get_calib() warning; no processed file found for '{calib_dict['proc_file']}'")
@@ -219,7 +221,7 @@ class Diagnostic():
             img_data, x, y = self.transform(img_data, self.calib_dict['transform'])
             if debug:
                 plt.figure()
-                im = plt.imshow(img_data, vmax=(0.2*np.max(img_data)))
+                im = plt.imshow(img_data, vmin=np.percentile(img_data, 5), vmax=np.percentile(img_data, 99))
                 cb = plt.colorbar(im)
                 plt.xlabel('new pixels')
                 plt.ylabel('new pixels')
@@ -445,7 +447,7 @@ class Diagnostic():
             print(f"to_mrad error; unknown angular units {units}")
 
 
-    def montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=False, num_rows=1):
+    def montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1):
         """Default wrapper function. This can be overwritten by diagnostic with more options"""
 
         axis_label = ''

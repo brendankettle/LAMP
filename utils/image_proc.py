@@ -141,7 +141,7 @@ class ImageProc():
                     plt.show(block=False)
 
                     plt.figure()
-                    im = plt.imshow(self.get_img()- bkg_img, vmax=0.2*np.max(self.get_img()- bkg_img))
+                    im = plt.imshow(self.get_img()- bkg_img, vmin=np.percentile((self.get_img()-bkg_img), 5), vmax=np.percentile((self.get_img()- bkg_img), 99))
                     cb = plt.colorbar(im)
                     #cb.set_label(self.img_units, rotation=270, labelpad=20)
                     plt.tight_layout()

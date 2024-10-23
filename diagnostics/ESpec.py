@@ -38,7 +38,6 @@ class ESpec(Diagnostic):
     def get_proc_shot(self, shot_dict, calib_id=None, roi=None, apply_disp=True, apply_div=True, debug=False):
         """Return a processed shot using saved or passed calibrations.
         """
-        # TO DO: SHOULD ALOT OF THIS BE IN DIAGNOSTIC CLASS? ALOT COULD APPLY TO ANY IMAGE PROCESSING
 
         # set calibration dictionary
         if calib_id:
@@ -71,9 +70,10 @@ class ESpec(Diagnostic):
                 axis = 'x'
 
             # ROI?
-            if 'roi_MeV' in self.calib_dict:
-                MeV_min = np.min(self.calib_dict['roi_MeV'])
-                MeV_max = np.max(self.calib_dict['roi_MeV'])
+            #if 'roi_MeV' in self.calib_dict:
+            if ('roi' in self.calib_dict) and ('MeV' in self.calib_dict['roi']):
+                MeV_min = np.min(self.calib_dict['roi']['MeV'])
+                MeV_max = np.max(self.calib_dict['roi']['MeV'])
                 if axis == 'y':
                     self.y_mm = self.y_mm[(MeV > MeV_min)]# update spatial axis with ROI selection
                     img = img[(MeV > MeV_min), :]
@@ -112,9 +112,10 @@ class ESpec(Diagnostic):
                 axis = 'y'
 
             # ROI?
-            if 'roi_mrad' in self.calib_dict:
-                mrad_min = np.min(self.calib_dict['roi_mrad'])
-                mrad_max = np.max(self.calib_dict['roi_mrad'])
+            #if 'roi_mrad' in self.calib_dict:
+            if ('roi' in self.calib_dict) and ('mrad' in self.calib_dict['roi']):
+                mrad_min = np.min(self.calib_dict['roi']['mrad'])
+                mrad_max = np.max(self.calib_dict['roi']['mrad'])
                 if axis == 'y':
                     self.y_mm = self.y_mm[(mrad > mrad_min)] # update spatial axis with ROI selection
                     img = img[(mrad > mrad_min), :]
@@ -424,30 +425,54 @@ class ESpec(Diagnostic):
     # ------------------------------------------------------ #
 
     def montage(self, timeframe, x_roi=None, MeV_roi=None, y_roi=None, mrad_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1):
-        """This definitely needs fixed to work for other cases and generalised and put in diagnostic class"""
-
-        axis_label = r'$E$ [MeV]'
+        """Wrapper for diagnostic make_montage() function, mainly to set axis"""
 
         if not self.calib_dict:
-            print('Missing Calibration before using Montage...')
+            print('Missing Calibration before using Montage... Please set using set_calib(calib_id)')
             return False
 
         # convert rois to MeV mrad indices
         if 'dispersion' in self.calib_dict:
             MeV = self.calib_dict['dispersion']['MeV']
+            
+            # Apply the preset ROIs first. Otherwise trouble below!
+            if ('roi' in self.calib_dict) and ('MeV' in self.calib_dict['roi']):
+                MeV_min = np.min(self.calib_dict['roi']['MeV'])
+                MeV_max = np.max(self.calib_dict['roi']['MeV'])
+                MeV = MeV[(MeV > MeV_min)]
+                MeV = MeV[(MeV < MeV_max)]
+
             axis = MeV
+            axis_label = r'$E$ [MeV]'
+
             if MeV_roi is not None:
+                MeV_min_i = np.min([mindex(MeV,MeV_roi[0]),mindex(MeV,MeV_roi[1])])
+                MeV_max_i = np.max([mindex(MeV,MeV_roi[0]),mindex(MeV,MeV_roi[1])])
                 if self.calib_dict['dispersion']['axis'].lower() == 'x':
-                    x_roi=[mindex(MeV,MeV_roi[0]),mindex(MeV,MeV_roi[1])]
+                    x_roi=[MeV_min_i,MeV_max_i]
                 else:
-                    y_roi=[mindex(MeV,MeV_roi[0]),mindex(MeV,MeV_roi[1])]
+                    y_roi=[MeV_min_i,MeV_max_i]
         else:
-            axis = self.x #???
+            axis = None # self.x #??? or y?
+            axis_label = '?'
+
         if 'divergence' in self.calib_dict and mrad_roi is not None:
-            if self.calib_dict['divergence']['axis'].lower == 'y':
-                y_roi=[mindex(self.y_mrad,mrad_roi[0]),mindex(self.y_mrad,mrad_roi[1])]
+            mrad = self.calib_dict['divergence']['mrad']
+
+            # Apply the preset ROIs first. Otherwise trouble below?
+            if ('roi' in self.calib_dict) and ('mrad' in self.calib_dict['roi']):
+                mrad_min = np.min(self.calib_dict['roi']['mrad'])
+                mrad_max = np.max(self.calib_dict['roi']['mrad'])
+                mrad = mrad[(mrad > mrad_min)]
+                mrad = mrad[(mrad < mrad_max)]
+
+            mrad_min_i = np.min([mindex(mrad,mrad_roi[0]),mindex(mrad,mrad_roi[1])])
+            mrad_max_i = np.max([mindex(mrad,mrad_roi[0]),mindex(mrad,mrad_roi[1])])
+
+            if self.calib_dict['divergence']['axis'].lower() == 'y':
+                y_roi=[mrad_min_i,mrad_max_i]
             else:
-                x_roi=[mindex(self.x_mrad,mrad_roi[0]),mindex(self.x_mrad,mrad_roi[1])]
+                x_roi=[mrad_min_i,mrad_max_i]
 
         fig, ax = self.make_montage(timeframe, x_roi=x_roi, y_roi=y_roi, axis=axis, axis_label=axis_label, x_downsample=x_downsample, 
                                y_downsample=y_downsample, vmin=vmin, vmax=vmax, transpose=transpose, num_rows=num_rows)

@@ -5,7 +5,7 @@ import collections.abc
 def mindex(arr,val):
     return np.argmin(np.abs(np.array(arr)-val))
 
-# make sure we join dictionaries on a recussive level without overwriting
+# make sure we join dictionaries on a recussive level
 def dict_update(d, u):
     for k, v in u.items():
         if isinstance(v, collections.abc.Mapping):
