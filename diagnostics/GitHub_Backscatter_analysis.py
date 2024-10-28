@@ -101,32 +101,6 @@ for img_file in Path(base_dir).glob('*.tiff'):  # Adjust the file extension as n
 print("Image transformation completed for all input files.")
 
 
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[6]:
-
 
 #######CONVERT IMAGE#####
 
