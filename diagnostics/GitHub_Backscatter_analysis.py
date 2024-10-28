@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 import numpy as np
 import cv2
 from skimage.io import imread
@@ -15,13 +9,10 @@ import glob
 from scipy.signal import find_peaks
 
 
-# In[2]:
 
 
 #######CALIBRATIONS#####
 
-
-# In[3]:
 
 
 light_percentage =  0.0000946 #0.0000946% light passes through 
@@ -34,13 +25,7 @@ imgP_real = np.array([[0, 150], [150, 150], [150, 0], [0, 0]])  # Real-world coo
 top_zero = np.array([113, 33])  # Reference measurement of the top left corner
 
 
-# In[4]:
-
-
 #######TRANSFORM IMAGE#####
-
-
-# In[5]:
 
 
 base_dir = '/Users/temourfoster/Desktop/Imperial_NLCS_analysis/github/test_input'
@@ -105,9 +90,6 @@ print("Image transformation completed for all input files.")
 #######CONVERT IMAGE#####
 
 
-# In[7]:
-
-
 def integrate_and_plot_single_image(input_file, start_x, start_y):
     # Read the single image
     image = tiff.imread(input_file)
@@ -155,43 +137,10 @@ start_y = 200
 summed_image = integrate_and_plot_single_image(output_file, start_x, start_y)
 
 
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[8]:
-
 
 #######ANALYSE IMAGE#####
 
 
-# In[9]:
 
 
 import matplotlib.pyplot as plt
@@ -215,10 +164,10 @@ def analyze_and_plot_zoomed_image(summed_image, zoom_region, peak_intensity_thre
     
 
     energy_screen = calibration_pixel_to_J * actual_intensity
-#    energy_deposited_gas = laser_shot_total_energy_J - energy_screen  # energy deposited twice; once initial electron acceleration, 2nd from reflection
+#    energy_deposited_gas = laser_shot_total_energy_J - energy_screen  # energy deposited twice; once initial electron acceleration, 2nd from reflection ###NEEDS TO BE FIXED WITH BEAM DUMP DATA
     
     print(f'Total energy of zoomed region: {energy_screen:.2f} J')
-#    print(f'Total energy deposited in gas: {energy_deposited_gas:.2f} J')
+#    print(f'Total energy deposited in gas: {energy_deposited_gas:.2f} J')###NEEDS TO BE FIXED WITH BEAM DUMP DATA
     
 
     
@@ -355,10 +304,3 @@ zoom_region = (start_x, start_y, 500, 500)  # x start position, y start position
 peak_intensity_threshold = 200
 # Define a suitable threshold for peak intensity
 analyze_and_plot_zoomed_image(summed_image, zoom_region, peak_intensity_threshold=peak_intensity_threshold)
-
-
-# In[ ]:
-
-
-
-
