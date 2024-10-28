@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import os
 import glob
 from scipy.signal import find_peaks
+from scipy.ndimage import center_of_mass
 
 
 
@@ -88,26 +89,44 @@ print("Image transformation completed for all input files.")
 
 
 #######CONVERT IMAGE#####
-
-
-def integrate_and_plot_single_image(input_file, start_x, start_y):
+def integrate_and_plot_summed_images(input_file):
+    
     # Read the single image
     image = tiff.imread(input_file)
 
     # Initialize the summed image as just the input image
     summed_image = image
+    
+    
+    # Find the center of the main signal area
+    mass_center = center_of_mass(summed_image)
+    center_x, center_y = int(mass_center[1]), int(mass_center[0])
+    
+    # Adjust to ensure the region stays within the image bounds
+    len_value = 500
+    half_len = int(len_value/2)
+    x_start = max(center_x - half_len, 0)
+    y_start = max(center_y - half_len, 0)
+    x_end = min(center_x + half_len, summed_image.shape[1])
+    y_end = min(center_y + half_len, summed_image.shape[0])
+    
+    # Define zoom region
+    zoom_region = (x_start, y_start, x_end - x_start, y_end - y_start) # x_end - x_start should still be 500
+    x, y, width, height = zoom_region
+    zoomed_image = summed_image[y:y+height, x:x+width]
+    
+    print((zoomed_image.shape[1]))
 
+    
+    
     # Plot the full summed image
     vmin = summed_image.min()
     vmax = summed_image.max()
 
+
     plt.figure(figsize=(10, 8))
     ax1 = plt.subplot(1, 1, 1)
     img1 = ax1.imshow(summed_image, cmap='gray', vmin=vmin, vmax=vmax)
-    ax1.set_title('Image from Output File')
-    
-    
-    # Set axis labels and title
     ax1.set_xlabel('Pixels [no units]')
     ax1.set_ylabel('Pixels [no units]')
     ax1.set_title('Transformed image with ROI selected')
@@ -115,27 +134,43 @@ def integrate_and_plot_single_image(input_file, start_x, start_y):
     # Create colorbar and set label
     cbar = plt.colorbar(img1, ax=ax1, orientation='horizontal')
     cbar.set_label('Intensity [counts]')
-    
-    # Plotting lines for the specified area
-    x_len = 500 
-    y_len = 500
-    
-    plt.axvline(start_x, color='red')
-    plt.axhline(start_y, color='red')
-    plt.axvline(start_x + x_len, color='red')
-    plt.axhline(start_y + y_len, color='red')
-    
 
-    #plt.tight_layout()
+    # Draw lines
+    plt.axvline(x_start, color='red', linestyle='--', alpha=0.5)
+    plt.axhline(y_start, color='red', linestyle='--', alpha=0.5)
+    plt.axvline(x_end, color='red', linestyle='--', alpha=0.5)
+    plt.axhline(y_end, color='red', linestyle='--', alpha=0.5)
+
+    plt.tight_layout()
     plt.show()
+
+
+
+    # Plot zoomed image with same figure size
+    plt.figure(figsize=(10, 8))
+    ax2 = plt.subplot(1, 1, 1)
+    img2 = ax2.imshow(zoomed_image, cmap='gray', vmin=vmin, vmax=vmax)  # Use same vmin and vmax as the full image
+    ax2.axhline(height // 2, color='red', linestyle='--', alpha=0.5)
+    ax2.axvline(width // 2, color='red', linestyle='--', alpha=0.5)
+    ax2.set_xlabel('Pixels [no units]')
+    ax2.set_ylabel('Pixels [no units]')
+    ax2.set_title('ROI image')
     
-    return summed_image
+    # Create colorbar and set label
+    cbar = plt.colorbar(img2, ax=ax2, orientation='horizontal')
+    cbar.set_label('Intensity [counts]')
+
+    plt.tight_layout()
+    plt.show()
 
 
-start_x = 160
-start_y = 200
-summed_image = integrate_and_plot_single_image(output_file, start_x, start_y)
 
+    
+
+    
+    return summed_image, zoomed_image, x_start, y_start
+
+summed_image, zoomed_image, x_start, y_start = integrate_and_plot_summed_images(output_file)
 
 
 #######ANALYSE IMAGE#####
@@ -296,7 +331,7 @@ def find_threshold_positions(lineout, peaks, peak_heights, threshold_ratio=1/np.
 
 
 
-zoom_region = (start_x, start_y, 500, 500)  # x start position, y start position, x length, y length
+zoom_region = (x_start, y_start, 500, 500)  # x start position, y start position, x length, y length
 
 
 
