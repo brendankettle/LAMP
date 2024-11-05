@@ -490,9 +490,9 @@ class ESpec(Diagnostic):
 
         if calib_id:
             self.calib_dict = self.get_calib(calib_id)
-        if not self.calib_dict:
-            print('Missing Calibration before using Montage... Please set using set_calib(calib_id), or pass calib_id')
-            return False
+        # if not self.calib_dict:
+        #     print('Missing Calibration before using Montage... Please set using set_calib(calib_id), or pass calib_id')
+        #     return False
         
         # calling 'universal' DAQ function here, that is probably DAQ specific
         shot_dicts = self.DAQ.get_shot_dicts(self.config['name'],timeframe,exceptions=exceptions)
@@ -500,7 +500,7 @@ class ESpec(Diagnostic):
         shot_labels = []
         for shot_dict in shot_dicts:
 
-            img, x, y = self.get_proc_shot(shot_dict, roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
+            img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
 
             if 'images' in locals():
                 images = np.concatenate((images, np.atleast_3d(img)), axis=2)

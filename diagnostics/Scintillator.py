@@ -8,6 +8,7 @@ from scipy.optimize import curve_fit
 
 from ..diagnostic import Diagnostic
 from ..utils.plotting import *
+from ..utils.general import mindex
 
 class Scintillator(Diagnostic):
     """
@@ -40,34 +41,56 @@ class Scintillator(Diagnostic):
 
         return img_data, self.x, self.y
     
-    def get_scint_sigs(self, img_data, debug=False):
+    def get_scint_sigs(self, shot_dict, calib_id=None, debug=False):
 
-        scint_sigs = np.zeros([self.calib_dict['num_cols'],self.calib_dict['num_rows']])
+        if not self.calib_dict and not calib_id:
+            print('Missing Calibration before using get_scint_sigs... Please set using set_calib(calib_id) or pass a calib_id')
+            return False
+        if 'extraction' not in self.calib_dict:
+            print('No extraction calibration set')
+            return False        
+        ext_dict = self.calib_dict['extraction']
 
-        scint_centres_x = self.calib_dict['ext_start_x'] + self.calib_dict['ext_spacing_x'] * np.array(range(self.calib_dict['num_cols'])) 
-        scint_centres_y = self.calib_dict['ext_start_y'] + self.calib_dict['ext_spacing_y'] * np.array(range(self.calib_dict['num_rows'])) 
+        img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id, debug=debug)
 
-        wr = int(self.calib_dict['ext_sample_width']/2)
-        hr = int(self.calib_dict['ext_sample_height']/2)
+        scint_sigs = np.zeros([ext_dict['num_cols'],ext_dict['num_rows']])
+
+        # make scintiallator crystal coordinates
+        scint_centres_x = ext_dict['start_x'] + ext_dict['spacing_x'] * np.array(range(ext_dict['num_cols'])) 
+        scint_centres_y = ext_dict['start_y'] + ext_dict['spacing_y'] * np.array(range(ext_dict['num_rows'])) 
+        # convert to pixel numbers from spatial definitions
+        scx_px = mindex(x, scint_centres_x)
+        scy_px = mindex(y, scint_centres_y)
+
+        print(scx_px)
+        print(scy_px)
+
+        wr = int(ext_dict['sample_width']/2)
+        hr = int(ext_dict['sample_height']/2)
 
         # TODO: Would be better to integrate signal in crystal masked area around each of these points
         # i.e. get all the signal from a crystal, then give average counts per pixel?
+
         if(debug):
             plt.figure()
-            im = plt.imshow(img_data)
+            im = plt.imshow(img, vmax=np.percentile(img,90))
             ax = plt.gca()
 
-        for ci in range(len(scint_centres_x)):
-            for ri in range(len(scint_centres_y)):
-                x = scint_centres_x[ci]
-                y = scint_centres_y[ri]
-                scint_sigs[ci,ri] = np.mean(img_data[y-hr:y+hr,x-wr:x+wr])
+        for ci in range(len(scx_px)):
+            for ri in range(len(scy_px)):
+                x = scx_px[ci]
+                y = scy_px[ri]
+                scint_sigs[ci,ri] = np.mean(img[y-hr:y+hr,x-wr:x+wr])
                 if(debug):
                     rect = patches.Rectangle((x-wr, y-hr), 2*wr, 2*hr, linewidth=1, edgecolor='r', facecolor='none')
                     ax.add_patch(rect)
         if(debug): cb = plt.colorbar(im)
 
-        mm2_per_px = self.calib_dict['scale_x'] * self.calib_dict['scale_y']
+        # THIS IS A BIT CRUDE? Would be better to calculate at each point...
+        # Also probably doesn't work if there is an offset...
+        mm2_per_px = np.mean(scint_centres_x / scx_px) * np.mean(scint_centres_y / scy_px)
+        print(mm2_per_px)
+        #mm2_per_px = self.calib_dict['scale_x'] * self.calib_dict['scale_y']
 
         # returning average counts per mm2 of scintalator?
         return scint_sigs.T / mm2_per_px
@@ -111,40 +134,40 @@ class Scintillator(Diagnostic):
         for n, shot_dict in enumerate(shot_dicts):
             img, x, y = self.get_proc_shot(shot_dict)
             print(shot_dict)
-#             sum_pixels.append(np.sum(img[200:800, 200:800]))
+            # sum_pixels.append(np.sum(img[200:800, 200:800]))
             if x_axis == True:
-            	lineout = img[490:510,:]
+                lineout = img[490:510,:]
             elif y_axis == True:
-            	lineout = img[:,490:510]
-            
+                lineout = img[:,490:510]
+
             average = np.mean(lineout, axis=0)
             scan_average.append(average)
-#             scan_sum.append(sum_pixels)
+            # scan_sum.append(sum_pixels)
             if n == 0:
-            	pass
+                pass
             elif (n+1)%n_per_pos == 0:
-            	k+=1
-            	average = np.mean(scan_average, axis=0)
-#             	summer = np.mean(scan_sum)
-            	err = np.std(scan_average, axis=0)
-            	plt.plot(np.arange(len(average))*0.305, average, label='Set '+str(k))
-            	plt.fill_between(np.arange(len(average))*0.305, average+err, average-err, alpha=0.2)
-            	
-            	x = np.arange(len(average))*0.305
-            	x1 = x
-            	isel = (x<=125)|(x>=175)
-            	x = x[isel]
-            	y = average
-            	y = y[isel]
-            	
-            	popt,pcov = curve_fit(gaus,x,y,p0=[3000,150,30])
-#             	plt.plot(x1,gaus(x1,*popt),linestyle=':')
-            	
-            	fwhm = np.where(y>=np.max(y)/2)
-            	fwhm = fwhm[0]
-            	
-            	fwhm_vals.append((fwhm[-1]-fwhm[0])*0.305)
-            	scan_average = []
+                k+=1
+                average = np.mean(scan_average, axis=0)
+                #             	summer = np.mean(scan_sum)
+                err = np.std(scan_average, axis=0)
+                plt.plot(np.arange(len(average))*0.305, average, label='Set '+str(k))
+                plt.fill_between(np.arange(len(average))*0.305, average+err, average-err, alpha=0.2)
+
+                x = np.arange(len(average))*0.305
+                x1 = x
+                isel = (x<=125)|(x>=175)
+                x = x[isel]
+                y = average
+                y = y[isel]
+
+                popt,pcov = curve_fit(gaus,x,y,p0=[3000,150,30])
+                #             	plt.plot(x1,gaus(x1,*popt),linestyle=':')
+
+                fwhm = np.where(y>=np.max(y)/2)
+                fwhm = fwhm[0]
+
+                fwhm_vals.append((fwhm[-1]-fwhm[0])*0.305)
+                scan_average = []
             	
             	
         plt.legend(fontsize=6, handlelength=0.2)
@@ -187,3 +210,52 @@ class Scintillator(Diagnostic):
     #     plt.show(block=False)
 
     #    return
+
+    def montage(self, timeframe, calib_id=None, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1, debug=False):
+        """This actually builds the montage shots, and feeds into the plotting functions"""
+
+        axis_label = ''
+        axis = None
+
+        if calib_id:
+            self.calib_dict = self.get_calib(calib_id)
+        # ???
+        # if not self.calib_dict:
+        #     print('Missing Calibration before using Montage...')
+        #     return False
+
+        # calling 'universal' DAQ function here, that is probably DAQ specific
+        shot_dicts = self.DAQ.get_shot_dicts(self.config['name'],timeframe,exceptions=exceptions)
+
+        shot_labels = []
+        for shot_dict in shot_dicts:
+            # To Do, if no get_proc_shot, just use raw data?
+            # To Do: Pass ROIs here not montage function below?
+            img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id, debug=debug)
+
+            if 'images' in locals():
+                images = np.concatenate((images, np.atleast_3d(img)), axis=2)
+            else:
+                images = np.atleast_3d(img)
+
+            # try build a shot label
+            if 'burst' in shot_dict:
+                m = re.search(r'\d+$', str(shot_dict['burst'])) # gets last numbers
+                burst = int(m.group())
+                burst_str = str(burst) + '|'
+            else:
+                burst_str = ''
+            if 'shotnum' in shot_dict:
+                shot_str = str(shot_dict['shotnum'])
+            else:
+                shot_str = ''
+
+            shot_labels.append(burst_str + shot_str)
+
+        cb_label = 'Counts?'
+
+        fig, ax = plot_montage(images, x_roi=x_roi, y_roi=y_roi, axis=axis, x_downsample=x_downsample, 
+                               y_downsample=y_downsample, title=self.shot_string(timeframe), vmin=vmin, vmax=vmax, 
+                               transpose=transpose, num_rows=num_rows, cb_label=cb_label, y_label=axis_label, shot_labels=shot_labels)
+
+        return fig, ax
