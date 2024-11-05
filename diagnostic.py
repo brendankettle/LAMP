@@ -208,14 +208,15 @@ class Diagnostic():
         #  currently now transition back to data, not ImageProc object, but this should be fixed!
         img_data = img.get_img()
 
-        if 'roi' in self.calib_dict:
-            # pixels or transformed coords?
-            if 'pixels' in self.calib_dict['roi']:
-                roi = self.calib_dict['roi']['pixels']
-                img_data = img_data[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]]
-            if 'transformed' in self.calib_dict['roi']:
-                # this will probably have to go later? (after transform)
-                print('To Do! ROI processing for transformed Co-ords... etc.')
+        # ROIs should be kept until the final step?
+        # if 'roi' in self.calib_dict:
+        #     # pixels or transformed coords?
+        #     if 'pixels' in self.calib_dict['roi']:
+        #         roi = self.calib_dict['roi']['pixels']
+        #         img_data = img_data[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]]
+        #     if 'transformed' in self.calib_dict['roi']:
+        #         # this will probably have to go later? (after transform)
+        #         print('To Do! ROI processing for transformed Co-ords... etc.')
 
         if 'transform' in self.calib_dict:
             img_data, x, y = self.transform(img_data, self.calib_dict['transform'])
@@ -231,7 +232,7 @@ class Diagnostic():
             # non-transform functions
             if 'img_rotation' in self.calib_dict:
                 img_data = ndimage.rotate(img_data, self.calib_dict['img_rotation'], reshape=False)
-                
+
             if 'scale' in self.calib_dict:
                 x = np.arange(np.shape(img_data)[1]) * self.calib_dict['scale']['pixel_width']
                 y = np.arange(np.shape(img_data)[0]) * self.calib_dict['scale']['pixel_height']
@@ -250,7 +251,7 @@ class Diagnostic():
             if 'stage' in self.calib_dict['background'] and self.calib_dict['background']['stage'].lower() == 'transformed':
                 do_bkg_sub()
 
-        # if x / y not set, use pixel numbers
+        # if x / y not set (i.e. no transforms etc.), use pixel numbers
         if 'x' not in locals():
             x = np.arange(np.shape(img.get_img())[1])
         if 'y' not in locals():
@@ -447,54 +448,17 @@ class Diagnostic():
             print(f"to_mrad error; unknown angular units {units}")
 
 
-    def montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1):
-        """Default wrapper function. This can be overwritten by diagnostic with more options"""
+    # def montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1):
+    #     """Default wrapper function. This can be overwritten by diagnostic with more options"""
 
-        axis_label = ''
-        axis = None
+    #     axis_label = ''
+    #     axis = None
 
-        if not self.calib_dict:
-            print('Missing Calibration before using Montage...')
-            return False
+    #     if not self.calib_dict:
+    #         print('Missing Calibration before using Montage...')
+    #         return False
 
-        fig, ax = self.make_montage(timeframe, x_roi=x_roi, y_roi=y_roi, axis=axis, axis_label=axis_label, x_downsample=x_downsample, 
-                               y_downsample=y_downsample, vmin=vmin, vmax=vmax, transpose=transpose, num_rows=num_rows)
+    #     fig, ax = self.make_montage(timeframe, x_roi=x_roi, y_roi=y_roi, axis=axis, axis_label=axis_label, x_downsample=x_downsample, 
+    #                            y_downsample=y_downsample, vmin=vmin, vmax=vmax, transpose=transpose, num_rows=num_rows)
 
-        return fig, ax
-
-    def make_montage(self, timeframe, x_roi=None, y_roi=None, axis=None, axis_label=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1):
-        """This actually builds the montage shots, and feeds into the plotting functions"""
-
-        # calling 'universal' DAQ function here, that is probably DAQ specific
-        shot_dicts = self.DAQ.get_shot_dicts(self.config['name'],timeframe,exceptions=exceptions)
-
-        shot_labels = []
-        for shot_dict in shot_dicts:
-            # To Do, if no get_proc_shot, just use raw data?
-            img, x, y = self.get_proc_shot(shot_dict)
-
-            if 'images' in locals():
-                images = np.concatenate((images, np.atleast_3d(img)), axis=2)
-            else:
-                images = np.atleast_3d(img)
-
-            # try build a shot label
-            if 'burst' in shot_dict:
-                m = re.search(r'\d+$', str(shot_dict['burst'])) # gets last numbers
-                burst = int(m.group())
-                burst_str = str(burst) + '|'
-            else:
-                burst_str = ''
-            if 'shotnum' in shot_dict:
-                shot_str = str(shot_dict['shotnum'])
-            else:
-                shot_str = ''
-
-            shot_labels.append(burst_str + shot_str)
-
-        fig, ax = plot_montage(images, x_roi=x_roi, y_roi=y_roi, axis=axis, x_downsample=x_downsample, 
-                               y_downsample=y_downsample, title=self.shot_string(timeframe), vmin=vmin, vmax=vmax, 
-                               transpose=transpose, num_rows=num_rows, shot_labels=shot_labels)
-        ax.set_ylabel(axis_label)
-
-        return fig, ax
+    #     return fig, ax

@@ -2,6 +2,7 @@ import numpy as np
 import cv2 as cv
 from matplotlib.image import imread 
 import matplotlib.pyplot as plt 
+import matplotlib.patches as patches
 from pathlib import Path
 from scipy.signal import fftconvolve
 
@@ -71,6 +72,7 @@ class ImageProc():
         return self.get_img()
     
     def bkg_sub(self, type, roi=None, axis=None, data=None, order=None, options=None, debug=True):
+        """Could this be its own class?"""
 
         # switch between background type
         if type.lower() == 'img':
@@ -144,6 +146,9 @@ class ImageProc():
                     im = plt.imshow(self.get_img()- bkg_img, vmin=np.percentile((self.get_img()-bkg_img), 5), vmax=np.percentile((self.get_img()- bkg_img), 99))
                     cb = plt.colorbar(im)
                     #cb.set_label(self.img_units, rotation=270, labelpad=20)
+                    ax = plt.gca()
+                    rect = patches.Rectangle((roi[0][0], roi[0][1]), (roi[1][0]-roi[0][0]), (roi[1][1]-roi[0][1]), linewidth=1, edgecolor='r', facecolor='none')
+                    ax.add_patch(rect)
                     plt.tight_layout()
                     plt.title('Background corrected image')
                     plt.show(block=False)

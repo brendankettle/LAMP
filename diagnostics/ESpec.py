@@ -25,7 +25,7 @@ class ESpec(Diagnostic):
     # my (BK) thinking is that it is better to keep track of all the different units for the x/y axis
     # also, sticking to the same units (mm/MeV/mrad) helps make it easier to convert from different calibrations and simplify plotting
     curr_img = None
-    img_units = 'Counts'
+    img_units = ['Counts']
     x_mm, y_mm = None, None
     x_mrad, y_mrad = None, None
     x_MeV, y_MeV = None, None
@@ -35,10 +35,9 @@ class ESpec(Diagnostic):
         super().__init__(exp_obj, config_filepath)
         return
 
-    def get_proc_shot(self, shot_dict, calib_id=None, roi=None, apply_disp=True, apply_div=True, debug=False):
+    def get_proc_shot(self, shot_dict, calib_id=None, apply_disp=True, apply_div=True, apply_charge=True, roi_mm=None, roi_MeV=None, roi_mrad=None, debug=False):
         """Return a processed shot using saved or passed calibrations.
         """
-
         # set calibration dictionary
         if calib_id:
             self.calib_dict = self.get_calib(calib_id)
@@ -46,55 +45,61 @@ class ESpec(Diagnostic):
             self.calib_dict = self.get_calib(shot_dict)
 
         # do standard image calibration. Transforms, background, ROIs etc.
-        img, x, y = self.run_img_calib(shot_dict, debug=debug)
         # minimum calibration is spatial transform
-        #img, x, y = self.transform(shot_dict, self.calib_dict['transform'])
+        img, x, y = self.run_img_calib(shot_dict, debug=debug)
 
-        # assuming mm here? 
+        # assuming mm here for units
         # either don't or use conversion functions...
         self.curr_img = img
         self.x_mm = x
         self.y_mm = y
+
+        # TO DO: roi_mm? only use if not setting dispersion or divergence below...
 
         # dispersion?
         if apply_disp and 'dispersion' in self.calib_dict:
             img, MeV = self.apply_dispersion(img, self.calib_dict['dispersion'])
 
             # default to applying to X axis unless set
-            if 'axis' in self.calib_dict['dispersion']:
-                if self.calib_dict['dispersion']['axis'].lower() == 'y':
-                    axis = 'y'
-                else:
-                    axis = 'x'
+            if 'axis' in self.calib_dict['dispersion'] and self.calib_dict['dispersion']['axis'].lower() == 'y':
+                axis = 'y'
             else:
                 axis = 'x'
 
-            # ROI?
-            #if 'roi_MeV' in self.calib_dict:
-            if ('roi' in self.calib_dict) and ('MeV' in self.calib_dict['roi']):
-                MeV_min = np.min(self.calib_dict['roi']['MeV'])
-                MeV_max = np.max(self.calib_dict['roi']['MeV'])
-                if axis == 'y':
-                    self.y_mm = self.y_mm[(MeV > MeV_min)]# update spatial axis with ROI selection
-                    img = img[(MeV > MeV_min), :]
-                    MeV = MeV[(MeV > MeV_min)]
-                    self.y_mm = self.y_mm[(MeV < MeV_max)] # update spatial axis with ROI selection
-                    img = img[(MeV < MeV_max), :]
-                    MeV = MeV[(MeV < MeV_max)]
+            # no ROI passed? use defaults from calibration
+            if not roi_MeV:
+                # defaults in calibration dictionary?
+                if 'roi' in self.calib_dict and 'MeV' in self.calib_dict['roi']:
+                    MeV_min = np.min(self.calib_dict['roi']['MeV'])
+                    MeV_max = np.max(self.calib_dict['roi']['MeV'])   
+                # nope, no ROIs...
                 else:
-                    # I'm sure this cam be done in one line, but I'm being lazy...
-                    self.x_mm = self.x_mm[(MeV > MeV_min)] # update spatial axis with ROI selection
-                    img = img[:, (MeV > MeV_min)]
-                    MeV = MeV[(MeV > MeV_min)]
-                    self.x_mm = self.x_mm[(MeV < MeV_max)] # update spatial axis with ROI selection
-                    img = img[:, (MeV < MeV_max)]
-                    MeV = MeV[(MeV < MeV_max)]
+                    MeV_min = np.min(MeV)
+                    MeV_max = np.max(MeV)     
+            # ROI passed...
+            else:
+                MeV_min = np.min(roi_MeV)
+                MeV_max = np.max(roi_MeV)
 
-            # save axis to object
+            # Apply ROIs...
+            # NB: No other ROIs should be applied until this 'final' step, so there are no conflicts. If wrapping this function, just pass in ROI values
             if axis == 'y':
+                self.y_mm = self.y_mm[(MeV >= MeV_min)]# update spatial axis with ROI selection
+                img = img[(MeV > MeV_min), :]
+                MeV = MeV[(MeV > MeV_min)]
+                self.y_mm = self.y_mm[(MeV <= MeV_max)] # update spatial axis with ROI selection
+                img = img[(MeV < MeV_max), :]
+                MeV = MeV[(MeV < MeV_max)]
                 self.y_MeV = MeV 
                 y = MeV
             else:
+                # I'm sure this cam be done in one line, but I'm being lazy...
+                self.x_mm = self.x_mm[(MeV >= MeV_min)] # update spatial axis with ROI selection
+                img = img[:, (MeV > MeV_min)]
+                MeV = MeV[(MeV > MeV_min)]
+                self.x_mm = self.x_mm[(MeV <= MeV_max)] # update spatial axis with ROI selection
+                img = img[:, (MeV < MeV_max)]
+                MeV = MeV[(MeV < MeV_max)]
                 self.x_MeV = MeV 
                 x = MeV
 
@@ -103,57 +108,72 @@ class ESpec(Diagnostic):
             img, mrad = self.apply_divergence(img, self.calib_dict['divergence'])
 
             # default to Y axis
-            if 'axis' in self.calib_dict['divergence']:
-                if self.calib_dict['divergence']['axis'].lower() == 'x':
+            if 'axis' in self.calib_dict['divergence'] and self.calib_dict['divergence']['axis'].lower() == 'x':
                     axis = 'x'
-                else:
-                    axis = 'y'
             else:
                 axis = 'y'
 
-            # ROI?
-            #if 'roi_mrad' in self.calib_dict:
-            if ('roi' in self.calib_dict) and ('mrad' in self.calib_dict['roi']):
-                mrad_min = np.min(self.calib_dict['roi']['mrad'])
-                mrad_max = np.max(self.calib_dict['roi']['mrad'])
-                if axis == 'y':
-                    self.y_mm = self.y_mm[(mrad > mrad_min)] # update spatial axis with ROI selection
-                    img = img[(mrad > mrad_min), :]
-                    mrad = mrad[(mrad > mrad_min)]
-                    self.y_mm = self.y_mm[(mrad < mrad_max)] # update spatial axis with ROI selection
-                    img = img[(mrad < mrad_max), :]
-                    mrad = mrad[(mrad < mrad_max)]
+            # no ROI passed? use defaults from calibration
+            if not roi_mrad:
+                # defaults in calibration dictionary?
+                if 'roi' in self.calib_dict and 'mrad' in self.calib_dict['roi']:
+                    mrad_min = np.min(self.calib_dict['roi']['mrad'])
+                    mrad_max = np.max(self.calib_dict['roi']['mrad'])   
+                # nope, no ROIs...
                 else:
-                    self.x_mm = self.x_mm[(mrad > mrad_min)] # update spatial axis with ROI selection
-                    img = img[:, (mrad > mrad_min)]
-                    mrad = mrad[(mrad > mrad_min)]
-                    self.x_mm = self.x_mm[(mrad < mrad_max)] # update spatial axis with ROI selection
-                    img = img[:, (mrad < mrad_max)]
-                    mrad = mrad[(mrad < mrad_max)]
+                    mrad_min = np.min(mrad)
+                    mrad_max = np.max(mrad)     
+            # ROI passed...
+            else:
+                mrad_min = np.min(roi_mrad)
+                mrad_max = np.max(roi_mrad)
 
-            # save axis to object
+            # Apply ROIs...
+            # NB: No other ROIs should be applied until this 'final' step, so there are no conflicts. If wrapping this function, just pass in ROI values
             if axis == 'y':
+                self.y_mm = self.y_mm[(mrad > mrad_min)] # update spatial axis with ROI selection
+                img = img[(mrad > mrad_min), :]
+                mrad = mrad[(mrad > mrad_min)]
+                self.y_mm = self.y_mm[(mrad < mrad_max)] # update spatial axis with ROI selection
+                img = img[(mrad < mrad_max), :]
+                mrad = mrad[(mrad < mrad_max)]
                 self.y_mrad = mrad
                 y = mrad
             else:
+                self.x_mm = self.x_mm[(mrad > mrad_min)] # update spatial axis with ROI selection
+                img = img[:, (mrad > mrad_min)]
+                mrad = mrad[(mrad > mrad_min)]
+                self.x_mm = self.x_mm[(mrad < mrad_max)] # update spatial axis with ROI selection
+                img = img[:, (mrad < mrad_max)]
+                mrad = mrad[(mrad < mrad_max)]
                 self.x_mrad = mrad
                 x = mrad
 
+        # charge calibration?
+        if apply_charge and 'charge' in self.calib_dict:
+            if 'fC_per_count' in self.calib_dict['charge']:
+                img = img * self.calib_dict['charge']['fC_per_count']
+                if 'Counts' in self.img_units:
+                    self.img_units.remove('Counts')
+                if 'fC' not in self.img_units:
+                    self.img_units.insert(0,'fC')
+
         return img, x, y
     
-    def get_spectrum(self, shot_dict, calib_id=None, roi=None):
+    def get_spectrum(self, shot_dict, calib_id=None, roi_MeV=None, roi_mrad=None,  debug=False):
         """Integrate across the non-dispersive axis and return a spectral lineout"""
-        img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id)
+        img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
 
-        if roi is None:
-            roi = [[0,0],[np.shape(img)[1],np.shape(img)[0]]]
-
-        spec = np.sum(img[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]], 0)
-        if 'axis' in  self.calib_dict['dispersion'] and self.calib_dict['dispersion']['axis'].lower() == 'y':
+        if 'axis' in self.calib_dict['dispersion'] and self.calib_dict['dispersion']['axis'].lower() == 'y':
+            spec = np.sum(img, 1)
             MeV = y
         else:
+            spec = np.sum(img, 0)
             MeV = x
-        MeV = MeV[roi[0][0]:roi[1][0]]
+
+        # TO DO: Units?? We are integrating across divergence. charge may even be set...
+        # if it is, then this is fC/MeV?
+
         return spec, MeV
     
     def get_div(self, shot_dict, calib_id=None):
@@ -172,6 +192,44 @@ class ESpec(Diagnostic):
         # TODO: Return Error estimate as well
         FWHM = None
         return FWHM
+    
+    def get_charge(self, shot_dict, calib_id=None, roi_MeV=None, roi_mrad=None, debug=False):
+        """Integrate and return total charge (pC)"""
+        if not self.calib_dict and not calib_id:
+            print('Missing Calibration before using get_charge... Please set using set_calib(calib_id) or pass a calib_id')
+            return False
+
+        if 'charge' not in self.calib_dict:
+            print('No charge calibration set')
+            return False
+
+        img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
+
+        # we have to unfold count changes again for dMeV and dmrad
+        if 'axis' in self.calib_dict['dispersion'] and self.calib_dict['dispersion']['axis'].lower() == 'y':
+            # not tested??
+            MeV = y
+            dMeV = abs(np.gradient(MeV)) # gradient is like diff, but calculates as average of differences either side
+            dMeV_matrix = np.transpose(np.tile(dMeV, (len(x),1))) # len(y)??
+        else:
+            MeV = x
+            dMeV = abs(np.gradient(MeV)) # gradient is like diff, but calculates as average of differences either side
+            dMeV_matrix = np.tile(dMeV, (len(y),1))
+        # convert from counts per MeV to counts
+        img_res = img * dMeV_matrix
+        # we have to unfold count changes again for dMeV and dmrad
+        if 'axis' in self.calib_dict['divergence'] and self.calib_dict['divergence']['axis'].lower() == 'x':
+            mrad = x
+            dmrad = np.mean(np.diff(mrad)) # assuming linear for now...
+        else:
+            mrad = y
+            dmrad = np.mean(np.diff(mrad)) # assuming linear for now...
+        # convert counts per mrad back to counts
+        img_res = img_res * dmrad
+
+         # return pC, not fC
+        charge = np.sum(img_res) / 1000
+        return charge
 
     def make_dispersion(self, disp_dict, view=False):
         """"""
@@ -245,6 +303,7 @@ class ESpec(Diagnostic):
     def apply_dispersion(self, img_data, disp_dict):
         """"""
 
+        # Should this be calculated on the fly rather than storing array in processed file? Could store dispersion curve
         MeV = disp_dict['MeV']
         dMeV = abs(np.gradient(MeV)) # gradient is like diff, but calculates as average of differences either side
 
@@ -258,7 +317,8 @@ class ESpec(Diagnostic):
         # convert from counts to counts per MeV
         img_data = img_data / dMeV_matrix
 
-        self.img_units = self.img_units + '_per_MeV'
+        if '/MeV' not in self.img_units:
+            self.img_units.append('/MeV')
 
         return img_data, MeV
 
@@ -308,7 +368,8 @@ class ESpec(Diagnostic):
 
         # convert counts to per mrad
         img_data = img_data / dmrad
-        self.img_units = self.img_units + '_per_mrad'
+        if '/mrad' not in self.img_units:
+            self.img_units.append('/mrad')
 
         return img_data, mrad
 
@@ -424,75 +485,78 @@ class ESpec(Diagnostic):
     # PLOTTING FUNCTIONS
     # ------------------------------------------------------ #
 
-    def montage(self, timeframe, x_roi=None, MeV_roi=None, y_roi=None, mrad_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1):
+    def montage(self, timeframe, calib_id=None, roi_MeV=None, roi_mrad=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1, debug=False):
         """Wrapper for diagnostic make_montage() function, mainly to set axis"""
 
+        if calib_id:
+            self.calib_dict = self.get_calib(calib_id)
         if not self.calib_dict:
-            print('Missing Calibration before using Montage... Please set using set_calib(calib_id)')
+            print('Missing Calibration before using Montage... Please set using set_calib(calib_id), or pass calib_id')
             return False
+        
+        # calling 'universal' DAQ function here, that is probably DAQ specific
+        shot_dicts = self.DAQ.get_shot_dicts(self.config['name'],timeframe,exceptions=exceptions)
 
-        # convert rois to MeV mrad indices
-        if 'dispersion' in self.calib_dict:
-            MeV = self.calib_dict['dispersion']['MeV']
-            
-            # Apply the preset ROIs first. Otherwise trouble below!
-            if ('roi' in self.calib_dict) and ('MeV' in self.calib_dict['roi']):
-                MeV_min = np.min(self.calib_dict['roi']['MeV'])
-                MeV_max = np.max(self.calib_dict['roi']['MeV'])
-                MeV = MeV[(MeV > MeV_min)]
-                MeV = MeV[(MeV < MeV_max)]
+        shot_labels = []
+        for shot_dict in shot_dicts:
 
-            axis = MeV
-            axis_label = r'$E$ [MeV]'
+            img, x, y = self.get_proc_shot(shot_dict, roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
 
-            if MeV_roi is not None:
-                MeV_min_i = np.min([mindex(MeV,MeV_roi[0]),mindex(MeV,MeV_roi[1])])
-                MeV_max_i = np.max([mindex(MeV,MeV_roi[0]),mindex(MeV,MeV_roi[1])])
-                if self.calib_dict['dispersion']['axis'].lower() == 'x':
-                    x_roi=[MeV_min_i,MeV_max_i]
-                else:
-                    y_roi=[MeV_min_i,MeV_max_i]
-        else:
-            axis = None # self.x #??? or y?
-            axis_label = '?'
-
-        if 'divergence' in self.calib_dict and mrad_roi is not None:
-            mrad = self.calib_dict['divergence']['mrad']
-
-            # Apply the preset ROIs first. Otherwise trouble below?
-            if ('roi' in self.calib_dict) and ('mrad' in self.calib_dict['roi']):
-                mrad_min = np.min(self.calib_dict['roi']['mrad'])
-                mrad_max = np.max(self.calib_dict['roi']['mrad'])
-                mrad = mrad[(mrad > mrad_min)]
-                mrad = mrad[(mrad < mrad_max)]
-
-            mrad_min_i = np.min([mindex(mrad,mrad_roi[0]),mindex(mrad,mrad_roi[1])])
-            mrad_max_i = np.max([mindex(mrad,mrad_roi[0]),mindex(mrad,mrad_roi[1])])
-
-            if self.calib_dict['divergence']['axis'].lower() == 'y':
-                y_roi=[mrad_min_i,mrad_max_i]
+            if 'images' in locals():
+                images = np.concatenate((images, np.atleast_3d(img)), axis=2)
             else:
-                x_roi=[mrad_min_i,mrad_max_i]
+                images = np.atleast_3d(img)
 
-        fig, ax = self.make_montage(timeframe, x_roi=x_roi, y_roi=y_roi, axis=axis, axis_label=axis_label, x_downsample=x_downsample, 
-                               y_downsample=y_downsample, vmin=vmin, vmax=vmax, transpose=transpose, num_rows=num_rows)
+            # try build a shot label
+            if 'burst' in shot_dict:
+                m = re.search(r'\d+$', str(shot_dict['burst'])) # gets last numbers
+                burst = int(m.group())
+                burst_str = str(burst) + '|'
+            else:
+                burst_str = ''
+            if 'shotnum' in shot_dict:
+                shot_str = str(shot_dict['shotnum'])
+            else:
+                shot_str = ''
+
+            shot_labels.append(burst_str + shot_str)
+
+        if 'dispersion' in self.calib_dict:
+            axis_label = r'$E$ [MeV]'
+            if 'axis' in self.calib_dict['dispersion'] and self.calib_dict['dispersion']['axis'].lower() == 'y':
+                axis = y
+            else:
+                axis = x
+        else:
+            axis = x # default??
+            axis_label = 'mm?'
+
+        cb_label = self.make_units(self.img_units)
+
+        fig, ax = plot_montage(images, axis=axis, x_downsample=x_downsample, y_downsample=y_downsample, title=self.shot_string(timeframe), 
+                               vmin=vmin, vmax=vmax, transpose=transpose, cb_label=cb_label, y_label=axis_label, num_rows=num_rows, shot_labels=shot_labels)
 
         return fig, ax
 
-    def plot_proc_shot(self, shot_dict, vmin=None, vmax=None, debug=False):
+    def make_units(self, units):
+        return ''.join(units)
+
+
+    def plot_proc_shot(self, shot_dict, roi_MeV=None, roi_mrad=None, vmin=None, vmax=None, debug=False):
 
         # below still assumes X = spectral, Y =  divergence
-        espec_img, x, y = self.get_proc_shot(shot_dict, debug=debug)
+        espec_img, x, y = self.get_proc_shot(shot_dict,roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
 
         if vmin is None:
             vmin = np.nanmin(espec_img)
         if vmax is None:
-            vmax = np.nanmax(espec_img)
+            #vmax = np.nanmax(espec_img)
+            vmax = np.percentile(espec_img,99)
 
         fig = plt.figure()
         im = plt.pcolormesh(x, y, espec_img, vmin=vmin, vmax=vmax, shading='auto')
         cb = plt.colorbar(im)
-        cb.set_label(self.img_units, rotation=270, labelpad=20)
+        cb.set_label(self.make_units(self.img_units), rotation=270, labelpad=20)
         plt.title(self.shot_string(shot_dict))
         plt.xlabel('Electron energy [MeV]') # These could be wrong...
         plt.ylabel('Beam divergence [mrad]') # These could be wrong...
@@ -509,7 +573,7 @@ class ESpec(Diagnostic):
         im = plt.plot(MeV, spec)
         plt.title(self.shot_string(shot_dict))
         plt.xlabel('MeV') 
-        plt.ylabel('Counts per MeV')
+        plt.ylabel('Counts per MeV') # ?? could be fC...
         plt.tight_layout()
         plt.show(block=False)
 

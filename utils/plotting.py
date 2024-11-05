@@ -49,21 +49,21 @@ def create_montage(images, x_roi=None, y_roi=None, x_downsample=1, y_downsample=
                 sliceJ = j * m
                 sliceK = k * n
                 montage[sliceK:sliceK + n, sliceJ:sliceJ + m] = images[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id].T
-                if divider:
-                    montage[:, sliceJ + m - 1] = max_val
+                if divider and (j<(count-1)):
+                    montage[:, (sliceJ + m - 2):(sliceJ + m + 2)] = max_val # 5 pixel wide divider
             else:
                 sliceJ = j * n
                 sliceK = k * m
                 montage[sliceK:sliceK + m, sliceJ:sliceJ + n] = images[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, image_id]
-                if divider:
-                    montage[:, sliceJ + n - 1] = max_val
+                if divider and (j<(count-1)):
+                    montage[:, (sliceJ + n - 2):(sliceJ + n + 2)] = max_val # 5 pixel wide divider
             image_id += 1
 
     return montage, x_locs
 
-def plot_montage(images, x_roi=None, y_roi=None, axis=None, x_downsample=1, y_downsample=1, title='', num_rows=1, transpose=True, shot_labels=None, vmin=None, vmax=None):
+def plot_montage(images, x_roi=None, y_roi=None, axis=None, x_downsample=1, y_downsample=1, title='', num_rows=1, transpose=True, shot_labels=None, y_label=None, cb_label=None, vmin=None, vmax=None):
     """ images should be an [m, n, count] array of images, where m = Y size, n = X size
-    ROI values in image pixels 
+    ROI values in image pixels - probably easier to handle ROIs before this function?
     num_rows currently only works for =1"""
 
     # m = num Y pixels, n = num X pixels, count = num images
@@ -103,14 +103,15 @@ def plot_montage(images, x_roi=None, y_roi=None, axis=None, x_downsample=1, y_do
     fig = plt.figure()
     ax = plt.gca()
     im = ax.pcolormesh(xaxis, yaxis, montage, vmin=vmin, vmax=vmax, shading='auto')
-    #ax.set_ylabel(r'$E$ [MeV]')
+    ax.set_ylabel(y_label)
     ax.set_title(title, y=-0.2)
     divider = make_axes_locatable(ax)
     ax.set_xticks(x_locs)
     ax.set_xticklabels(shot_labels)
     cax = divider.append_axes("right", size="2%", pad=0.05)
     cb = plt.colorbar(im, cax=cax)
-    #cb.set_label(r'Ed$^2$counts/d$\theta$d$E$ [counts mrad$^{-1}$]')
+    if cb_label is not None:
+        cb.set_label(cb_label, rotation=270)
     plt.tight_layout()
 
     return fig, ax

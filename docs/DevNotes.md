@@ -26,3 +26,9 @@ This document is for a general list of To-Dos, bug tracking etc. while LAMP is i
 # Bugs
 
 Please list any problems you encounter while using here (but let somebody know as well?)...
+
+# Reminders
+
+- Try to use the internal functionality of LAMP as much as possible. There are routines for image transformation, background correction, etc. In particular there are handy interface functions like run_img_calib()
+- Use debug=False/True flags in functions to hide/show workings out and internals.
+- Keep ROI selections until the final return funciton. I.e. get_*etc*. Otherwise conflicts?
