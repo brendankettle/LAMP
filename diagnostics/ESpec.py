@@ -231,7 +231,7 @@ class ESpec(Diagnostic):
         charge = np.sum(img_res) / 1000
         return charge
 
-    def make_dispersion(self, disp_dict, view=False):
+    def make_dispersion(self, disp_dict, debug=False):
         """"""
 
         # get dispersion curve from file
@@ -276,7 +276,7 @@ class ESpec(Diagnostic):
             mm = self.y_mm
             self.y_MeV = MeV
 
-        if view:
+        if debug:
             plt.figure()
             plt.title('Displacement curve')
             plt.xlabel('mm')
@@ -322,7 +322,7 @@ class ESpec(Diagnostic):
 
         return img_data, MeV
 
-    def make_divergence(self, div_dict, view=False):
+    def make_divergence(self, div_dict, debug=False):
         """"""
 
         mm_to_screen = div_dict['mm_to_screen']
@@ -490,6 +490,7 @@ class ESpec(Diagnostic):
 
         if calib_id:
             self.calib_dict = self.get_calib(calib_id)
+        # ???
         # if not self.calib_dict:
         #     print('Missing Calibration before using Montage... Please set using set_calib(calib_id), or pass calib_id')
         #     return False

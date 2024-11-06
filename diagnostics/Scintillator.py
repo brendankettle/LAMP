@@ -43,9 +43,9 @@ class Scintillator(Diagnostic):
     
     def get_scint_sigs(self, shot_dict, calib_id=None, debug=False):
 
-        if not self.calib_dict and not calib_id:
-            print('Missing Calibration before using get_scint_sigs... Please set using set_calib(calib_id) or pass a calib_id')
-            return False
+        # if not self.calib_dict and not calib_id:
+        #     print('Missing Calibration before using get_scint_sigs... Please set using set_calib(calib_id) or pass a calib_id')
+        #     return False
         if 'extraction' not in self.calib_dict:
             print('No extraction calibration set')
             return False        
@@ -61,9 +61,6 @@ class Scintillator(Diagnostic):
         # convert to pixel numbers from spatial definitions
         scx_px = mindex(x, scint_centres_x)
         scy_px = mindex(y, scint_centres_y)
-
-        print(scx_px)
-        print(scy_px)
 
         wr = int(ext_dict['sample_width']/2)
         hr = int(ext_dict['sample_height']/2)
@@ -89,7 +86,7 @@ class Scintillator(Diagnostic):
         # THIS IS A BIT CRUDE? Would be better to calculate at each point...
         # Also probably doesn't work if there is an offset...
         mm2_per_px = np.mean(scint_centres_x / scx_px) * np.mean(scint_centres_y / scy_px)
-        print(mm2_per_px)
+        #print(mm2_per_px)
         #mm2_per_px = self.calib_dict['scale_x'] * self.calib_dict['scale_y']
 
         # returning average counts per mm2 of scintalator?

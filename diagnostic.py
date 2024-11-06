@@ -129,7 +129,7 @@ class Diagnostic():
         all_calibs = self.load_calib_file(self.config['calib_file'])
         return list(all_calibs.keys())
 
-    def make_calib(self, calib_id=None, save=False, view=True):
+    def make_calib(self, calib_id=None, save=False, debug=True):
         """Master function for generating procssed portion of calibration file
             E.g transform, dispersion, etc. 
         """
@@ -139,17 +139,17 @@ class Diagnostic():
 
         # Apply spatial transform?
         if 'transform' in self.calib_dict:
-            self.make_transform(self.calib_dict['transform'], view=view)
+            self.make_transform(self.calib_dict['transform'], debug=debug)
 
         # Apply dispersion?
         # the function would be defined in the actual diagnostic module.
         if 'dispersion' in self.calib_dict:
-            self.make_dispersion(self.calib_dict['dispersion'], view=view)
+            self.make_dispersion(self.calib_dict['dispersion'], debug=debug)
 
         # Apply divergence?
         # the function would be defined in the actual diagnostic module.
         if 'divergence' in self.calib_dict:
-            self.make_divergence(self.calib_dict['divergence'], view=view)
+            self.make_divergence(self.calib_dict['divergence'], debug=debug)
 
         # save the full calibration?
         if save:
@@ -244,6 +244,18 @@ class Diagnostic():
                 if 'y_units' in self.calib_dict['scale']:
                     self.x_units = self.calib_dict['scale']['y_units']
 
+        # change orientation? landscape or portrait
+        if 'orientate' in self.calib_dict:
+            if self.calib_dict['orientate'].lower() == 'transpose':
+                img_data = np.transpose(img_data)
+            elif self.calib_dict['orientate'].lower() == 'acw':
+                img_data = np.rot90(img_data, 1) # ndimage.rotate(img_data, 90, reshape=False)
+            else:
+                img_data = np.rot90(img_data, 3) # ndimage.rotate(img_data, 270, reshape=False)
+            y_tmp = y
+            y = x
+            x = y_tmp
+
         # Fix! switching back to img object again...
         img = ImageProc(data=img_data)
 
@@ -296,7 +308,7 @@ class Diagnostic():
 
         return timg, x, y
     
-    def make_transform(self, tcalib_input, view=False):
+    def make_transform(self, tcalib_input, debug=False):
         """Generate a transform dictionary for use with spatially transforming raw shot images.
             This is a wrapper for ImageProc make_transform()
 
@@ -310,7 +322,7 @@ class Diagnostic():
                             - zero_offsets; [X,Y] cords shift of resulting transformed plane (afterwards), in its coords (mm?)
                         Optional dictionary keys; description, notes
             save_path:
-            view:
+            debug:
         """
 
         # points are (by convention) passed in a list of [X,Y], where the first is in the pixel point, 
@@ -369,8 +381,8 @@ class Diagnostic():
         self.x_mm = tx
         self.y_mm = ty
 
-        if view:
-            # if viewing, plot raw image
+        if debug:
+            # if debugging, plot raw image
             plt.figure()
             im = plt.imshow(raw_img)
             plt.plot(p_px[:,0],p_px[:,1],'r+')
