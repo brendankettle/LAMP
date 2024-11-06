@@ -249,6 +249,11 @@ class Scintillator(Diagnostic):
 
             shot_labels.append(burst_str + shot_str)
 
+        if 'transform' in self.calib_dict:
+            axis_label = 'mm'
+            axis = x
+            # or y??? need some logic above... different for transpose for example?
+
         cb_label = 'Counts?'
 
         fig, ax = plot_montage(images, x_roi=x_roi, y_roi=y_roi, axis=axis, x_downsample=x_downsample, 
