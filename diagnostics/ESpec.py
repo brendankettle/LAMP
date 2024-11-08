@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
+from scipy.signal import savgol_filter
 import re
 
 from ..diagnostic import Diagnostic
@@ -171,10 +172,110 @@ class ESpec(Diagnostic):
             spec = np.sum(img, 0)
             MeV = x
 
+        # let's sort the arrays to make sure MeV is increasing
+        spec = [x for _, x in sorted(zip(MeV, spec))]
+        MeV = sorted(MeV)
+
         # TO DO: Units?? We are integrating across divergence. charge may even be set...
         # if it is, then this is fC/MeV?
 
         return spec, MeV
+    
+    def get_spectrum_metrics(self, shot_dict, calib_id=None, roi_MeV=None, roi_mrad=None, percentile=95, debug=False):
+        """"""
+        spec, MeV = self.get_spectrum(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad,  debug=debug)
+
+        # first apply some smoothing, to reduce noise effects. These details could be passed as options?
+        spec = savgol_filter(spec, int(len(MeV)/50), 2)
+
+        # should we do this?
+        spec[spec<0] = 0
+
+        # ?? normalise spectrum, multiply by energy, then find mean
+        #E_mean = np.mean(spec * MeV) / np.mean(spec)
+        # following code is taken from GeminiRR21 code
+        # normalise distribution by area under, then find mean using under under weighted spectrum?
+        spec_dist = np.abs(spec/np.trapz(spec, MeV))
+        if debug:
+            plt.figure()
+            plt.plot(MeV,spec_dist)
+            plt.xlabel('Electron Energy [MeV]')
+            plt.ylabel('Normalised spectral distribution')
+            plt.show(block=False)
+        E_mean = np.abs(np.trapz(spec_dist*MeV, MeV))
+        E_std = np.sqrt(np.abs(np.trapz(spec_dist*(MeV-E_mean)**2, MeV)))
+
+        # find last array position over threshold
+        # spec_thres = np.max(spec) * ((100-percentile)/100)
+        # E_max = np.max(MeV[np.where(spec > spec_thres)])
+
+        # following code is taken from GeminiRR21 code
+        div = 10.0 # resolution of step in scans?
+        target_percentile = percentile / 100
+        N = int(len(spec_dist)/div)
+        percentile, energy = np.zeros(N), np.zeros(N)
+        for i in range(0, N):
+            max_index = len(MeV)-1-int(div)*i # work backwards
+            percentile[i] = np.abs(np.trapz(spec_dist[0:max_index], MeV[0:max_index]))
+            energy[i] = MeV[max_index]
+            if percentile[i] < target_percentile-0.05: # are we going past to interpolate back?
+                break
+        percentile_cut = percentile[percentile!=0.0]
+        energy_cut = energy[percentile!=0.0]
+        energy_cut = energy_cut[percentile_cut<0.999]
+        percentile_cut = percentile_cut[percentile_cut<0.999]
+        if debug:
+            plt.figure()
+            plt.plot(percentile_cut,energy_cut)
+            plt.xlabel('Percentile of total counts')
+            plt.xlabel('Electron Energy [MeV]')
+            plt.show(block=False)
+        # interpolate back to answer at exact percentile. interp needs sorted arrays!
+        energy_cut = [x for _, x in sorted(zip(percentile_cut, energy_cut))]
+        percentile_cut = sorted(percentile_cut)
+        E_percentile = np.interp(target_percentile, percentile_cut, energy_cut)
+
+        return E_mean, E_std, E_percentile 
+    
+    # def mean_and_std_beam_energy(self,img_raw):
+    #     """ Gets mean and std of electron energy. Returns electron energy at 90th percentile of charge distribution.
+    #     """
+    #     img_pC_permm2 = self.espec_data2screen(img_raw)
+    #     img_pC_per_MeV = np.trapz(self.espec_screen2spec(img_pC_permm2), self.screen_y_mm, axis=0)
+    #     spec_charge_dist= img_pC_per_MeV/np.trapz(img_pC_per_MeV, self.eAxis_MeV)
+    #     spec_charge_dist[spec_charge_dist<=0]=0.0
+    #     mean_energy = np.trapz(spec_charge_dist*self.eAxis_MeV, self.eAxis_MeV)
+    #     #Exp_energy_sqrd = np.trapz(spec_charge_dist*self.eAxis_MeV**2, self.eAxis_MeV)
+    #     variance = np.trapz(spec_charge_dist*(self.eAxis_MeV-mean_energy)**2, self.eAxis_MeV)
+
+    #     div=10.0
+    #     N=int(len(spec_charge_dist)/div)
+    #     percentile, energy=np.zeros(N), np.zeros(N)
+    #     target_percentile=0.9
+
+    #     for i in range(0, N):
+    #         percentile[i]=np.trapz(spec_charge_dist[0:len(self.eAxis_MeV)-1-int(div)*i], self.eAxis_MeV[0:len(self.eAxis_MeV)-1-int(div)*i])
+    #         energy[i]=self.eAxis_MeV[len(self.eAxis_MeV)-1-int(div)*i]
+    #         if percentile[i]<target_percentile-0.05:
+    #             break
+    #     percentile_cut=percentile[percentile!=0.0]
+    #     energy_cut=energy[percentile!=0.0]
+    #     energy_at_90th_percentile=np.interp(target_percentile, percentile_cut, energy_cut)
+    #     return np.array([mean_energy, variance**0.5, energy_at_90th_percentile])
+    
+    def get_spectra_metrics(self, timeframe, calib_id=None, roi_MeV=None, roi_mrad=None, percentile=95, debug=False):
+        """"""
+        shot_dicts = self.DAQ.get_shot_dicts(self.config['name'],timeframe)
+        E_means = []
+        E_stds = []
+        E_percentiles = []
+        for shot_dict in shot_dicts:
+            E_mean, E_std, E_percentile = self.get_spectrum_metrics(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad, percentile=percentile, debug=debug)
+            E_means.append(E_mean)
+            E_stds.append(E_std)
+            E_percentiles.append(E_percentile)
+
+        return E_means, E_stds, E_percentiles
     
     def get_div(self, shot_dict, calib_id=None):
         """Currently integrating across the spatial axis. Could be something more involved?"""
