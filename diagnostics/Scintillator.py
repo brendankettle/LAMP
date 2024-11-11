@@ -5,6 +5,7 @@ import pandas as pd
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import re
 from scipy.optimize import curve_fit
+from scipy.ndimage import binary_dilation, binary_fill_holes
 
 from ..diagnostic import Diagnostic
 from ..utils.plotting import *
@@ -35,7 +36,7 @@ class Scintillator(Diagnostic):
 
         #img_data = self.get_shot_data(shot_dict)
         # do standard image loading and calibration. Transforms, background, ROIs etc.
-        img_data, x, y = self.run_img_calib(shot_dict)
+        img_data, x, y = self.run_img_calib(shot_dict, debug=debug)
         self.x = x
         self.y = y
 
@@ -71,17 +72,52 @@ class Scintillator(Diagnostic):
         if(debug):
             plt.figure()
             im = plt.imshow(img, vmax=np.percentile(img,90))
+            cb = plt.colorbar(im)
             ax = plt.gca()
+            img_masked = np.copy(img)
 
         for ci in range(len(scx_px)):
             for ri in range(len(scy_px)):
                 x = scx_px[ci]
                 y = scy_px[ri]
-                scint_sigs[ci,ri] = np.mean(img[y-hr:y+hr,x-wr:x+wr])
+                # do some masking?
+                if 'threshold' in ext_dict:
+                    threshold_val = ext_dict['threshold']
+                    bottom = y-hr
+                    top = y+hr
+                    left = x-wr
+                    right = x+wr
+                    if (bottom < 0): bottom = 0
+                    if (left < 0): left = 0
+                    if (top > np.shape(img)[0]): top = np.shape(img)[0]
+                    if (right > np.shape(img)[1]): np.shape(img)[1]
+                    masked_element = np.copy(img[bottom:top,left:right])
+                    masked_element_max = np.percentile(masked_element,95)
+                    masked_element_min = np.percentile(masked_element,5)
+                    masked_element[masked_element<(((masked_element_max-masked_element_min)*threshold_val)+masked_element_min)] = 0
+                    # try filling out mask for holes using morphology
+                    binary_mask = np.copy(masked_element)
+                    binary_mask[binary_mask>0] = 1
+                    binary_mask = binary_dilation(binary_mask, iterations=1).astype(int)
+                    #binary_mask = binary_fill_holes(binary_mask).astype(int)
+                    masked_element = img[bottom:top,left:right]*binary_mask
+                    num_pixels = np.count_nonzero(masked_element)
+                    scint_sigs[ci,ri] = np.sum(masked_element) / num_pixels
+                    if(debug):
+                        masked_element_hl = masked_element
+                        masked_element_hl[masked_element_hl==0] = -100
+                        img_masked[bottom:top,left:right] = masked_element_hl
+                else:
+                    scint_sigs[ci,ri] = np.mean(img[y-hr:y+hr,x-wr:x+wr])
                 if(debug):
                     rect = patches.Rectangle((x-wr, y-hr), 2*wr, 2*hr, linewidth=1, edgecolor='r', facecolor='none')
                     ax.add_patch(rect)
-        if(debug): cb = plt.colorbar(im)
+        #if(debug): cb = plt.colorbar(im)
+
+        if(debug):
+            plt.figure()
+            im = plt.imshow(img_masked, vmax=np.percentile(img_masked,90))
+            cb = plt.colorbar(im)
 
         # THIS IS A BIT CRUDE? Would be better to calculate at each point...
         # Also probably doesn't work if there is an offset...
