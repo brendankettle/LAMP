@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy import ndimage
+from skimage.morphology import reconstruction
 import re
 from .utils.io import *
 from .utils.general import dict_update
@@ -243,6 +244,14 @@ class Diagnostic():
                     self.x_units = self.calib_dict['scale']['x_units']
                 if 'y_units' in self.calib_dict['scale']:
                     self.x_units = self.calib_dict['scale']['y_units']
+
+        # below useful for example when using fibre bundles
+        # uses morphology package of skimage. Can also find peaks?
+        if 'fill_gaps' in self.calib_dict:
+            seed = np.copy(img_data)
+            seed[1:-1, 1:-1] = img_data.max()
+            mask = np.copy(img_data)
+            img_data = reconstruction(seed, mask, method='erosion')
 
         # change orientation? landscape or portrait
         if 'orientate' in self.calib_dict:

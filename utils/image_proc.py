@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from pathlib import Path
 from scipy.signal import fftconvolve
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
 
 """NB: functions/modules should not be coupled into the DAQ or diagnostics; should be independent!"""
 
@@ -159,56 +161,90 @@ class ImageProc():
 
         
         elif type.lower() == 'surface':
-            # feed ROIs or data, and then interpolate surface across this before subtracting
-            print('Error in bkg_sub: type surface TO DO!')
+            # feed list of ROIs or data, and then interpolate surface across this before subtracting
+            if roi is None:
+                print("bkg_sub error: No roi provided for type=surface")
+            if not isinstance(roi, list):
+                print('bkg_sub error: roi should be list of rois for type=surface')
+                return False
 
-            # import numpy as np
-            # from sklearn.preprocessing import PolynomialFeatures
-            # from sklearn.linear_model import LinearRegression
-            # import matplotlib.pyplot as plt
-            # from mpl_toolkits.mplot3d import Axes3D
+            img_data = self.get_img()
+            ROIS = roi
+            XYS = []
+            ZS = []
+            for ROI in ROIS:
+                X = np.linspace(ROI[0][0],ROI[1][0],ROI[1][0]-ROI[0][0]) 
+                Y = np.linspace(ROI[0][1],ROI[1][1],ROI[1][1]-ROI[0][1]) 
+                XYS.append(np.reshape(np.meshgrid(X, Y),(2,-1)).T)
+                Z = img_data[ROI[0][1]:ROI[1][1], ROI[0][0]:ROI[1][0]]
+                ZS.append(np.reshape(Z,(1,-1)).T)
 
-            # # Generate some random 3D data
-            # np.random.seed(0)
-            # n_samples = 100
-            # X = np.random.uniform(-5, 5, n_samples)
-            # Y = np.random.uniform(-5, 5, n_samples)
-            # Z = 3*X**2 + 2*Y + np.random.normal(0, 5, n_samples)  # Example function: Z = 3*X^2 + 2*Y + noise
+            PXY = np.vstack(XYS)
+            ALLX = PXY[:,0]
+            ALLY = PXY[:,1]
+            ALLZ = np.vstack(ZS)[:,0]
 
-            # # Prepare the input data for polynomial regression
-            # XY = np.vstack((X, Y)).T  # Combine X and Y into a 2D array
+            # Define the degree of the polynomial
+            if order:
+                degree = order
+            else:
+                degree = 2
+            poly = PolynomialFeatures(degree)
+            XY_poly = poly.fit_transform(PXY)
 
-            # # Define the degree of the polynomial
-            # degree = 2
-            # poly = PolynomialFeatures(degree)
-            # XY_poly = poly.fit_transform(XY)
+            # Fit the polynomial regression model
+            model = LinearRegression()
+            model.fit(XY_poly, ALLZ)
 
-            # # Fit the polynomial regression model
-            # model = LinearRegression()
-            # model.fit(XY_poly, Z)
+            # Predict Z values for the fitted surface
+            #Z_pred = model.predict(XY_poly)
 
-            # # Predict Z values for the fitted surface
-            # Z_pred = model.predict(XY_poly)
+            # Plotting the fitted surface
+            X_plot = np.linspace(0, np.shape(img_data)[1], np.shape(img_data)[1]) #np.linspace(ALLX.min(), ALLX.max(), 1000)
+            Y_plot = np.linspace(0, np.shape(img_data)[0], np.shape(img_data)[0]) #np.linspace(ALLY.min(), ALLY.max(), 1000)
+            X_grid, Y_grid = np.meshgrid(X_plot, Y_plot)
+            XY_grid = np.vstack((X_grid.ravel(), Y_grid.ravel())).T
+            bkg_img = model.predict(poly.transform(XY_grid)).reshape(X_grid.shape)
 
-            # # Plotting the original data points
-            # fig = plt.figure()
-            # ax = fig.add_subplot(111, projection='3d')
-            # ax.scatter(X, Y, Z, color='blue', label='Original Data')
+            if debug:
+                plt.figure()
+                im = plt.imshow(img_data, vmin=np.percentile(img_data, 5), vmax=np.percentile(img_data, 99))
+                cb = plt.colorbar(im)
+                ax = plt.gca()
+                for ROI in ROIS:
+                    rect = patches.Rectangle((ROI[0][0], ROI[0][1]), (ROI[1][0]-ROI[0][0]), (ROI[1][1]-ROI[0][1]), linewidth=1, edgecolor='r', facecolor='none')
+                    ax.add_patch(rect)
+                plt.show(block=False)
 
-            # # Plotting the fitted surface
-            # X_grid, Y_grid = np.meshgrid(np.linspace(X.min(), X.max(), 100), np.linspace(Y.min(), Y.max(), 100))
-            # XY_grid = np.vstack((X_grid.ravel(), Y_grid.ravel())).T
-            # Z_grid = model.predict(poly.transform(XY_grid)).reshape(X_grid.shape)
-            # ax.plot_surface(X_grid, Y_grid, Z_grid, color='red', alpha=0.5, label='Fitted Surface')
+                # Plotting the original data points
+                # fig = plt.figure()
+                # ax = fig.add_subplot(111, projection='3d')
+                # ax.scatter(ALLX, ALLY, ALLZ, color='blue', label='Original Data')
+                # ax.plot_surface(X_grid, Y_grid, bkg_img, color='red', alpha=0.5, label='Fitted Surface')
+                # ax.set_xlabel('X')
+                # ax.set_ylabel('Y')
+                # ax.set_zlabel('Z')
+                # ax.legend()
+                # plt.show(block=False)
 
-            # ax.set_xlabel('X')
-            # ax.set_ylabel('Y')
-            # ax.set_zlabel('Z')
-            # ax.legend()
-            # plt.show()
+                fig = plt.figure()
+                im = plt.pcolormesh(X_plot, Y_plot, bkg_img, shading='auto')
+                cb = plt.colorbar(im)
+                #cb.set_label(self.make_units(self.img_units), rotation=270, labelpad=20)
+                plt.tight_layout()
+                plt.title('Calculated Background image')
+                plt.show(block=False)
 
+                fig = plt.figure()
+                im = plt.pcolormesh(X_plot, Y_plot, img_data - bkg_img, vmin=0, vmax=np.percentile(img_data - bkg_img, 90), shading='auto')
+                cb = plt.colorbar(im)
+                #cb.set_label(self.make_units(self.img_units), rotation=270, labelpad=20)
+                plt.title('Background corrected image')
+                plt.tight_layout()
+                plt.show(block=False)
 
-            return None
+            self.set_img(img_data - bkg_img)
+
         else:
             print(f'Error in bkg_sub: Unknown type: {type}')
             return None
