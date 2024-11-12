@@ -247,7 +247,7 @@ class Diagnostic():
 
         # below useful for example when using fibre bundles
         # uses morphology package of skimage. Can also find peaks?
-        if 'fill_gaps' in self.calib_dict:
+        if 'fill_gaps' in self.calib_dict and self.calib_dict['fill_gaps']:
             seed = np.copy(img_data)
             seed[1:-1, 1:-1] = img_data.max()
             mask = np.copy(img_data)
@@ -271,6 +271,11 @@ class Diagnostic():
         if 'background' in self.calib_dict:
             if 'stage' in self.calib_dict['background'] and self.calib_dict['background']['stage'].lower() == 'transformed':
                 do_bkg_sub()
+
+        # if 'zero_cut' in self.calib_dict and self.calib_dict['zero_cut']:
+        #     img_data = img.get_img()
+        #     img_data[img_data<0] = 0
+        #     img.set_img(img_data)
 
         # if x / y not set (i.e. no transforms etc.), use pixel numbers
         if 'x' not in locals():
