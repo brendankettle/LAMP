@@ -83,12 +83,26 @@ class ImageProc():
             self.set_img(self.get_img() - self.bkg)
 
         elif type.lower() == 'flat':
-                if roi is not None:
-                    img_data = self.get_img()
-                    self.bkg =  np.mean(img_data[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]])
-                    self.set_img(self.get_img() - self.bkg)
-                else:
-                    print("bkg_sub  error: No roi provided for type=flat")
+            """Taking a mean count from ROI and subtracting across whole image"""
+            if roi is not None:
+                img_data = self.get_img()
+                self.bkg =  np.mean(img_data[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]])
+                self.set_img(img_data - self.bkg)
+            else:
+                print("bkg_sub  error: No roi provided for type=flat")
+
+            if debug:
+                plt.figure()
+                im = plt.imshow(img_data, vmin=np.percentile(img_data, 5), vmax=np.percentile(img_data, 50))
+                cb = plt.colorbar(im)
+                #cb.set_label(self.img_units, rotation=270, labelpad=20)
+                ax = plt.gca()
+                rect = patches.Rectangle((roi[0][0], roi[0][1]), (roi[1][0]-roi[0][0]), (roi[1][1]-roi[0][1]), linewidth=1, edgecolor='r', facecolor='none')
+                ax.add_patch(rect)
+                plt.tight_layout()
+                plt.title('Uncorrected image showing ROI for flat mean')
+                plt.show(block=False)
+                
 
         elif type.lower() == 'gradient':
             # fit a polynomial to an ROI average along one axis (gradient), and extrapolate across image

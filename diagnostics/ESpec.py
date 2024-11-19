@@ -12,8 +12,6 @@ from ..utils.plotting import *
 
 class ESpec(Diagnostic):
     """Electron (charged particle?) Spectrometer.
-        TODO: Background correction
-        TODO: Charge calibration
         TODO: Tracking sims
         TODO: Two screens?
     """
