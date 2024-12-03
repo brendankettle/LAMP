@@ -19,6 +19,8 @@ This document is for a general list of To-Dos, bug tracking etc. while LAMP is i
 
 # Features / Thoughts...
 
+- User defined diagnostics (in some local folder), that can extend core diagnostics. Say if you wanted to modify and have your own slightly different ESpec code.
+- Same as above for DAQs and Metas? User defined versions that can extend. This would be important if LAMP was an installable package?
 - LAMP script folder for things like, filter transmission plot, synchrotorn spectrum plot, or …?
 - Metadata handling? (i.e. shot sheets). get_meta('meta_id', shot_dict)
 - GitHub discussion page?

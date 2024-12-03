@@ -84,11 +84,11 @@ class ESpec(Diagnostic):
             # NB: No other ROIs should be applied until this 'final' step, so there are no conflicts. If wrapping this function, just pass in ROI values
             if axis == 'y':
                 self.y_mm = self.y_mm[(MeV >= MeV_min)]# update spatial axis with ROI selection
-                img = img[(MeV > MeV_min), :]
-                MeV = MeV[(MeV > MeV_min)]
+                img = img[(MeV >= MeV_min), :]
+                MeV = MeV[(MeV >= MeV_min)]
                 self.y_mm = self.y_mm[(MeV <= MeV_max)] # update spatial axis with ROI selection
-                img = img[(MeV < MeV_max), :]
-                MeV = MeV[(MeV < MeV_max)]
+                img = img[(MeV <= MeV_max), :]
+                MeV = MeV[(MeV <= MeV_max)]
                 self.y_MeV = MeV 
                 y = MeV
             else:
@@ -411,7 +411,7 @@ class ESpec(Diagnostic):
             dMeV_matrix = np.tile(dMeV, (len(self.y_mm),1))
         elif disp_dict['axis'] == 'y':
             self.y_MeV = MeV
-            dMeV_matrix = np.transpose(np.tile(dMeV, (len(self.y_mm),1)))
+            dMeV_matrix = np.transpose(np.tile(dMeV, (len(self.x_mm),1)))
 
         # convert from counts to counts per MeV
         img_data = img_data / dMeV_matrix
