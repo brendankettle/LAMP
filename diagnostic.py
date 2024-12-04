@@ -201,6 +201,10 @@ class Diagnostic():
             img.subtract(dark_data)
             #print('Removing dark image')
 
+        if 'median_filter' in self.calib_dict:
+            if 'stage' in self.calib_dict['median_filter'] and self.calib_dict['median_filter']['stage'].lower() == 'original':
+                img.median_filter(size=self.calib_dict['median_filter']['size'])
+
         if 'background' in self.calib_dict:
             if 'stage' in self.calib_dict['background'] and self.calib_dict['background']['stage'].lower() == 'original':
                 do_bkg_sub()
@@ -267,6 +271,10 @@ class Diagnostic():
 
         # Fix! switching back to img object again...
         img = ImageProc(data=img_data)
+
+        if 'median_filter' in self.calib_dict:
+            if 'stage' in self.calib_dict['median_filter'] and self.calib_dict['median_filter']['stage'].lower() == 'transformed':
+                img.median_filter(size=self.calib_dict['median_filter']['size'])
 
         if 'background' in self.calib_dict:
             if 'stage' in self.calib_dict['background'] and self.calib_dict['background']['stage'].lower() == 'transformed':

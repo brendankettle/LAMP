@@ -102,13 +102,29 @@ class Scintillator(Diagnostic):
                     #binary_mask = binary_fill_holes(binary_mask).astype(int)
                     masked_element = img[bottom:top,left:right]*binary_mask
                     num_pixels = np.count_nonzero(masked_element)
-                    scint_sigs[ci,ri] = np.sum(masked_element) / num_pixels
+                    if(num_pixels):
+                        if 'method' in ext_dict:
+                            if ext_dict['method'].lower() == 'mean':
+                                scint_sigs[ci,ri] = np.sum(masked_element) / num_pixels
+                            elif ext_dict['method'].lower() == 'sum':
+                                scint_sigs[ci,ri] = np.sum(masked_element)
+                        else:
+                            scint_sigs[ci,ri] = np.sum(masked_element) / num_pixels
+                    else:
+                        scint_sigs[ci,ri] = 0.
+                        #scint_sigs[ci,ri] = np.mean(img[y-hr:y+hr,x-wr:x+wr])
                     if(debug):
                         masked_element_hl = masked_element
                         masked_element_hl[masked_element_hl==0] = -100
                         img_masked[bottom:top,left:right] = masked_element_hl
                 else:
-                    scint_sigs[ci,ri] = np.mean(img[y-hr:y+hr,x-wr:x+wr])
+                    if 'method' in ext_dict:
+                        if ext_dict['method'].lower() == 'mean':
+                            scint_sigs[ci,ri] = np.mean(img[y-hr:y+hr,x-wr:x+wr])
+                        elif ext_dict['method'].lower() == 'sum':
+                            scint_sigs[ci,ri] = np.sum(img[y-hr:y+hr,x-wr:x+wr])
+                    else:
+                        scint_sigs[ci,ri] = np.mean(img[y-hr:y+hr,x-wr:x+wr])
                 if(debug):
                     rect = patches.Rectangle((x-wr, y-hr), 2*wr, 2*hr, linewidth=1, edgecolor='r', facecolor='none')
                     ax.add_patch(rect)

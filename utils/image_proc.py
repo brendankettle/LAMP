@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from pathlib import Path
 from scipy.signal import fftconvolve
+from scipy import ndimage
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
 
@@ -266,6 +267,9 @@ class ImageProc():
         return self.get_img()
     
     # def median_filter?
+    def median_filter(self, size):
+        self.img_data = ndimage.median_filter(self.img_data, size=size)
+        return self.img_data
 
     def savgol_filter(self, window_size, order, derivative=None):
         """2D version of Savitzky Golay Filtering
