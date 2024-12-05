@@ -123,10 +123,20 @@ class ImageProc():
             else:
                 polyorder = 4
 
-            if axis == 'Y' or axis == 'y' or axis == 'vert':
+            if axis == 'Y' or axis == 'y' or axis == 'vertical' or axis == 'vert':
                 # fitting vertical gradient
-                print('Average across Y.. not tested yet... copy code from X... (below this)')
-            elif axis == 'X' or axis == 'X' or axis == 'horizontal':
+                bkg_px = np.arange(roi[0][1],roi[1][1])
+                bkg_lin = np.mean(self.get_img()[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]], 1)
+                bkg_fit = np.polyfit(bkg_px, bkg_lin, polyorder)
+                bkg_func = np.poly1d(bkg_fit)
+                all_px = np.arange(0,np.shape(self.get_img())[0])
+                all_bkg_func = bkg_func(all_px)
+                if (options != 'Ext') and (polyorder > 4):
+                    # don't extrapolate over high orders by default?
+                    all_bkg_func[0:roi[0][1]] = bkg_func(roi[0][1])
+                    all_bkg_func[roi[1][1]:] = bkg_func(roi[1][1])
+                bkg_img = np.transpose(np.tile(all_bkg_func, (np.shape(self.get_img())[1],1)))
+            elif axis == 'X' or axis == 'X' or axis == 'horizontal' or axis == 'hori':
                 # fitting to a horizontal gradient
                 bkg_px = np.arange(roi[0][0],roi[1][0])
                 bkg_lin = np.mean(self.get_img()[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]], 0)
@@ -139,38 +149,38 @@ class ImageProc():
                     all_bkg_func[0:roi[0][0]] = bkg_func(roi[0][0])
                     all_bkg_func[roi[1][0]:] = bkg_func(roi[1][0])
                 bkg_img = np.tile(all_bkg_func, (np.shape(self.get_img())[0],1))
-
-                if debug:
-                    plt.figure()
-                    plt.plot(bkg_px, bkg_lin, label='Lineout data')
-                    plt.plot(all_px,all_bkg_func, label='Fit')
-                    plt.xlabel('new pixels')
-                    plt.ylabel('mean counts')
-                    plt.tight_layout()
-                    plt.legend()
-                    plt.title('Background correction')
-                    plt.show(block=False)
-
-                    plt.figure()
-                    im = plt.imshow(bkg_img)
-                    cb = plt.colorbar(im)
-                    #cb.set_label(self.img_units, rotation=270, labelpad=20)
-                    plt.tight_layout()
-                    plt.title('Background correction')
-                    plt.show(block=False)
-
-                    plt.figure()
-                    im = plt.imshow(self.get_img()- bkg_img, vmin=np.percentile((self.get_img()-bkg_img), 5), vmax=np.percentile((self.get_img()- bkg_img), 99))
-                    cb = plt.colorbar(im)
-                    #cb.set_label(self.img_units, rotation=270, labelpad=20)
-                    ax = plt.gca()
-                    rect = patches.Rectangle((roi[0][0], roi[0][1]), (roi[1][0]-roi[0][0]), (roi[1][1]-roi[0][1]), linewidth=1, edgecolor='r', facecolor='none')
-                    ax.add_patch(rect)
-                    plt.tight_layout()
-                    plt.title('Background corrected image')
-                    plt.show(block=False)
             else:
                 print('bkg_sub error: No axis provided for type=gradient')
+
+            if debug:
+                plt.figure()
+                plt.plot(bkg_px, bkg_lin, label='Lineout data')
+                plt.plot(all_px,all_bkg_func, label='Fit')
+                plt.xlabel('new pixels')
+                plt.ylabel('mean counts')
+                plt.tight_layout()
+                plt.legend()
+                plt.title('Background correction')
+                plt.show(block=False)
+
+                plt.figure()
+                im = plt.imshow(bkg_img)
+                cb = plt.colorbar(im)
+                #cb.set_label(self.img_units, rotation=270, labelpad=20)
+                plt.tight_layout()
+                plt.title('Background correction')
+                plt.show(block=False)
+
+                plt.figure()
+                im = plt.imshow(self.get_img()- bkg_img, vmin=np.percentile((self.get_img()-bkg_img), 5), vmax=np.percentile((self.get_img()- bkg_img), 99))
+                cb = plt.colorbar(im)
+                #cb.set_label(self.img_units, rotation=270, labelpad=20)
+                ax = plt.gca()
+                rect = patches.Rectangle((roi[0][0], roi[0][1]), (roi[1][0]-roi[0][0]), (roi[1][1]-roi[0][1]), linewidth=1, edgecolor='r', facecolor='none')
+                ax.add_patch(rect)
+                plt.tight_layout()
+                plt.title('Background corrected image')
+                plt.show(block=False)
 
             self.set_img(self.get_img()- bkg_img)
 
