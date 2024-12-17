@@ -126,6 +126,8 @@ class ELINP2024(DAQ):
 
         # if giving shot numbers, assume single date/run/burst is given and just need to rearrange
         # TODO: I guess this could be a sublist for each run or something...
+        if 'shotnum' in timeframe:
+            timeframe['shotnums'] = [timeframe['shotnum']]
         if 'shotnums' in timeframe:
             shotnums = sorted(timeframe['shotnums'])
             if 'burst' in timeframe:
