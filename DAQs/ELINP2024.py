@@ -105,11 +105,13 @@ class ELINP2024(DAQ):
             m = re.search(r'\d+$', burst_str) # gets last numbers
             burst = int(m.group())
         else:
-            burst = 0
+            burst = 1 #0
         if 'shotnum' in shot_dict:
             shotnum = shot_dict['shotnum']
         else:
             shotnum = 0
+        if 'shot' in shot_dict: # just covering our bases
+            shotnum = shot_dict['shot']
 
         # weight the different components to make a unique increasing number?
         time_point = year*1e13 + month*1e11 + day*1e9 + run*1e6 + burst*1000 + shotnum

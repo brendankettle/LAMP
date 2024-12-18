@@ -68,7 +68,7 @@ class Diagnostic():
                     calib_start  = self.DAQ.build_time_point(start_shot_dict)
                     end_shot_dict = all_calibs[this_calib_id]['end']
                     calib_end  = self.DAQ.build_time_point(end_shot_dict)
-                    if shot_time > calib_start and shot_time < calib_end:
+                    if shot_time >= calib_start and shot_time <= calib_end:
                         calib_dict = all_calibs[this_calib_id]
                         break
             if not calib_dict:
