@@ -179,6 +179,17 @@ class ESpec(Diagnostic):
 
         return spec, MeV
     
+    def get_spectra(self, timeframe, calib_id=None, roi_MeV=None, roi_mrad=None,  debug=False):
+
+        shot_dicts = self.DAQ.get_shot_dicts(self.config['name'],timeframe)
+        specs = []
+        MeVs = []
+        for shot_dict in shot_dicts:
+            spec, MeV = self.get_spectrum(shot_dict, calib_id=None, roi_MeV=None, roi_mrad=None,  debug=False)
+            specs.append(spec)
+            MeVs.append(MeV)
+        return specs, MeVs
+    
     def get_spectrum_metrics(self, shot_dict, calib_id=None, roi_MeV=None, roi_mrad=None, percentile=95, debug=False):
         """"""
         spec, MeV = self.get_spectrum(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad,  debug=debug)
@@ -267,13 +278,19 @@ class ESpec(Diagnostic):
         E_means = []
         E_stds = []
         E_percentiles = []
+        E_charges = []
         for shot_dict in shot_dicts:
             E_mean, E_std, E_percentile = self.get_spectrum_metrics(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad, percentile=percentile, debug=debug)
             E_means.append(E_mean)
             E_stds.append(E_std)
             E_percentiles.append(E_percentile)
+            if 'charge' in self.calib_dict:
+                E_charge = self.get_charge(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
+            else:
+                E_charge = 0
+            E_charges.append(E_charge)
 
-        return E_means, E_stds, E_percentiles
+        return E_means, E_stds, E_percentiles, E_charges
     
     def get_div(self, shot_dict, calib_id=None):
         """Currently integrating across the spatial axis. Could be something more involved?"""

@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import importlib
 from .utils.io import load_file
+import results
 
 class Experiment:
 
@@ -133,8 +134,6 @@ class Experiment:
             raise Exception(f'Could not find Meta object: {meta_type}')
 
         return self.get_meta(meta_name)
-     
-        return 
     
     def get_meta(self, meta_name):
         if meta_name not in self.metas:
@@ -145,6 +144,10 @@ class Experiment:
         for meta_name in self.metas.keys():
             print(f"{meta_name} [{self.meta_config[meta_name]['type']}]")
         return
+    
+    def open_results(self, db_name):
+        db = results(self, self.config, db_name)
+        return db
 
     def make_call_calibs(self):
         """Loop through all diagnostics, for each, loop through calibrations, if proc file set, make"""
