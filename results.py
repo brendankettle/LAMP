@@ -105,17 +105,19 @@ class Results():
 
         return
     
-    def make_index_names(self, shot_dict):
+    def make_index_names(self, shot_dict, name):
         index_names = list(shot_dict.keys())
-        index_names.append('name')
+        if name != '':
+            index_names.append('name')
         return tuple(index_names)
 
     def make_index_values(self, shot_dict, name):
         index_values = list(shot_dict.values())
-        index_values.append(name)
+        if name != '':
+            index_values.append(name)
         return tuple(index_values)
     
     def make_index(self, shot_dict, name):
-        index_names = self.make_index_names(shot_dict)
+        index_names = self.make_index_names(shot_dict, name)
         index_values = self.make_index_values(shot_dict, name)
         return pd.MultiIndex.from_arrays(entries2columns(list(index_values)),names=index_names)
