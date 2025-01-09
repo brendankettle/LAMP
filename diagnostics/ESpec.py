@@ -292,22 +292,46 @@ class ESpec(Diagnostic):
 
         return E_means, E_stds, E_percentiles, E_charges
     
-    def get_div(self, shot_dict, calib_id=None):
+    def get_div(self, shot_dict, calib_id=None, roi_MeV=None,  roi_mrad=None, debug=False):
         """Currently integrating across the spatial axis. Could be something more involved?"""
-        img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id)
-        sum_lineout = np.sum(img, 1)
+        img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
         if 'axis' in  self.calib_dict['divergence'] and self.calib_dict['divergence']['axis'].lower() == 'x':
             mrad = x
+            sum_lineout = np.sum(img, 0)
         else:
             mrad = y
+            sum_lineout = np.sum(img, 1)
         return sum_lineout, mrad
     
-    def get_div_FWHM(self, shot_dict, calib_id=None):
-        lineout, mrad = self.get_div(shot_dict, calib_id=calib_id)
+    def get_div_FWHM(self, shot_dict, calib_id=None, roi_MeV=None, roi_mrad=None, debug=False):
         # TODO: write library function to find FWHM from lineout
+        def FWHM(X,Y):
+            half_max = max(Y) / 2.
+            #find when function crosses line half_max (when sign of diff flips)
+            #take the 'derivative' of signum(half_max - Y[])
+            d = np.sign(half_max - np.array(Y[0:-1])) - np.sign(half_max - np.array(Y[1:]))
+            #plot(X[0:len(d)],d) #if you are interested
+            #find the left and right most indexes
+            left_idx = np.where(d > 0)[0]
+            right_idx = np.where(d < 0)[-1]
+            return X[right_idx] - X[left_idx] #return the difference (full width)
         # TODO: Return Error estimate as well
-        FWHM = None
-        return FWHM
+        lineout, mrad = self.get_div(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
+        lineout_smoothed = savgol_filter(lineout, int(len(mrad)/10), 2)
+        peak_location_i = np.argmax(lineout_smoothed)
+        peak_location = mrad[peak_location_i]
+        if debug:
+            plt.figure()
+            plt.plot(mrad, lineout, label='Raw')
+            plt.plot(mrad, lineout_smoothed, label='Smoothed')
+            plt.title(shot_dict)
+            plt.xlabel('mrad') 
+            plt.ylabel('fc/mrad')
+            plt.tight_layout()
+            plt.legend()
+            plt.show(block=False)
+
+        return FWHM(mrad, lineout_smoothed), peak_location
     
     def get_charge(self, shot_dict, calib_id=None, roi_MeV=None, roi_mrad=None, debug=False):
         """Integrate and return total charge (pC)"""
