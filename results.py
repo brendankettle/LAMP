@@ -14,12 +14,11 @@ def entries2columns(y):
 
 class Results():
     """Class for saving results to database, and subsequent access
-    Some stuff taken from Apollo here, but it operates differently
+    Some stuff taken from Apollo here, but it operates differently.
+    Might seem a bit inefficient, but I'm giving each results its own row.
+    That way you don't have to add columns each time you add a result, so more flexible that way.
+    But more importantly, each value can have a decription, and information like comments, who performed the analysis and when etc.
     """
-
-    # TEMP; this should be DAQ specific?
-    #index_names = ('date', 'run', 'shotnum')
-    # shot_dict keys used instead
 
     def __init__(self, exp_obj, config, db_name, results_folder=''):
         self.ex = exp_obj # pass in experiment object
@@ -56,11 +55,11 @@ class Results():
         print(f'Results database saved: {self.db_filepath}') # Temp?
         return
         
-    def add(self, shot_dict, name, value, comment='', user='', script='', overwrite=True):
+    def add(self, shot_dict, name, value, description='', details='', user='', script='', overwrite=True):
     
         indexes = self.make_index(shot_dict, name)
 
-        data_dict = {'value': value, 'comment': comment, 'user': user, 'script': script, 'timestamp': time.time()}
+        data_dict = {'value': value, 'description': description, 'details': details, 'user': user, 'script': script, 'timestamp': time.time()}
 
         index_values = self.make_index_values(shot_dict, name)
         try: 
@@ -84,25 +83,38 @@ class Results():
         #         df = df.drop(dict_key, axis=1, inplace=False)
         #         shot_dict = shot_dict.pop(dict_key)
 
-        value = df['value'].loc[self.make_index_values(shot_dict, name)]
+        try:
+            value = df['value'].loc[self.make_index_values(shot_dict, name)]
+        except:
+            print(f'Results.get() failed; invalid shot or name? : {shot_dict}, "{name}"')
+            return False
 
         if info:
-            comment = df['comment'].loc[self.make_index_values(shot_dict, name)]
+            description = df['description'].loc[self.make_index_values(shot_dict, name)]
+            details = df['details'].loc[self.make_index_values(shot_dict, name)]
             user = df['user'].loc[self.make_index_values(shot_dict, name)]
             script = df['script'].loc[self.make_index_values(shot_dict, name)]
             timestamp = df['timestamp'].loc[self.make_index_values(shot_dict, name)]
-            return value, comment, user, script, timestamp
+            return value, description, details, user, script, timestamp
         else:
             return value
     
-    def delete(self, shot_dict, name):
+    def contents(self, shot_dict =''):
 
-        return
-    
-    def list_keys(self, shot_dict={}):
+        # what values associated with given shot?
+        if shot_dict != '':
+            shot_df = self.get(shot_dict, '')
+            names = shot_df.index.get_level_values('name').unique()
+        # overall what unique values across database?
+        else:
+            names = self.db.index.get_level_values('name').unique()
         
-        # return all keys associated with a shot dictionary
+        # also return number of shots? days etc.?
 
+        return names.to_list()
+
+    def delete(self, shot_dict, name):
+        print('To Do')
         return
     
     def make_index_names(self, shot_dict, name):
