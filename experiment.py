@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import importlib
 from .utils.io import load_file
-import results
+from .results import Results
 
 class Experiment:
 
@@ -146,7 +146,7 @@ class Experiment:
         return
     
     def open_results(self, db_name):
-        db = results(self, self.config, db_name)
+        db = Results(self, self.config, db_name)
         return db
 
     def make_call_calibs(self):

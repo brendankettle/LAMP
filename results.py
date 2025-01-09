@@ -1,10 +1,25 @@
+import os
+import numpy as np
 import pandas as pd
+from pathlib import Path
+import time
 
-class results():
+def entries2columns(y):
+    N = np.shape(y)
+    if len(N)==1:
+        y_reshaped = [[i] for i in y]
+    else:
+        y_reshaped = [[i[n] for i in y] for n in range(N[1])]
+    return y_reshaped
+
+class Results():
     """Class for saving results to database, and subsequent access
+    Some stuff taken from Apollo here, but it operates differently
     """
 
-    db = ''
+    # TEMP; this should be DAQ specific?
+    #index_names = ('date', 'run', 'shotnum')
+    # shot_dict keys used instead
 
     def __init__(self, exp_obj, config, db_name, results_folder=''):
         self.ex = exp_obj # pass in experiment object
@@ -17,27 +32,66 @@ class results():
         else:
             self.results_folder = './'
 
-        # open dataframe and save to object
-        self.db = ''
+        # check pkl extension. NB; currently not .pickle, but assume .pkl
+        if ('.pkl' in  db_name) or ('.pickle' in db_name):
+            self.db_filename = db_name
+        else:
+            self.db_filename = f'{db_name}.pkl'
+        self.db_name = db_name
+
+        # check if database file exists, otherwise create a new one
+        self.db_filepath = Path(os.path.join(self.results_folder,self.db_filename))
+        if self.db_filepath.is_file():
+            self.db = pd.read_pickle(self.db_filepath)
+        else:
+            # create new dataframe and save to object
+            print(f'No results file found, creating new database (not yet saved): {self.db_filepath}')
+            self.db = pd.DataFrame()
 
         return
 
-    def add(self, shot_dict, name, value, comment='', overwrite=True):
+    def save(self):
+        # more checks?
+        self.db.to_pickle(self.db_filepath)
+        print(f'Results database saved: {self.db_filepath}') # Temp?
+        return
+        
+    def add(self, shot_dict, name, value, comment='', user='', script='', overwrite=True):
     
-        # For now, just adding a seperate row for each value, that has a paired shot dict and name
+        indexes = self.make_index(shot_dict, name)
 
-        timestamp = ''
+        data_dict = {'value': value, 'comment': comment, 'user': user, 'script': script, 'timestamp': time.time()}
+
+        index_values = self.make_index_values(shot_dict, name)
+        try: 
+            self.db.loc[index_values]
+        except:
+            #print('Does not exist') # temp
+            self.db  = pd.concat([self.db, pd.DataFrame([data_dict],index=indexes)])
+        else:
+            #print('Exists') # temp
+            self.db.loc[index_values] = data_dict
 
         return
     
     def get(self, shot_dict, name, info=False):
     
-        value = ''
-        timestamp = ''
-        comment = ''
+        # can this work? if missing an index, remove from this (temporary) copy of dataframe
+        df = self.db
+        # for dict_key in shot_dict:
+        #     if shot_dict[dict_key] == '':
+        #         print(f'No {dict_key} defined')
+        #         df = df.drop(dict_key, axis=1, inplace=False)
+        #         shot_dict = shot_dict.pop(dict_key)
+
+        value = df['value'].loc[self.make_index_values(shot_dict, name)]
 
         if info:
-            return value, timestamp, comment
+            comment = df['comment'].loc[self.make_index_values(shot_dict, name)]
+            user = df['user'].loc[self.make_index_values(shot_dict, name)]
+            script = df['script'].loc[self.make_index_values(shot_dict, name)]
+            timestamp = df['timestamp'].loc[self.make_index_values(shot_dict, name)]
+            return value, comment, user, script, timestamp
         else:
             return value
     
@@ -45,8 +99,23 @@ class results():
 
         return
     
-    def list_keys(self, shot_dict):
+    def list_keys(self, shot_dict={}):
         
         # return all keys associated with a shot dictionary
 
         return
+    
+    def make_index_names(self, shot_dict):
+        index_names = list(shot_dict.keys())
+        index_names.append('name')
+        return tuple(index_names)
+
+    def make_index_values(self, shot_dict, name):
+        index_values = list(shot_dict.values())
+        index_values.append(name)
+        return tuple(index_values)
+    
+    def make_index(self, shot_dict, name):
+        index_names = self.make_index_names(shot_dict)
+        index_values = self.make_index_values(shot_dict, name)
+        return pd.MultiIndex.from_arrays(entries2columns(list(index_values)),names=index_names)

@@ -154,6 +154,14 @@ class ImageProc():
 
             if debug:
                 plt.figure()
+                im = plt.imshow(self.get_img(), vmin=np.percentile(self.get_img(), 5), vmax=np.percentile(self.get_img(), 99))
+                cb = plt.colorbar(im)
+                ax = plt.gca()
+                rect = patches.Rectangle((roi[0][0], roi[0][1]), (roi[1][0]-roi[0][0]), (roi[1][1]-roi[0][1]), linewidth=1, edgecolor='r', facecolor='none')
+                ax.add_patch(rect)
+                plt.show(block=False)
+            
+                plt.figure()
                 plt.plot(bkg_px, bkg_lin, label='Lineout data')
                 plt.plot(all_px,all_bkg_func, label='Fit')
                 plt.xlabel('new pixels')
@@ -172,7 +180,7 @@ class ImageProc():
                 plt.show(block=False)
 
                 plt.figure()
-                im = plt.imshow(self.get_img()- bkg_img, vmin=np.percentile((self.get_img()-bkg_img), 5), vmax=np.percentile((self.get_img()- bkg_img), 99))
+                im = plt.imshow(self.get_img()- bkg_img, vmin=np.percentile((self.get_img()-bkg_img), 10), vmax=np.percentile((self.get_img()- bkg_img), 90))
                 cb = plt.colorbar(im)
                 #cb.set_label(self.img_units, rotation=270, labelpad=20)
                 ax = plt.gca()
@@ -261,9 +269,13 @@ class ImageProc():
                 plt.show(block=False)
 
                 fig = plt.figure()
-                im = plt.pcolormesh(X_plot, Y_plot, img_data - bkg_img, vmin=0, vmax=np.percentile(img_data - bkg_img, 90), shading='auto')
+                im = plt.pcolormesh(X_plot, Y_plot, img_data - bkg_img, vmin=np.percentile(img_data - bkg_img, 10), vmax=np.percentile(img_data - bkg_img, 90), shading='auto')
                 cb = plt.colorbar(im)
+                ax = plt.gca()
                 #cb.set_label(self.make_units(self.img_units), rotation=270, labelpad=20)
+                for ROI in ROIS:
+                    rect = patches.Rectangle((ROI[0][0], ROI[0][1]), (ROI[1][0]-ROI[0][0]), (ROI[1][1]-ROI[0][1]), linewidth=1, edgecolor='r', facecolor='none')
+                    ax.add_patch(rect)
                 plt.title('Background corrected image')
                 plt.tight_layout()
                 plt.show(block=False)

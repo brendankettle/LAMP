@@ -164,30 +164,30 @@ class Diagnostic():
         """Central wrapper function for processing image data using calibration"""
 
         # background correction wrapper called at the appropriate stage
-        def do_bkg_sub():
-            if 'type' not in self.calib_dict['background']:
-                print('run_img_calib() error: background error: No type set')
-            if 'axis' in self.calib_dict['background']:
-                axis = self.calib_dict['background']['axis']
+        def do_bkg_sub(calib_label='background'):
+            if 'type' not in self.calib_dict[calib_label]:
+                print(f'run_img_calib() error: {calib_label} error: No type set')
+            if 'axis' in self.calib_dict[calib_label]:
+                axis = self.calib_dict[calib_label]['axis']
             else:
                 axis = None
-            if 'order' in self.calib_dict['background']:
-                order = self.calib_dict['background']['order']
+            if 'order' in self.calib_dict[calib_label]:
+                order = self.calib_dict[calib_label]['order']
             else:
                 order = None
-            if 'options' in self.calib_dict['background']:
-                options = self.calib_dict['background']['options']
+            if 'options' in self.calib_dict[calib_label]:
+                options = self.calib_dict[calib_label]['options']
             else:
                 options = None
-            if 'data' in self.calib_dict['background']:
-                bkg_data = self.calib_dict['background']['data']
+            if 'data' in self.calib_dict[calib_label]:
+                bkg_data = self.calib_dict[calib_label]['data']
             else:
                 bkg_data = None
-            if 'roi' in self.calib_dict['background']:
-                bkg_roi = self.calib_dict['background']['roi']
+            if 'roi' in self.calib_dict[calib_label]:
+                bkg_roi = self.calib_dict[calib_label]['roi']
             else:
                 bkg_roi = None
-            img.bkg_sub(self.calib_dict['background']['type'], roi=bkg_roi, axis=axis, order=order, data=bkg_data, options=options, debug=debug)
+            img.bkg_sub(self.calib_dict[calib_label]['type'], roi=bkg_roi, axis=axis, order=order, data=bkg_data, options=options, debug=debug)
 
 
         # if img_data is passed as a shot dictionary or filepath, grab the actual image
@@ -208,6 +208,9 @@ class Diagnostic():
         if 'background' in self.calib_dict:
             if 'stage' in self.calib_dict['background'] and self.calib_dict['background']['stage'].lower() == 'original':
                 do_bkg_sub()
+        if 'background2' in self.calib_dict:
+            if 'stage' in self.calib_dict['background2'] and self.calib_dict['background2']['stage'].lower() == 'original':
+                do_bkg_sub('background2')
 
         # FIX!
         #  currently now transition back to data, not ImageProc object, but this should be fixed!
@@ -279,6 +282,9 @@ class Diagnostic():
         if 'background' in self.calib_dict:
             if 'stage' in self.calib_dict['background'] and self.calib_dict['background']['stage'].lower() == 'transformed':
                 do_bkg_sub()
+        if 'background2' in self.calib_dict:
+            if 'stage' in self.calib_dict['background2'] and self.calib_dict['background2']['stage'].lower() == 'transformed':
+                do_bkg_sub('background2')
 
         # if 'zero_cut' in self.calib_dict and self.calib_dict['zero_cut']:
         #     img_data = img.get_img()
