@@ -113,6 +113,13 @@ class Results():
 
         return names.to_list()
 
+    def shots(self):
+        # return the unique shots in the database
+        shot_df = self.db
+        name_level = shot_df.index.nlevels - 1
+        unique_shots = shot_df.index.droplevel(name_level).to_flat_index().unique().to_list()
+        return unique_shots
+    
     def delete(self, shot_dict, name):
         print('To Do')
         return
