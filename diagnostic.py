@@ -70,6 +70,7 @@ class Diagnostic():
                     calib_end  = self.DAQ.build_time_point(end_shot_dict)
                     if shot_time >= calib_start and shot_time <= calib_end:
                         calib_dict = all_calibs[this_calib_id]
+                        #print(f'Using Calibration: {this_calib_id}') # for debugging...
                         break
             if not calib_dict:
                 print("get_calib() error; Could not place shot in calibration timeline")        

@@ -56,7 +56,7 @@ class Results():
         return
         
     def add(self, shot_dict, name, value, description='', details='', user='', script='', overwrite=True):
-    
+
         indexes = self.make_index(shot_dict, name)
 
         data_dict = {'value': value, 'description': description, 'details': details, 'user': user, 'script': script, 'timestamp': time.time()}
@@ -120,8 +120,10 @@ class Results():
         unique_shots = shot_df.index.droplevel(name_level).to_flat_index().unique().to_list()
         return unique_shots
     
-    def delete(self, shot_dict, name):
-        print('To Do')
+    def delete(self, shot_dict, name=''):
+        # print(self.make_index_values(shot_dict, name))
+        self.db = self.db.drop(index=self.make_index_values(shot_dict, name))
+        #print(self.db.head())
         return
     
     def make_index_names(self, shot_dict, name):

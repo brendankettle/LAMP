@@ -314,7 +314,8 @@ class ESpec(Diagnostic):
             #find the left and right most indexes
             left_idx = np.where(d > 0)[0]
             right_idx = np.where(d < 0)[-1]
-            return X[right_idx] - X[left_idx] #return the difference (full width)
+            fwhm = X[right_idx] - X[left_idx] #return the difference (full width)
+            return fwhm[0] #return the difference (full width)
         # TODO: Return Error estimate as well
         lineout, mrad = self.get_div(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
         lineout_smoothed = savgol_filter(lineout, int(len(mrad)/10), 2)
@@ -699,8 +700,14 @@ class ESpec(Diagnostic):
         cb = plt.colorbar(im)
         cb.set_label(self.make_units(self.img_units), rotation=270, labelpad=20)
         plt.title(self.shot_string(shot_dict))
-        plt.xlabel('Electron energy [MeV]') # These could be wrong...
-        plt.ylabel('Beam divergence [mrad]') # These could be wrong...
+        if 'dispersion' in self.calib_dict and 'axis' in self.calib_dict['dispersion'] and self.calib_dict['dispersion']['axis'].lower() == 'y':
+            plt.ylabel('Electron energy [MeV]')
+        else:
+            plt.xlabel('Electron energy [MeV]')
+        if 'divergence' in self.calib_dict and 'axis' in self.calib_dict['divergence'] and self.calib_dict['divergence']['axis'].lower() == 'y':
+            plt.ylabel('Beam divergence [mrad]')
+        else:
+            plt.xlabel('Beam divergence [mrad]')
         plt.tight_layout()
         plt.show(block=False)
 
