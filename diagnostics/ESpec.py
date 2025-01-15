@@ -554,7 +554,9 @@ class ESpec(Diagnostic):
             return None
 
     def IP_fade(self, t, IP_type='MS'):
-        """ This is a normalisation factor 0->1 for signal fading on Image plate. Used on PSL values. https://dx.doi.org/10.1063/1.4936141"""
+        """ This is a normalisation factor 0->1 for signal fading on Image plate. 
+        Used on PSL values. https://dx.doi.org/10.1063/1.4936141
+        ~5% error on these values juding from paper?"""
         if IP_type == 'TR':
             A1=0.535
             B1=23.812
@@ -618,7 +620,9 @@ class ESpec(Diagnostic):
         """Assuming they are in order from first scan to last"""
         rescan_product = 1
         for fi in range(1,len(filenames)):
-            rescan_product = rescan_product * self.IP_rescan_factor(filenames[fi-1],filenames[fi], roi=roi, R=R, S=S, bins=bins, debug=debug)
+            rescan_factor = self.IP_rescan_factor(filenames[fi-1],filenames[fi], roi=roi, R=R, S=S, bins=bins, debug=debug)
+            rescan_product = rescan_product * rescan_factor
+            print(f'Rescan {fi}: {rescan_factor}')
 
         return rescan_product
 
