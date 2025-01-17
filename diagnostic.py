@@ -200,7 +200,7 @@ class Diagnostic():
         if 'dark' in self.calib_dict:
             dark_data = self.get_shot_data(self.calib_dict['dark']['data'])
             img.subtract(dark_data)
-            #print('Removing dark image')
+            print('Removing dark image')
 
         if 'median_filter' in self.calib_dict:
             if 'stage' in self.calib_dict['median_filter'] and self.calib_dict['median_filter']['stage'].lower() == 'original':
