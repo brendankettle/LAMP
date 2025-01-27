@@ -217,12 +217,11 @@ class Diagnostic():
         #  currently now transition back to data, not ImageProc object, but this should be fixed!
         img_data = img.get_img()
 
-        # ROIs should be kept until the final step?
-        # if 'roi' in self.calib_dict:
-        #     # pixels or transformed coords?
-        #     if 'pixels' in self.calib_dict['roi']:
-        #         roi = self.calib_dict['roi']['pixels']
-        #         img_data = img_data[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]]
+        # ROIs for original data
+        if 'roi' in self.calib_dict and 'stage' in self.calib_dict['roi'] and self.calib_dict['roi']['stage'].lower() == 'original':
+            if 'pixels' in self.calib_dict['roi']:
+                roi = self.calib_dict['roi']['pixels']
+                img_data = img_data[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]]
         #     if 'transformed' in self.calib_dict['roi']:
         #         # this will probably have to go later? (after transform)
         #         print('To Do! ROI processing for transformed Co-ords... etc.')

@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
 import pandas as pd
+import scipy.optimize as optimize
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import re
 from scipy.optimize import curve_fit
@@ -177,6 +178,58 @@ class Scintillator(Diagnostic):
 
         return depth_img
 
+    #
+    # Below is taken from the current focal spot diagnostic class,
+    # BUT should really be it's own seperate utility module that both call.
+    #
+
+    def fit_spot(self):
+
+        return
+    
+    def gauss2Dbeam(self,U,a0,a1,a2,a3,a4,a5):
+        # a0 peak,
+        # a2,a4 widths
+        # a1,a3 centers
+        # a5 angle
+        f = a0*np.exp( -(
+            ( U[:,0]*np.cos(a5)-U[:,1]*np.sin(a5) - a1*np.cos(a5)+a3*np.sin(a5) )**2/(2*a2**2) + 
+            ( U[:,0]*np.sin(a5)+U[:,1]*np.cos(a5) - a1*np.sin(a5)-a3*np.cos(a5) )**2/(2*a4**2) ) )
+        return f
+    
+    def gauss2DbeamFit(self,pG,U,I):
+        f = self.gauss2Dbeam(U,*pG)
+        fErr = np.sqrt(np.mean((f-I)**2))
+        return fErr
+
+    def fitBeam(self,x,y,img,r_max=100,pGuess = (1,0,.1,0,.1,0),tol=1e-4):
+
+        (Ny,Nx) = np.shape(img)
+        (X,Y) = np.meshgrid(x,y)
+
+        # make beam mask
+        R = np.sqrt((X)**2+(Y)**2)
+        beamMask = (R<r_max)*(img>np.max(img*np.exp(-1)))
+
+        I = img[beamMask]
+        XY = np.zeros((np.size(I),2))
+        XY[:,0] = X[beamMask]
+        XY[:,1] = Y[beamMask]
+        XYfull = np.zeros((np.size(X),2))
+        XYfull[:,0] = X.flatten()
+        XYfull[:,1] = Y.flatten()
+
+        
+        #(pFit,pcov) = sci.optimize.curve_fit(gauss2Dbeam, XY, I,p0=pGuess)
+        a = (XY,I)
+        z = optimize.minimize(self.gauss2DbeamFit,pGuess,args=a, tol=tol,method='Nelder-Mead')
+        pFit = z.x
+        Ibeam = self.gauss2Dbeam(XYfull,*pFit)
+
+        imgBeam = np.reshape(Ibeam,(Ny,Nx))
+
+        return imgBeam, pFit
+    
     # ------------------------------------------------------ #
     # PLOTTING FUNCTIONS
     # ------------------------------------------------------ #
