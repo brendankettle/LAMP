@@ -11,15 +11,19 @@ class GeminiMirage(DAQ):
     __name = 'GeminiMirage'
     __authors = ['Brendan Kettle']
 
-    def __init__(self, exp_obj):
+    def __init__(self, exp_obj, options=None):
         """Initiate parent base DAQ class to get all shared attributes and funcs"""
-        super().__init__(exp_obj)
+        super().__init__(exp_obj, options=options)
         return
 
     def _build_shot_filepath(self, diagnostic, date, run, shotnum, ext):
         """This is used internally, and so can be DAQ specific"""
+        if 'shotnum_zfill' in self.options:
+            zfill = self.options['shotnum_zfill']
+        else:
+            zfill = 3 # default?
         # check file?
-        shot_path = f'{self.data_folder}/{diagnostic}/{date}/{run}/Shot{str(shotnum).zfill(3)}.{ext}'
+        shot_path = f'{self.data_folder}/{diagnostic}/{date}/{run}/Shot{str(shotnum).zfill(zfill)}.{ext}'
         return shot_path
     
     def _shot_dict_from_GSN(self, GSN):

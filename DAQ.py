@@ -7,9 +7,10 @@ class DAQ():
     """Base class for DAQs
     """
 
-    def __init__(self, exp_obj):
+    def __init__(self, exp_obj, options=None):
         self.ex = exp_obj # pass in experiment object
         self.data_folder = self.ex.config['paths']['data_folder'] # Path()?
+        self.options = options
         return
 
     def load_imdata(self, shot_filepath, data_type=float):
