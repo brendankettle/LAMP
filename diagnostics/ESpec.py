@@ -94,11 +94,11 @@ class ESpec(Diagnostic):
             else:
                 # I'm sure this cam be done in one line, but I'm being lazy...
                 self.x_mm = self.x_mm[(MeV >= MeV_min)] # update spatial axis with ROI selection
-                img = img[:, (MeV > MeV_min)]
-                MeV = MeV[(MeV > MeV_min)]
+                img = img[:, (MeV >= MeV_min)]
+                MeV = MeV[(MeV >= MeV_min)]
                 self.x_mm = self.x_mm[(MeV <= MeV_max)] # update spatial axis with ROI selection
-                img = img[:, (MeV < MeV_max)]
-                MeV = MeV[(MeV < MeV_max)]
+                img = img[:, (MeV <= MeV_max)]
+                MeV = MeV[(MeV <= MeV_max)]
                 self.x_MeV = MeV 
                 x = MeV
 
