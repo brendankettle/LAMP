@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from matplotlib import image
 import numpy as np
 import pickle
 import json
@@ -22,6 +23,8 @@ def load_file(filepath, file_type=None, options=None):
             data = load_npy(filepath)
         elif file_ext.lower() == '.toml':
             data = load_toml(filepath)
+        elif file_ext.lower() == '.tif':
+            data = image.imread(filepath)
         else:
             print(f"IO error; load_file(); could not auto-read file type, please provide file_type arugment")
     elif file_type.lower() == 'pickle' or file_ext.lower() == 'pkl':
@@ -34,6 +37,8 @@ def load_file(filepath, file_type=None, options=None):
         data = load_npy(filepath)
     elif file_type.lower() == 'toml':
         data = load_toml(filepath)
+    elif file_type.lower() == 'tif':
+        data = image.imread(filepath)
     else:
         print(f"IO error; load_file(); no known type '{file_type}'")
     return data
