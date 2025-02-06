@@ -688,10 +688,10 @@ class ESpec(Diagnostic):
         return ''.join(units)
 
 
-    def plot_proc_shot(self, shot_dict, roi_MeV=None, roi_mrad=None, vmin=None, vmax=None, debug=False):
+    def plot_proc_shot(self, shot_dict, calib_id=None, roi_MeV=None, roi_mrad=None, vmin=None, vmax=None, debug=False):
 
         # below still assumes X = spectral, Y =  divergence
-        espec_img, x, y = self.get_proc_shot(shot_dict,roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
+        espec_img, x, y = self.get_proc_shot(shot_dict,calib_id=calib_id,roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
 
         if vmin is None:
             vmin = np.nanmin(espec_img)
