@@ -87,22 +87,27 @@ class Experiment:
         try:
             diag_lib = importlib.import_module(diag_module)
         except ImportError:
-            raise Exception(f'Could not find Diagnostics module: {diag_module}')
-
-        #if callable(diag_class := getattr(diag_lib, diag_type)):
-        diag_class = getattr(diag_lib, diag_type)
-        if callable(diag_class):
-            print(f'Adding Diagnostic: {diag_name} [{diag_type}]')
-            self.diags[diag_name] = diag_class(self, self.diag_config[diag_name])
+            print(f'Warning! Could not find Diagnostics module: {diag_module}')
+            #raise Exception(f'Could not find Diagnostics module: {diag_module}')
         else:
-            raise Exception(f'Could not find Diagnostic object: {diag_type}')
+            #if callable(diag_class := getattr(diag_lib, diag_type)):
+            diag_class = getattr(diag_lib, diag_type)
+            if callable(diag_class):
+                print(f'Adding Diagnostic: {diag_name} [{diag_type}]')
+                self.diags[diag_name] = diag_class(self, self.diag_config[diag_name])
+            else:
+                print(f'Warning! Could not find Diagnostic object: {diag_type}')
+                #raise Exception(f'Could not find Diagnostic object: {diag_type}')
 
         return self.get_diagnostic(diag_name)
     
     def get_diagnostic(self, diag_name):
         if diag_name not in self.diags:
-            raise Exception(f'Could not find Diagnostic: {diag_name}')
-        return self.diags[diag_name]
+            print(f'Error; Could not find Diagnostic: {diag_name}')
+            #raise Exception(f'Could not find Diagnostic: {diag_name}')
+            return False
+        else:
+            return self.diags[diag_name]
 
     def list_diagnostics(self):
         for diag_name in self.diags.keys():

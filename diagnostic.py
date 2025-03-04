@@ -95,7 +95,7 @@ class Diagnostic():
                         print(f"get_calib() error; No calibration input ID found for {calib_id} in master calib input file")
                         return None
             else:
-                print(f"get_calib() error; Unknown calibration found for {calib_id}")
+                print(f"get_calib() error; Unknown calibration found for {calib_id} - No calib_file set in diagnostics.toml?")
                 return None
 
         # before returning, if processed file is set, try load it and return contents with dictionary
@@ -200,7 +200,7 @@ class Diagnostic():
         if 'dark' in self.calib_dict:
             dark_data = self.get_shot_data(self.calib_dict['dark']['data'])
             img.subtract(dark_data)
-            print('Removing dark image')
+            #print('Removing dark image')
 
         if 'median_filter' in self.calib_dict:
             if 'stage' in self.calib_dict['median_filter'] and self.calib_dict['median_filter']['stage'].lower() == 'original':
@@ -268,9 +268,10 @@ class Diagnostic():
                 img_data = np.rot90(img_data, 1) # ndimage.rotate(img_data, 90, reshape=False)
             else:
                 img_data = np.rot90(img_data, 3) # ndimage.rotate(img_data, 270, reshape=False)
-            y_tmp = y
-            y = x
-            x = y_tmp
+            if 'y' in locals() and 'x' in locals():
+                y_tmp = y
+                y = x
+                x = y_tmp
 
         # Fix! switching back to img object again...
         img = ImageProc(data=img_data)

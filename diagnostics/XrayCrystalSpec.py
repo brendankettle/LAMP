@@ -19,6 +19,23 @@ class XrayCrystalSpec(Diagnostic):
         super().__init__(exp_obj, config_filepath)
         return
 
+    def get_proc_shot(self, shot_dict, calib_id=None, apply_disp=True, debug=False):
+        """Return a processed shot using saved or passed calibrations.
+        """
+        # set calibration dictionary
+        if calib_id:
+            self.calib_dict = self.get_calib(calib_id)
+        else:
+            self.calib_dict = self.get_calib(shot_dict)
+
+        # do standard image calibration. Transforms, background, ROIs etc.
+        # minimum calibration is spatial transform
+        img, x, y = self.run_img_calib(shot_dict, debug=debug)
+
+        # TO DO: Apply dispersion
+
+        return img, x, y
+
     def plot_histogram(self, timeframe, bins=100):
 
         shot_dicts = self.DAQ.get_shot_dicts(self.diag_name, timeframe)

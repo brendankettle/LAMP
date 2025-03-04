@@ -9,7 +9,7 @@ from scipy.optimize import least_squares, leastsq
 from scipy.interpolate import interp1d
 from ..diagnostic import Diagnostic
 from ..utils.image_proc import ImageProc
-from ..utils.filter_transmission import filter_transmission
+from ..utils.xrays.filter_transmission import filter_transmission
 
 # TODO: Some of this was bodged quickly, need to make sure it's fully compatiable/flexible
 # TODO: Bayesian fitting (see Evas previous code)
