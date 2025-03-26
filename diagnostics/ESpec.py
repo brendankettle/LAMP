@@ -169,13 +169,19 @@ class ESpec(Diagnostic):
         else:
             spec = np.sum(img, 0)
             MeV = x
+        
+        # normalise out the /mrad units
+        if 'divergence' in self.calib_dict:
+            mrad = self.calib_dict['divergence']['mrad']
+            dmrad = np.mean(np.diff(mrad)) # assuming linear for now...
+            # convert counts per mrad back to counts
+            spec = spec * dmrad
+
+        # Units?; if charge is set, it will be fC/MeV
 
         # let's sort the arrays to make sure MeV is increasing
         spec = [x for _, x in sorted(zip(MeV, spec))]
         MeV = sorted(MeV)
-
-        # TO DO: Units?? We are integrating across divergence. charge may even be set...
-        # if it is, then this is fC/MeV?
 
         return spec, MeV
     
