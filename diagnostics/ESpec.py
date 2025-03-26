@@ -721,11 +721,16 @@ class ESpec(Diagnostic):
 
         spec, MeV = self.get_spectrum(shot_dict, roi=roi)
 
+        if 'charge' in self.calib_dict:
+            units = 'fC/MeV'
+        else:
+            units = 'Counts/MeV'
+
         fig = plt.figure()
         im = plt.plot(MeV, spec)
         plt.title(self.shot_string(shot_dict))
         plt.xlabel('MeV') 
-        plt.ylabel('Counts per MeV') # ?? could be fC...
+        plt.ylabel(units) 
         plt.tight_layout()
         plt.show(block=False)
 
