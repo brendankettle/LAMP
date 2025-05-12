@@ -10,9 +10,9 @@ def load_file(filepath, file_type=None, options=None):
     if not os.path.exists(Path(filepath)):
         print(f'IO Error; load_file(); {filepath} not found')
         return None
+    filepath_no_ext, file_ext = os.path.splitext(filepath)
     # auto-detect type through file extension?
     if file_type is None:
-        filepath_no_ext, file_ext = os.path.splitext(filepath)
         if file_ext.lower() == '.pickle' or file_ext.lower() == '.pkl':
             data = load_pickle(filepath)
         elif file_ext.lower() == '.json':
