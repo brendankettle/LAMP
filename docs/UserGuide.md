@@ -1,5 +1,5 @@
 # LAMP Documentation (in progress)
-[Here is a Markdown cheat sheet]{https://www.markdownguide.org/cheat-sheet/}. 
+<!--- https://www.markdownguide.org/ --->
 
 ## Aim/Ethos
 The main goal of LAMP is to provide reusable diagnostic code that can be "easily" implemented at different laser facilities. 
