@@ -23,7 +23,7 @@ My (BK) recommendation currently is to follow these steps:
 
 Note that currently I am not expecting anybody to setup an experiment repository, I (BK) can do that. Please ask if you need help with this.
 
-Requirements:
+Requirements (at least):
 - toml
 - opencv
 
