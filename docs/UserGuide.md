@@ -18,7 +18,9 @@ As LAMP is still currently under heavy development, it has not been packaged and
 My (BK) recommendation currently is to follow these steps:
 - Download something like GitHub desktop to manage the different experiment and LAMP repositories on your computer, and to push/pull updates. If you don't know how to use git, I would recommend googling some tutorials.
 - Download a local copy of the experiment repository.
+- Copy *_local.toml* to *local.toml* and edit the data folder path to point to your local copy.
 - Download a local copy of the LAMP repository to INSIDE this experiment folder. If you are working on multiple experiments, it helps to create an alias for each LAMP copy.
+- The figure below depicts an example folder layout for an experiment repository, with LAMP inside it.
 - Make sure you push/pull all updates before and after working on the experiments or LAMP.
 
 Note that currently I am not expecting anybody to setup an experiment repository, I (BK) can do that. Please ask if you need help with this.
