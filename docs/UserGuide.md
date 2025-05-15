@@ -27,6 +27,8 @@ Requirements (at least):
 - toml
 - opencv
 
+![An Example file structure for an experiment repository](/imgs/ExampleExpRepo.png.jpg)
+
 ### An example script
 
 ...
