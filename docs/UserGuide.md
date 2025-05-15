@@ -2,7 +2,7 @@
 <!--- https://www.markdownguide.org/ --->
 
 ## Aim/Ethos
-The main goal of LAMP is to provide a framework for processing data from laser-plasma experiment at different laser facilities. 
+The main goal of LAMP is to provide a framework for processing data from laser-plasma experiments at different laser facilities. 
 Reusable diagnostic code and scripts that can be quickly implemented with a bit of know how. 
 This works by using an abstraction layer for accessing data, with a different DAQ module depending on the facility in question. 
 Each diagnostic module works through this DAQ system, but also make use of shared libaries and utlities for common processing steps like background subtraction, spatial transforms, etc.
