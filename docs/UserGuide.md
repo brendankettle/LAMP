@@ -9,9 +9,9 @@ Each diagnostic module works through this DAQ system, but also make use of share
 You specify the unique properties of any diagnostics on any given experiment using calibration input decks, that are for the most part, human readable/writable.
 With the above in place, short, simple and reusable scripts are the entry way for analysing experimental data, calling on LAMP functionality where needs be.
 
-## Getting Started
+## Getting Started {#sec-getting_started}
 
-### Installation
+### Installation {#sec-installation}
 
 As LAMP is still currently under heavy development, it has not been packaged and so "installation" is currently a bit rough and ready.
 
@@ -31,7 +31,7 @@ Requirements (at least):
 
 ![An Example file structure for an experiment repository](/imgs/ExampleExpRepo.png.jpg)
 
-### An example script
+### An example script 
 
 ...
 
@@ -74,7 +74,7 @@ data_folder = ./ESpec/
 
 4.	Create a script. This will start by initiating the experiment using a root folder which points to LAMP, and passing an experiment config file.
 
-## Diagnostics
+## Diagnostics {#sec-diagnostics}
 
 ### ESpec
 
@@ -84,7 +84,7 @@ Description of diagnostic workings. Including diagrams. Calibration input defini
 
 ...
 
-## Developing LAMP
+## Developing LAMP {#sec-developing}
 
 General writing guidelines
 - For functions in the DAQ / Diagnostic layers, try to keep named arguments? 
