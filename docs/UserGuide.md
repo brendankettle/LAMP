@@ -21,7 +21,7 @@ My (BK) recommendation currently is to follow these steps:
 - Download a local copy of the LAMP repository to INSIDE this experiment folder. If you are working on multiple experiments, it helps to create an alias for each LAMP copy.
 - Make sure you push/pull all updates before and after working on the experiments or LAMP.
 
-Note that currently I am not expecting anybody to setup an experiment, I (BK) can do that. Please ask if you need help with this.
+Note that currently I am not expecting anybody to setup an experiment repository, I (BK) can do that. Please ask if you need help with this.
 
 Requirements:
 - toml
