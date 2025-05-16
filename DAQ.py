@@ -14,7 +14,11 @@ class DAQ():
         return
 
     def load_imdata(self, shot_filepath, data_type=float):
-        imdata = image.imread(Path(shot_filepath)).astype(data_type)
+        try:
+            imdata = image.imread(Path(shot_filepath)).astype(data_type)
+        except (FileNotFoundError) as Error:
+            print(f'load_imdata() error: Could not find {shot_filepath}')
+            imdata = None
         return imdata
 
     def load_data(self, shot_filepath, file_type=None):

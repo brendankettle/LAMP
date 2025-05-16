@@ -63,6 +63,15 @@ class GeminiMirage(DAQ):
         time_point = year*1e10 + month*1e8 + day*1e6 + run*1000 + shotnum
         return  time_point
     
+    def file_exists(self, diag_name, shot_dict):
+        diag_config = self.ex.diags[diag_name].config
+        ext = diag_config['data_ext']
+        folder = diag_config['data_folder']
+        if os.path.isfile(self._build_shot_filepath(folder, shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], ext)):
+            return True
+        else:
+            return False
+
     # perhaps some of this can move to base class?
     def get_shot_data(self, diag_name, shot_dict):
         """Univeral function for returning shot data given a diagnostic and shot dictionary

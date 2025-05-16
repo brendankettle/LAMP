@@ -93,18 +93,32 @@ class XAS(Diagnostic):
         """
         self.eV = eV
 
-    def add_ref_shots(self, shot_dicts):
+    def add_ref_shots(self, shot_dicts, debug=False):
         """Add to list of reference images for processing """
         # and a nice label
-        if isinstance(shot_dicts, list):
-            for shot_dict in shot_dicts:
+        if isinstance(shot_dicts, dict):
+            shot_dicts = [shot_dicts]
+        for shot_dict in shot_dicts:
+            if not isinstance(shot_dict, dict) :
+                print('Error, add_ref_shots() argument should be a shot_dict or list of shot_dicts')
+                return False
+            # Check file exists
+            if self.DAQ.file_exists(self.config['name'], shot_dict):
                 self.ref_shot_dicts.append(shot_dict)
-        elif isinstance(shot_dicts, dict):
-            self.ref_shot_dicts.append(shot_dicts)
-        else:
-            print('Error, add_ref_shots() argument should be a shot_dict or list of shot_dicts')
-            return False
+            elif debug:
+                print(f'Skipping ref shot, no file found; {shot_dict}')
 
+    def reset_ref_shots(self):
+        """This is a temporary fix! I think?"""
+        # del_list = ['ref_lin','ref_lin_err','sig_lins','sig_lin_err','trans_lins','trans_lin_err',
+        #             'abs_lins','abs_lin_err','nabs_lins','nabs_lin_err']
+        self.ref_shot_dicts = []
+        del_list = ['ref_lin','ref_lins','ref_lin_err', 'ref_lin_x', 'trans_lins', 'abs_lins', 'nabs_lins']
+        for del_name in del_list:
+            if hasattr(self, del_name):
+                delattr(self, del_name)
+        return
+    
     def add_sig_shots(self, shot_dicts):
         """Add to list of signal images for processing """
         # and a nice label
@@ -118,16 +132,15 @@ class XAS(Diagnostic):
             return False
 
     def reset_sig_shots(self):
-        """This is a temporary fix!"""
+        """This is a temporary fix! I think?"""
         # del_list = ['ref_lin','ref_lin_err','sig_lins','sig_lin_err','trans_lins','trans_lin_err',
         #             'abs_lins','abs_lin_err','nabs_lins','nabs_lin_err']
         self.sig_shot_dicts = []
-        del_list = ['sig_lins', 'trans_lins', 'abs_lins']
+        del_list = ['sig_lins', 'trans_lins', 'abs_lins', 'nabs_lins']
         for del_name in del_list:
             if hasattr(self, del_name):
                 delattr(self, del_name)
         return
-
 
     def get_avg_img(self, shot_set='sig', debug=False):
         """Return an image array of the average shots """
@@ -175,22 +188,21 @@ class XAS(Diagnostic):
 
             shot_img, x, y = self.run_img_calib(shot_dict, debug=debug)
 
-            if shot_img is None:
-                print(f'Could not get shot data; {shot_dict}')
-                return False
-
-            if roi:
-                ref_lin = np.sum(shot_img[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]],0)
-            else:
-                ref_lin = np.sum(shot_img,0)
-            # skip if too low?
-            #ref_sum = np.sum(shot_img[roi[0]:roi[1],roi[2]:roi[3]])
-            if np.sum(ref_lin) < ref_threshold:
-                if debug: print(f'Skipping (Reference below Threshold): {shot_dict}')
-                skipped += 1
-            else:
-                self.ref_lins.append(ref_lin)
-            si += 1
+            if shot_img is not None:
+                # print(f'Could not get shot data; {shot_dict}')
+                # return False
+                if roi:
+                    ref_lin = np.sum(shot_img[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]],0)
+                else:
+                    ref_lin = np.sum(shot_img,0)
+                # skip if too low?
+                #ref_sum = np.sum(shot_img[roi[0]:roi[1],roi[2]:roi[3]])
+                if np.sum(ref_lin) < ref_threshold:
+                    if debug: print(f'Skipping (Ref below Threshold): {shot_dict}')
+                    skipped += 1
+                else:
+                    self.ref_lins.append(ref_lin)
+                si += 1
 
         # no lineouts?
         if not self.ref_lins:

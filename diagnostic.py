@@ -198,9 +198,25 @@ class Diagnostic():
         img = ImageProc(data=img_data)
 
         if 'dark' in self.calib_dict:
-            dark_data = self.get_shot_data(self.calib_dict['dark']['data'])
-            img.subtract(dark_data)
-            #print('Removing dark image')
+            shot_dicts = self.DAQ.get_shot_dicts(self.config['name'], self.calib_dict['dark']['data']) # darks should be a timeline dict
+            # now we have the shot dictionary, check if it's the same as previously loaded, and if so, return saved dark
+            dark_img = np.array([])
+            if hasattr(self, 'dark_shot_dicts') and hasattr(self, 'dark_img'):
+                if shot_dicts == self.dark_shot_dicts:
+                    dark_img = self.dark_img
+            if not dark_img.any():
+                # loop through all shots, and build average dark
+                num_shots = 0
+                for shot_dict in shot_dicts:
+                    if 'sum_img' in locals():
+                        sum_img += self.get_shot_data(shot_dict)
+                    else:
+                        sum_img = self.get_shot_data(shot_dict)
+                    num_shots += 1
+                dark_img = sum_img / num_shots
+                self.dark_img = dark_img
+                self.dark_shot_dicts = shot_dicts
+            img.subtract(dark_img)
 
         if 'median_filter' in self.calib_dict:
             if 'stage' in self.calib_dict['median_filter'] and self.calib_dict['median_filter']['stage'].lower() == 'original':
@@ -214,7 +230,7 @@ class Diagnostic():
                 do_bkg_sub('background2')
 
         # FIX!
-        #  currently now transition back to data, not ImageProc object, but this should be fixed!
+        # currently now transition back to data, not ImageProc object, but this should be fixed!
         img_data = img.get_img()
 
         # ROIs for original data
@@ -240,6 +256,11 @@ class Diagnostic():
             # non-transform functions
             if 'img_rotation' in self.calib_dict:
                 img_data = ndimage.rotate(img_data, self.calib_dict['img_rotation'], reshape=False)
+
+            if 'flipud' in self.calib_dict and self.calib_dict['flipud']:
+                img_data = np.flipud(img_data)
+            if 'fliplr' in self.calib_dict and self.calib_dict['fliplr']:
+                img_data = np.fliplr(img_data)
 
             if 'scale' in self.calib_dict:
                 x = np.arange(np.shape(img_data)[1]) * self.calib_dict['scale']['pixel_width']
@@ -489,17 +510,52 @@ class Diagnostic():
             print(f"to_mrad error; unknown angular units {units}")
 
 
-    # def montage(self, timeframe, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1):
-    #     """Default wrapper function. This can be overwritten by diagnostic with more options"""
+    def montage(self, timeframe, calib_id=None, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1, axis_label = '', cb_label='', debug=False):
+        """Default wrapper function. This can be overwritten by diagnostic with more options
+        The diagnostic itslef needs to have a get_proc_shot() defined.
+        Also the DAQ has to have get_shot_dicts()"""
 
-    #     axis_label = ''
-    #     axis = None
+        if calib_id:
+            self.calib_dict = self.get_calib(calib_id)
 
-    #     if not self.calib_dict:
-    #         print('Missing Calibration before using Montage...')
-    #         return False
+        # if not self.calib_dict:
+        #     print('Missing Calibration before using Montage...')
+        #     return False
 
-    #     fig, ax = self.make_montage(timeframe, x_roi=x_roi, y_roi=y_roi, axis=axis, axis_label=axis_label, x_downsample=x_downsample, 
-    #                            y_downsample=y_downsample, vmin=vmin, vmax=vmax, transpose=transpose, num_rows=num_rows)
+        # calling 'universal' DAQ function here, that is probably DAQ specific
+        shot_dicts = self.DAQ.get_shot_dicts(self.config['name'],timeframe,exceptions=exceptions)
 
-    #     return fig, ax
+        shot_labels = []
+        for shot_dict in shot_dicts:
+
+            img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id, debug=debug)
+
+            if 'images' in locals():
+                images = np.concatenate((images, np.atleast_3d(img)), axis=2)
+            else:
+                images = np.atleast_3d(img)
+
+            # try build a shot label
+            if 'burst' in shot_dict:
+                m = re.search(r'\d+$', str(shot_dict['burst'])) # gets last numbers
+                burst = int(m.group())
+                burst_str = str(burst) + '|'
+            else:
+                burst_str = ''
+            if 'shotnum' in shot_dict:
+                shot_str = str(shot_dict['shotnum'])
+            else:
+                shot_str = ''
+
+            shot_labels.append(burst_str + shot_str)
+
+        if transpose:
+            axis = y
+        else:
+            axis = x
+        # cb_label = self.make_units(self.img_units)
+
+        fig, ax = plot_montage(images, axis=axis, x_downsample=x_downsample, y_downsample=y_downsample, title=self.shot_string(timeframe), 
+                               vmin=vmin, vmax=vmax, transpose=transpose, cb_label=cb_label, y_label=axis_label, num_rows=num_rows, shot_labels=shot_labels)
+
+        return fig, ax
