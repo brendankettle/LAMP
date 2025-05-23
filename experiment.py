@@ -47,8 +47,8 @@ class Experiment:
             DAQ_class = getattr(DAQ_lib, self.config['setup']['DAQ'])
             if callable(DAQ_class):
                 print(f"Using DAQ: {self.config['setup']['DAQ']}")
-                if 'DAQ_options' in self.config['setup']:
-                    self.DAQ = DAQ_class(self, self.config['setup']['DAQ_options'])
+                if 'DAQ_config' in self.config:
+                    self.DAQ = DAQ_class(self, self.config['DAQ_config'])
                 else:
                     self.DAQ = DAQ_class(self)
 

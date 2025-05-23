@@ -1,6 +1,9 @@
 import os
 import numpy as np
 import re
+from pathlib import Path
+import sqlite3
+import pandas as pd
 from ..DAQ import DAQ
 
 class GeminiMirage(DAQ):
@@ -11,34 +14,88 @@ class GeminiMirage(DAQ):
     __name = 'GeminiMirage'
     __authors = ['Brendan Kettle']
 
-    def __init__(self, exp_obj, options=None):
+    mirage_db = None
+    eCat_db = None
+
+    def __init__(self, exp_obj, config=None):
         """Initiate parent base DAQ class to get all shared attributes and funcs"""
-        super().__init__(exp_obj, options=options)
+        super().__init__(exp_obj, config=config)
         return
 
     def _build_shot_filepath(self, diagnostic, date, run, shotnum, ext):
         """This is used internally, and so can be DAQ specific"""
-        if 'shotnum_zfill' in self.options:
-            zfill = self.options['shotnum_zfill']
+        if 'shotnum_zfill' in self.config:
+            zfill = self.config['shotnum_zfill']
         else:
             zfill = 3 # default?
         # check file?
         shot_path = f'{self.data_folder}/{diagnostic}/{date}/{run}/Shot{str(shotnum).zfill(zfill)}.{ext}'
         return shot_path
     
-    def _shot_dict_from_GSN(self, GSN):
-        """Internal function for getting a date / run / shot from a GSN"""
-        if 'GSN_shot_dicts' not in self.config['DAQ_config']:
-            print('DAQ error; shot_dict_from_GSN(); no GSN_shot_dicts filepath set in DAQ config')
-            return None
-        lookup = self.load_file(self.config['DAQ_config'])
-        
-        shot_dict = {}
-        return shot_dict
-    
-    def _laser_energy_from_GSN(self, GSN):
-        # look up eCat file
-        return
+    def _read_mirage_db(self, filepath='data.sqlite'):
+        """Mirage should generate a data.sqlite file that contains (among other stuff), a table called shot_summary.
+        That tables contains columns for: run, shot_or_burst, timestamp, burst_length, gsn.
+        Another useful table, shot_acquisitions has flags for all diagnostics, whether they ran (saved?) or not.
+        """
+        # This doesn't use the DAQ option in the global.toml file yet....
+
+        # load the sqlite into pandas dataframe?
+        full_filepath = Path(os.path.join(self.data_folder,filepath))
+        if not os.path.exists(Path(full_filepath)):
+            print(f'Gemini Mirage Database Error; {full_filepath} not found')
+
+        con = sqlite3.connect(full_filepath)
+        # cur = con.cursor()
+        # res = cur.execute('SELECT * FROM shot_summary')
+        # all_shot_info = res.fetchall()
+        # print(all_shot_info)
+        shot_info_df = pd.read_sql_query("SELECT * from shot_summary", con)
+
+        # run, shot_or_burst, timestamp, burst_length, gsn
+        # first 8 characters of run is the date. E.g. 20250307/run40
+
+        # save to object for future access (return as well?)
+        self.mirage_db = shot_info_df
+
+        con.close()
+
+        return self.mirage_db
+
+    def _read_eCat_db(self, filepath=None):
+        """Read an export eCat csv file to a pandas dataframe"""
+        if not filepath:
+            filepath = self.config['eCat_file']
+        full_filepath = Path(os.path.join(self.data_folder,filepath))
+        if not os.path.exists(Path(full_filepath)):
+            print(f'Gemini eCat Database Error; {full_filepath} not found')
+        self.eCat_db = pd.read_csv(full_filepath)
+        return self.eCat_db
+
+    def get_shot_info(self, shot_dict, eCat=True):
+
+        if not self.mirage_db:
+            self._read_mirage_db()
+
+        runstr = f"{shot_dict['date']}/{shot_dict['run']}"
+        row = self.mirage_db.loc[(self.mirage_db['run'] == runstr) & (self.mirage_db['shot_or_burst'] == str(shot_dict['shotnum']))]
+        if row.empty:
+            print(f'Error, Could not locate shot info for: {shot_dict}')
+            return False
+        else:
+            gsn = int(row['gsn'].values[0])
+            timestamp = row['timestamp'].values[0] # str
+
+            info = {'gsn': gsn, 
+                    'timestamp': timestamp}
+            
+            if eCat and 'eCat_file' in self.config:
+                if not self.eCat_db:
+                    self._read_eCat_db()
+                row = self.eCat_db.loc[self.eCat_db['Id'] == gsn] # Id is the GSN
+                if not row.empty:
+                    info.update(dict(zip(row.columns.values, row.values[0])))
+
+            return info
 
     def build_time_point(self, shot_dict):
         """Universal function to return a point in time for DAQ, for comparison, say in calibrations
@@ -75,12 +132,13 @@ class GeminiMirage(DAQ):
     # perhaps some of this can move to base class?
     def get_shot_data(self, diag_name, shot_dict):
         """Univeral function for returning shot data given a diagnostic and shot dictionary
+        This probably needs path work to make sure it works on all OS's
         """
 
         # Check if shot_dict is not dictionary; could just be filepath
         if isinstance(shot_dict, str):
             # If not dictionary, assume filepath
-            segs = shot_dict.split('/')
+            segs = shot_dict.split('/') # does this work for all OS's?? probably a better path function here
             shot_str = segs[-1].split('.')[0]
             run_str = segs[-2]
             date_str = segs[-3]
