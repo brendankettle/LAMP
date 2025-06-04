@@ -29,7 +29,8 @@ It is “Open-access” rather than open source; requests for access will be acc
 3. [Diagnostic Manuals](#diagnostic-manuals)
 4. [DAQs](#DAQs)
 
-#1. <a name="getting-started"></a> Getting Started
+<a name="getting-started"></a>
+#1. Getting Started
 
 ## Installation 
 
@@ -185,7 +186,8 @@ NOTE: This should already be done within an experiment repository, most people w
 If you need help, ask BK, but normally I have set all this up.
 I will eventually put some help here...
 
-#2. <a name="developing-lamp"></a> Developing LAMP 
+<a name="developing-lamp"></a> 
+#2. Developing LAMP 
 
 ## General guidelines
 - For functions in the DAQ / Diagnostic layers, try to keep named arguments? 
@@ -239,7 +241,8 @@ To Do. Required function calls?
 
 <hr/>
 
-#3. <a name="diagnostic-manuals"></a> Diagnostic Manuals
+<a name="diagnostic-manuals"></a> 
+#3. Diagnostic Manuals
 
 The following portion of this documentation will focus on the details of using each diagnostic.
 Please keep the following in mind.
@@ -289,7 +292,8 @@ divergence
 
 ...
 
-#4. <a name="DAQs"></a> DAQs
+<a name="DAQs"></a>
+#4. DAQs
 
 ## Gemini Mirage
 
