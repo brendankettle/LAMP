@@ -58,7 +58,8 @@ class Experiment:
         if os.path.exists(diag_config_filepath):
             self.diag_config = load_file(diag_config_filepath)
             for diag_name in self.diag_config: 
-                self.add_diagnostic(diag_name)
+                if ('on_startup' in self.diag_config[diag_name] and self.diag_config[diag_name]['on_startup']) or ('on_startup' not in self.diag_config[diag_name]):
+                    self.add_diagnostic(diag_name)
 
         # loop through metas and add
         self.metas = {}
@@ -88,6 +89,7 @@ class Experiment:
             diag_lib = importlib.import_module(diag_module)
         except ImportError:
             print(f'Warning! Could not find Diagnostics module: {diag_module}')
+            self.diags[diag_name] = False
             #raise Exception(f'Could not find Diagnostics module: {diag_module}')
         else:
             #if callable(diag_class := getattr(diag_lib, diag_type)):
@@ -97,17 +99,16 @@ class Experiment:
                 self.diags[diag_name] = diag_class(self, self.diag_config[diag_name])
             else:
                 print(f'Warning! Could not find Diagnostic object: {diag_type}')
+                self.diags[diag_name] = False
                 #raise Exception(f'Could not find Diagnostic object: {diag_type}')
 
         return self.get_diagnostic(diag_name)
     
     def get_diagnostic(self, diag_name):
         if diag_name not in self.diags:
-            print(f'Error; Could not find Diagnostic: {diag_name}')
-            #raise Exception(f'Could not find Diagnostic: {diag_name}')
-            return False
-        else:
-            return self.diags[diag_name]
+            # if it doesn't exist, try to add diagnostic. Will error out inside if still not found
+            self.add_diagnostic(diag_name)
+        return self.diags[diag_name]
 
     def list_diagnostics(self):
         for diag_name in self.diags.keys():
