@@ -203,7 +203,7 @@ Etc.
 
 ## Writing a new diagnostic
 
-I need to finish this section...
+I need to finish this section... but probably the best approach is to copy another diagnostic and use a template. 
 
 Where it makes sense, have functions following this nonclemature:
 
