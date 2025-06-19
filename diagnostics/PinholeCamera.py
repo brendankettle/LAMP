@@ -19,17 +19,3 @@ class PinholeCamera(Diagnostic):
         super().__init__(exp_obj, config_filepath)
         return
 
-    def get_proc_shot(self, shot_dict, calib_id=None, debug=False):
-        """Return a processed shot using saved or passed calibrations.
-        """
-        # set calibration dictionary
-        if calib_id:
-            self.calib_dict = self.get_calib(calib_id)
-        else:
-            self.calib_dict = self.get_calib(shot_dict)
-
-        # do standard image calibration. Transforms, background, ROIs etc.
-        # minimum calibration is spatial transform
-        img, x, y = self.run_img_calib(shot_dict, debug=debug)
-
-        return img, x, y

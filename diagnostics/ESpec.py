@@ -36,20 +36,15 @@ class ESpec(Diagnostic):
 
     def get_proc_shot(self, shot_dict, calib_id=None, apply_disp=True, apply_div=True, apply_charge=True, roi_mm=None, roi_MeV=None, roi_mrad=None, debug=False):
         """Return a processed shot using saved or passed calibrations.
+        Wraps base diagnostic class function, adding dispersion, divergence, charge.
         """
-        # set calibration dictionary
-        if calib_id:
-            self.calib_dict = self.get_calib(calib_id)
-        else:
-            self.calib_dict = self.get_calib(shot_dict)
 
-        # do standard image calibration. Transforms, background, ROIs etc.
-        # minimum calibration is spatial transform
-        img, x, y = self.run_img_calib(shot_dict, debug=debug)
+        # use diagnostic base function
+        # loads calib id and run_img_calib for standard calibration routines
+        img, x, y = super().get_proc_shot(shot_dict, calib_id=calib_id, debug=debug)
 
         # assuming mm here for units
         # either don't or use conversion functions...
-        self.curr_img = img
         self.x_mm = x
         self.y_mm = y
 

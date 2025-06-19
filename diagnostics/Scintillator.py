@@ -26,23 +26,6 @@ class Scintillator(Diagnostic):
         super().__init__(exp_obj, config_filepath)
         return
     
-    def get_proc_shot(self, shot_dict, calib_id=None, debug=False):
-        """Return a processed shot using saved or passed calibrations.
-        """
-        # set calibration dictionary
-        if calib_id:
-            self.calib_dict = self.get_calib(calib_id)
-        else:
-            self.calib_dict = self.get_calib(shot_dict)
-
-        #img_data = self.get_shot_data(shot_dict)
-        # do standard image loading and calibration. Transforms, background, ROIs etc.
-        img_data, x, y = self.run_img_calib(shot_dict, debug=debug)
-        self.x = x
-        self.y = y
-
-        return img_data, self.x, self.y
-    
     def get_scint_sigs(self, shot_dict, calib_id=None, debug=False):
 
         # if not self.calib_dict and not calib_id:

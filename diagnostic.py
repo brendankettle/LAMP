@@ -160,7 +160,29 @@ class Diagnostic():
             self.save_calib_file(self.calib_dict['proc_file'], self.calib_dict)
 
         return self.get_calib()
-    
+
+    def get_proc_shot(self, shot_dict, calib_id=None, debug=False):
+        """Return a processed shot using saved or passed calibrations.
+        This can be wrapped by the child function for added functionality.
+        """
+
+        # set calibration dictionary
+        if calib_id:
+            self.calib_dict = self.get_calib(calib_id)
+        else:
+            self.calib_dict = self.get_calib(shot_dict)
+
+        # TO DO: check if image type, and if not, skip this... although you probably won't call this function if not image?
+        # do standard image calibration. Transforms, background, ROIs etc.
+        img, x, y = self.run_img_calib(shot_dict, debug=debug)
+
+        self.curr_img = img
+        self.x = x
+        self.y = y
+        
+        return img, x, y
+   
+
     def run_img_calib(self, img_data, debug=False):
         """Central wrapper function for processing image data using calibration"""
 

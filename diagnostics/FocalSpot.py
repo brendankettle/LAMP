@@ -24,25 +24,6 @@ class FocalSpot(Diagnostic):
         super().__init__(exp_obj, config_filepath)
         return
     
-    def get_proc_shot(self, shot_dict, calib_id=None, roi=None, debug=False):
-        """Return a processed shot using saved or passed calibrations.
-        """
-        # set calibration dictionary
-        if calib_id:
-            self.calib_dict = self.get_calib(calib_id)
-        if not self.calib_dict:
-            if isinstance(shot_dict, dict):
-                self.calib_dict = self.get_calib(shot_dict)
-
-        # do standard image calibration. Transforms, background, ROIs etc.
-        img, x, y = self.run_img_calib(shot_dict, debug=debug)
-
-        self.curr_img = img
-        self.x = x
-        self.y = y
-
-        return img, x, y
-    
     def plot_proc_shot(self, shot_dict, calib_id=None, vmin=None, vmax=None, debug=False):
         """Could definitely be general plot function?"""
         img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id, debug=debug)

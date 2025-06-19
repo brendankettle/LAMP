@@ -34,27 +34,8 @@ class XrayFilterArray(Diagnostic):
         """Initiate parent base Diagnostic class to get all shared attributes and funcs"""
         super().__init__(exp_obj, config_filepath)
         return
-
-    def get_proc_shot(self, shot_dict, calib_id=None, debug=False):
-        """Return a processed shot using saved or passed calibrations.
-        """
-        # set calibration dictionary. 
-        # Make sure to only do this in top level functions, otherwise it might be overwritten
-        if calib_id:
-            self.calib_dict = self.get_calib(calib_id)
-        elif not self.calib_dict:
-            self.calib_dict = self.get_calib(shot_dict)
-
-        # do standard image calibration. Transforms, background, ROIs etc.
-        # minimum calibration is spatial transform
-        img, x, y = self.run_img_calib(shot_dict, debug=debug)
-
-        # assuming mm here for units
-        # either don't or use conversion functions...
-        self.curr_img = img
-
-        return img, x, y
     
+    # not sure this function is needed....
     def get_shot_img(self, shot_dict, debug=False): 
         """Return a shot image, by default with darks removed. Background?"""
         img, x, y = self.get_proc_shot(shot_dict, debug=debug)

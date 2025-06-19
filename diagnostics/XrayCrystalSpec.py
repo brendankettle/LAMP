@@ -21,16 +21,11 @@ class XrayCrystalSpec(Diagnostic):
 
     def get_proc_shot(self, shot_dict, calib_id=None, apply_disp=True, debug=False):
         """Return a processed shot using saved or passed calibrations.
+        Wraps base diagnostic class, adding dispersion
         """
-        # set calibration dictionary
-        if calib_id:
-            self.calib_dict = self.get_calib(calib_id)
-        else:
-            self.calib_dict = self.get_calib(shot_dict)
-
-        # do standard image calibration. Transforms, background, ROIs etc.
-        # minimum calibration is spatial transform
-        img, x, y = self.run_img_calib(shot_dict, debug=debug)
+        # use diagnostic base function
+        # loads calib id and run_img_calib for standard calibration routines
+        img, x, y = super().get_proc_shot(shot_dict, calib_id=calib_id, debug=debug)
 
         # TO DO: Apply dispersion
 
