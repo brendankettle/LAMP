@@ -136,7 +136,7 @@ class ImageProc():
                     all_bkg_func[0:roi[0][1]] = bkg_func(roi[0][1])
                     all_bkg_func[roi[1][1]:] = bkg_func(roi[1][1])
                 bkg_img = np.transpose(np.tile(all_bkg_func, (np.shape(self.get_img())[1],1)))
-            elif axis == 'X' or axis == 'X' or axis == 'horizontal' or axis == 'hori':
+            elif axis == 'X' or axis == 'x' or axis == 'horizontal' or axis == 'hori':
                 # fitting to a horizontal gradient
                 bkg_px = np.arange(roi[0][0],roi[1][0])
                 bkg_lin = np.mean(self.get_img()[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]], 0)

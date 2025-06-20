@@ -215,7 +215,9 @@ class GeminiMirage(DAQ):
             for run in sorted(runs):
                 run_folder = os.path.join(date_folder, str(run))
                 shotnums = []
-                if isinstance(timeframe, dict) and 'shotnums' in timeframe:
+                if isinstance(timeframe, dict) and 'shotnum' in timeframe:
+                    shotnums = [timeframe['shotnum']]
+                elif isinstance(timeframe, dict) and 'shotnums' in timeframe:
                     shotnums = timeframe['shotnums']
                 else:
                     for filename in os.listdir(run_folder):
