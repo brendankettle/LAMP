@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import matplotlib.patches as patches
 
 from ..diagnostic import Diagnostic
 from ..utils.xrays.calc_bragg_dispersion import calc_bragg_dispersion
@@ -38,9 +39,6 @@ class XAS(Diagnostic):
     __authors = ['Brendan Kettle']
     __requirements = ''
     data_type = 'image'
-
-    ref_shot_dicts = []
-    sig_shot_dicts = []
 
     def __init__(self, exp_obj, config_filepath):
         """Initiate parent base Diagnostic class to get all shared attributes and funcs"""
@@ -98,6 +96,8 @@ class XAS(Diagnostic):
         # and a nice label
         if isinstance(shot_dicts, dict):
             shot_dicts = [shot_dicts]
+        if not hasattr(self, 'ref_shot_dicts'):
+            self.ref_shot_dicts = [] 
         for shot_dict in shot_dicts:
             if not isinstance(shot_dict, dict) :
                 print('Error, add_ref_shots() argument should be a shot_dict or list of shot_dicts')
@@ -113,7 +113,7 @@ class XAS(Diagnostic):
         # del_list = ['ref_lin','ref_lin_err','sig_lins','sig_lin_err','trans_lins','trans_lin_err',
         #             'abs_lins','abs_lin_err','nabs_lins','nabs_lin_err']
         self.ref_shot_dicts = []
-        del_list = ['ref_lin','ref_lins','ref_lin_err', 'ref_lin_x', 'trans_lins', 'abs_lins', 'nabs_lins']
+        del_list = ['ref_lin','ref_lins','ref_lin_err', 'ref_lin_x', 'ref_shot_dicts', 'ref_shot_dicts_used', 'trans_lins', 'abs_lins', 'nabs_lins']
         for del_name in del_list:
             if hasattr(self, del_name):
                 delattr(self, del_name)
@@ -121,6 +121,8 @@ class XAS(Diagnostic):
     
     def add_sig_shots(self, shot_dicts):
         """Add to list of signal images for processing """
+        if not hasattr(self, 'sig_shot_dicts'):
+            self.sig_shot_dicts = [] 
         # and a nice label
         if isinstance(shot_dicts, list):
             for shot_dict in shot_dicts:
@@ -136,7 +138,7 @@ class XAS(Diagnostic):
         # del_list = ['ref_lin','ref_lin_err','sig_lins','sig_lin_err','trans_lins','trans_lin_err',
         #             'abs_lins','abs_lin_err','nabs_lins','nabs_lin_err']
         self.sig_shot_dicts = []
-        del_list = ['sig_lins', 'trans_lins', 'abs_lins', 'nabs_lins']
+        del_list = ['sig_lins', 'trans_lins', 'abs_lins', 'nabs_lins', 'sig_shot_dicts', 'sig_shot_dicts_used']
         for del_name in del_list:
             if hasattr(self, del_name):
                 delattr(self, del_name)
@@ -157,7 +159,7 @@ class XAS(Diagnostic):
             raise Exception('get_avg_img shot set not recognised. Options are "sig" or "ref".')
         # loop through files and build image
         for shot_dict in shot_dicts:
-            shot_img, x, y = self.run_img_calib(shot_dict, debug=debug)
+            shot_img, x, y = self.run_img_calib(shot_dict) # No debug, don't want to flood plots. Can use check_calib() seperately if you'd like
             if shot_img is None:
                 print(f'Could not get shot data; {shot_dict}')
                 return False
@@ -184,9 +186,10 @@ class XAS(Diagnostic):
         self.ref_lins = []
         skipped = 0
         si = 0
+        shot_dicts_used = []
         for shot_dict in self.ref_shot_dicts:
 
-            shot_img, x, y = self.run_img_calib(shot_dict, debug=debug)
+            shot_img, x, y = self.run_img_calib(shot_dict) # No debug, don't want to flood plots. Can use check_calib() seperately if you'd like
 
             if shot_img is not None:
                 # print(f'Could not get shot data; {shot_dict}')
@@ -197,12 +200,14 @@ class XAS(Diagnostic):
                     ref_lin = np.sum(shot_img,0)
                 # skip if too low?
                 #ref_sum = np.sum(shot_img[roi[0]:roi[1],roi[2]:roi[3]])
-                if np.sum(ref_lin) < ref_threshold:
-                    if debug: print(f'Skipping (Ref below Threshold): {shot_dict}')
+                if np.max(ref_lin) < ref_threshold: # this use to be sum, but max easier for debugging lineout
+                    if debug: print(f'Skipping Ref (Max={int(np.max(ref_lin))}, below Threshold): {shot_dict}')
                     skipped += 1
                 else:
                     self.ref_lins.append(ref_lin)
+                    shot_dicts_used.append(shot_dict)
                 si += 1
+        self.ref_shot_dicts_used = shot_dicts_used
 
         # no lineouts?
         if not self.ref_lins:
@@ -213,7 +218,7 @@ class XAS(Diagnostic):
             ref_lin_raw = np.mean(self.ref_lins,0)
 
             # progress update
-            if debug: print('Making reference signal shape. Averaging over ' + str(len(self.ref_lins)) + ' files (' + str(skipped) + ' skipped)')
+            if debug: print(f'Making reference signal shape. Averaging over {str(len(self.ref_lins))} files ({str(skipped)} skipped). Threshold: {ref_threshold}.')
             # Normalise
             if 'norm_kernel' in self.calib_dict:
                 norm_kernel = self.calib_dict['norm_kernel']
@@ -251,6 +256,7 @@ class XAS(Diagnostic):
                 pf = np.poly1d(np.polyfit(px, self.ref_lin_raw, poly_order))
                 self.ref_lin = smooth_lin(pf(px),smoothing) 
             elif fitting == 'Smooth' or fitting == None:
+                fitting = 'Smooth'
                 ref_kernel = self.calib_dict['ref_kernel']
                 self.ref_lin = smooth_lin(self.ref_lin_raw, ref_kernel)
             # If dispersion is set, set and return spectral range across this selection
@@ -267,8 +273,19 @@ class XAS(Diagnostic):
 
             if debug:
                 plt.figure()
-                plt.plot(ref_lin_x, self.ref_lin_raw)
-                plt.plot(ref_lin_x, self.ref_lin)
+                for ri in range(len(self.ref_lins)):
+                    plt.plot(ref_lin_x, self.ref_lins[ri], label=shot_dicts_used[ri]['shotnum'])
+                plt.title('Reference Lineouts')
+                plt.xlabel(xlabel)
+                plt.legend()
+
+                plt.figure()
+                plt.plot(ref_lin_x, self.ref_lin_raw, label='Raw Data')
+                plt.plot(ref_lin_x, self.ref_lin, label=f'Fit (Using:{fitting})')
+                plt.title('Average Reference Lineout')
+                plt.legend()
+                plt.xlabel(xlabel)
+                self.plot_avg_img(shot_set='ref', roi=roi)
         return ref_lin_x, self.ref_lin
     
     def make_sig(self, roi=None, sig_threshold=None, debug=True):
@@ -287,9 +304,10 @@ class XAS(Diagnostic):
         self.sig_lins = []
         skipped = 0
         sig_posi = 0
+        shot_dicts_used = []
         for shot_dict in self.sig_shot_dicts:
 
-            shot_img, x, y = self.run_img_calib(shot_dict, debug=debug)
+            shot_img, x, y = self.run_img_calib(shot_dict) # No debug, don't want to flood plots. Can use check_calib() seperately if you'd like
 
             if shot_img is None:
                 print(f'Could not get shot data; {shot_dict}')
@@ -301,8 +319,8 @@ class XAS(Diagnostic):
                 sig_lin = np.sum(shot_img,0)
 
             # skip if too low?
-            if np.sum(sig_lin) < sig_threshold:
-                if debug: print(f'Skipping (Signal below Threshold): {shot_dict}')
+            if np.max(sig_lin) < sig_threshold:
+                if debug: print(f'Skipping Sig (Max={int(np.max(sig_lin))}; below threshold): {shot_dict}')
                 skipped += 1
             else:
                 # before adding signal lineout, do we need to stabilise?
@@ -317,7 +335,9 @@ class XAS(Diagnostic):
                         sig_lin[0:-this_shiftpx] = sig_lin[this_shiftpx:]
                         sig_lin[-this_shiftpx:] = sig_lin[-this_shiftpx]
                 self.sig_lins.append(sig_lin)
+                shot_dicts_used.append(shot_dict)
             sig_posi = sig_posi + 1
+        self.sig_shot_dicts_used = shot_dicts_used
         # If dispersion is set, set and return spectral range across this selection
         if not hasattr(self, 'eV'):
             sig_lin_x = np.arange(0,len(sig_lin))
@@ -332,12 +352,23 @@ class XAS(Diagnostic):
 
         # progress update
         if debug: 
-            print('Making signal profiles (' + str(len(self.sig_lins)) + ' files - ' + str(skipped) + ' skipped)')
+            print(f'Made signal profiles: {str(len(self.sig_lins))} files ({str(skipped)} skipped). Threshold: {sig_threshold}')
+            plt.figure()
+            for si in range(len(self.sig_lins)):
+                plt.plot(sig_lin_x, self.sig_lins[si], label=shot_dicts_used[si]['shotnum'])
+            plt.title('Signal Lineouts')
+            plt.xlabel(xlabel)
+            plt.legend()
+        
             plt.figure()
             plt.plot(sig_lin_x, np.mean(self.sig_lins,0))
+            plt.title('Average Signal Lineout')
+            plt.xlabel(xlabel)
+            self.plot_avg_img(shot_set='sig', roi=roi)
+
         return sig_lin_x, self.sig_lins
     
-    def make_trans(self, roi=None, debug=True):
+    def make_trans(self, roi=None, anchor_width_eV=10, debug=True):
         """Generate list of transmission profiles using signal profiles and reference shape """
         # If reference lineout not set, generate it.
         if not hasattr(self, 'ref_lin'):
@@ -369,9 +400,14 @@ class XAS(Diagnostic):
             raise Exception('Error! anchor_eV needs to be set before making a transmission profile')
         if not anchor_trans:
             raise Exception('Error! anchor_trans needs to be set before making a transmission profile')
+        # find index of anchor and get ref value
         anchor_i = (np.abs(self.roi_eV - anchor_eV)).argmin()
-        anchor_ref_val = self.ref_lin[anchor_i]
-        if debug: print('Scaling reference signals at Anchor = ' + str(anchor_eV) + ' eV (idx=' + str(anchor_i) + '), assumed transmission = ' + str(anchor_trans*100) + '%')
+        #anchor_ref_val = self.ref_lin[anchor_i]
+        anchor_ref_val = np.mean(self.ref_lin[anchor_i-2:anchor_i+2]) # small average over some pixels
+        # calculate over how many pixels we should average for anchor
+        deV = np.mean(np.diff(lin_x))
+        anchor_width_px = anchor_width_eV / deV
+        if debug: print(f'Making Transmission: Scaling sigs/refs at Anchor = {str(anchor_eV)} eV (idx={str(anchor_i)}), over {anchor_width_eV} eV ({int(anchor_width_px)} pixels), assumed transmission = {str(anchor_trans*100)}%')
         # # removing a fraction of reference and signal? (perhaps pinhole leakage or harmonic contamination)
         # # PRETTY SURE THIS STILL DOESN'T DO ANYTHING. JUST CANCELS BELOW?
         # if not self.load_param('leakage_frac',False):
@@ -380,21 +416,42 @@ class XAS(Diagnostic):
         #     leakage_frac = self.load_param('leakage_frac')
         #     print('Removing leakage fraction.... ' +str(leakage_frac))
         # loop through signal lineouts and divide out reference shapes
-        leakage_frac = 0
+        leakage_frac = 0 # not sure if this works, setting to zero for now... then doesn't effect below
+
         self.trans_lins = []
+        # go through sign lineouts and make transmissions
         for sig_lin in self.sig_lins:
-            anchor_sig_val = np.mean(sig_lin[anchor_i-20:anchor_i+20]) # small average over some pixels
-            anchor_sig_val_unfilt = anchor_sig_val / (anchor_trans)#+ leakage_frac)
+            anchor_sig_val = np.mean(sig_lin[anchor_i-int(anchor_width_px/2):anchor_i+int(anchor_width_px/2)]) 
+            anchor_sig_val_unfilt = anchor_sig_val / (anchor_trans + leakage_frac)
             ref_scale_factor = anchor_sig_val_unfilt / anchor_ref_val
             scaled_ref = self.ref_lin * ref_scale_factor
             scaled_ref_leakage = scaled_ref * leakage_frac
             trans_lin = (sig_lin - scaled_ref_leakage) / scaled_ref
             self.trans_lins.append(trans_lin)
+        
+        # instaead, make sig average first? then one transmission lineout
+        # I think this is basically the same? only then we lose the individual transmission lineouts
+        # sig_lin = np.mean(self.sig_lins,0)
+        # anchor_sig_val = np.mean(sig_lin[anchor_i-int(anchor_width_px/2):anchor_i+int(anchor_width_px/2)])
+        # ref_scale_factor = (anchor_sig_val / anchor_trans) / anchor_ref_val
+        # scaled_ref = self.ref_lin * ref_scale_factor
+        # self.trans_lins.append(sig_lin / scaled_ref)
 
         if debug:
             plt.figure()
+            for ti in range(len(self.trans_lins)):
+                plt.plot(lin_x, self.trans_lins[ti], label=self.sig_shot_dicts_used[ti]['shotnum'])
+            plt.title('Transmission profiles')
+            plt.xlabel('Photon Energy [eV]')
+            plt.ylabel('Transmission')
+            plt.legend()
+
+            plt.figure()
             plt.plot(lin_x, np.mean(self.trans_lins,0))
-            
+            plt.title('Average Transmission profile')
+            plt.xlabel('Photon Energy [eV]')
+            plt.ylabel('Transmission')
+
         return lin_x, self.trans_lins
     
     def make_abs(self, roi=None, debug=True):
@@ -405,16 +462,31 @@ class XAS(Diagnostic):
         # NOTE! we are not caluclating the absorption (1 - transmission), but rather mu * t
         self.abs_lins = []
         for trans_lin in self.trans_lins:
+            if min(trans_lin) < 1e-2:
+                print('Warning, transmission under 1%; capped at 1% for absorption profile')
+                trans_lin[trans_lin<1e-2] = 1e-2 # avoid erroring below... bodge?
             abs_lin = -np.log(trans_lin)
             self.abs_lins.append(abs_lin)
         # progress update
         if debug: 
             print('Making absorption profiles (' + str(len(self.trans_lins)) + ' files)')
+
+            plt.figure()
+            for ai in range(len(self.abs_lins)):
+                plt.plot(self.roi_eV, self.abs_lins[ai], label=self.sig_shot_dicts_used[ai]['shotnum'])
+            plt.title('Absorption profiles')
+            plt.xlabel('Photon Energy [eV]')
+            plt.ylabel('-Ln(Transmission)')
+            plt.legend()
+
             plt.figure()
             plt.plot(self.roi_eV, np.mean(self.abs_lins,0))
+            plt.title('Average Absorption Profile')
+            plt.xlabel('Photon Energy [eV]')
+            plt.ylabel('-Ln(Transmission)')
         return self.roi_eV, self.abs_lins
     
-    def make_nabs(self, roi=None, method='average', preedge_buffer_eV = None, postedge_buffer_eV = None, ref_limits = None, debug=True, flat_preedge=False):
+    def make_nabs(self, roi=None, method='average', preedge_buffer_eV = None, postedge_buffer_eV = None, frac_threshold = None, debug=True, flat_preedge=False):
         """Generate (list of) normalised absorption profile(s).
         You can do this either individually or with the signal averaged first  """
         # Make absorption lineouts? (includes reference making etc.)
@@ -424,16 +496,21 @@ class XAS(Diagnostic):
             preedge_buffer_eV = self.calib_dict['preedge_buffer_eV']
         if not postedge_buffer_eV:
             postedge_buffer_eV = self.calib_dict['postedge_buffer_eV']
-        if not ref_limits:
-            ref_limits = self.calib_dict['ref_limits']
+        if not frac_threshold:
+            frac_threshold = self.calib_dict['frac_threshold']
         edge_eV = self.calib_dict['edge_eV']
         # Truncate the absorption profile to reigions of good signal (using reference as guide)
         # find first and last ref signal indices above threshold
-        ref_threshold_val = max(self.ref_lin) * ref_limits
-        start_ti = first_index(self.ref_lin,ref_threshold_val,'left')
-        end_ti = first_index(self.ref_lin,ref_threshold_val,'right')
-        ref_start_eV = self.roi_eV[start_ti]
-        ref_end_eV = self.roi_eV[end_ti]
+        ref_threshold_val = max(self.ref_lin) * frac_threshold
+        ref_start_ti = first_index(self.ref_lin,ref_threshold_val,'left')
+        ref_end_ti = first_index(self.ref_lin,ref_threshold_val,'right')
+        # apply same threshold for signal?
+        avg_sig_lin = np.mean(np.array(self.sig_lins),0)
+        sig_threshold_val = max(avg_sig_lin) * frac_threshold
+        sig_start_ti = first_index(avg_sig_lin,sig_threshold_val,'left')
+        sig_end_ti = first_index(avg_sig_lin,sig_threshold_val,'right')
+        start_eV = max(self.roi_eV[ref_start_ti],self.roi_eV[sig_start_ti])
+        end_eV = min(self.roi_eV[ref_end_ti],self.roi_eV[sig_end_ti])
         # are there any other limits set? (for energies missing sample for example)
         # eV_lower_limit = self.load_param('eV_lower_limit', False)
         # eV_upper_limit = self.load_param('eV_upper_limit', False)
@@ -443,10 +520,10 @@ class XAS(Diagnostic):
         # if eV_upper_limit:
         #     if ref_end_eV > eV_upper_limit:
         #         ref_end_eV = eV_upper_limit
-        start_i = (np.abs(self.roi_eV - ref_start_eV)).argmin()
-        end_i = (np.abs(self.roi_eV - ref_end_eV)).argmin()
+        start_i = (np.abs(self.roi_eV - start_eV)).argmin()
+        end_i = (np.abs(self.roi_eV - end_eV)).argmin()
         nabs_eV = self.roi_eV[start_i:end_i]
-        if debug: print('Truncating normalised absorption signal at ' + str(ref_limits*100) + '% signal level (or any other limits): Between ' + str(ref_start_eV) + ' eV and ' + str(ref_end_eV) + ' eV')
+        if debug: print('Truncating normalised absorption signal at ' + str(frac_threshold*100) + '% max ref/sig level: Between ' + str(start_eV) + ' eV and ' + str(end_eV) + ' eV')
         self.nabs_i = np.arange(start_i,end_i)
         # Which method?
         if method == 'average':
@@ -490,7 +567,7 @@ class XAS(Diagnostic):
         if debug: print('Fitting pre-edge from ' + str(preedge_start_eV) + ' eV (idx=0) to ' + str(preedge_end_eV) + ' eV (idx=' + str(preedge_end_i) + ')')
         if debug: print('Fitting post-edge from ' + str(postedge_start_eV) + ' eV (idx=' + str(postedge_start_i) + ') to ' + str(postedge_end_eV) + ' eV (idx=' + str(len(abs_lin)) + ')')
         # Fit to our pre-edge
-        if flat_preedge:
+        if flat_preedge or ('flat_preedge' in self.calib_dict and self.calib_dict['flat_preedge']):
             # assume flat constant (as not enough signal?)
             preedge_avg = np.mean(abs_lin[:preedge_end_i+1])
             pre_fit = np.ones(len(abs_eV)) * preedge_avg
@@ -646,15 +723,27 @@ class XAS(Diagnostic):
     #===========================================
     # Plotting
     #===========================================
-    def plot_avg_img(self, shot_set='sig', vmin=0, vmax=None, debug=False):
+    def plot_avg_img(self, shot_set='sig', roi=None, vmin=0, vmax=None, debug=False):
         img = self.get_avg_img(shot_set=shot_set, debug=debug)
         x = np.arange(0,np.shape(img)[1]+1)
         y = np.arange(0,np.shape(img)[0]+1)
         fig = plt.figure()
         if not vmax:
-            vmax = np.max(img)
+            vmax = np.percentile(img, 99) # use 99% precentile max as default
         im = plt.pcolormesh(x, y, img, vmin=vmin, vmax=vmax, shading='auto')
         cb = plt.colorbar(im)
+        if roi:
+            ax = plt.gca()
+            rect = patches.Rectangle((roi[0][0], roi[0][1]), (roi[1][0]-roi[0][0]), (roi[1][1]-roi[0][1]), linewidth=1, edgecolor='r', facecolor='none')
+            ax.add_patch(rect)
         plt.tight_layout()
+        plt.title(f'Average Image, shot set: {shot_set}')
         plt.show(block=False)
+        return fig, plt.gca()
+    
+    def plot_dispersion(self):
+        fig = plt.figure()
+        plt.plot(self.eV)
+        plt.xlabel('Pixel')
+        plt.ylabel('Photon Energy [eV]')
         return fig, plt.gca()

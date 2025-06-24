@@ -17,6 +17,7 @@ class Diagnostic():
     """
 
     calib_dict = {}
+    calib_id = None
 
     def __init__(self, exp_obj, config):
         self.ex = exp_obj # pass in experiment object
@@ -70,6 +71,7 @@ class Diagnostic():
                     calib_end  = self.DAQ.build_time_point(end_shot_dict)
                     if shot_time >= calib_start and shot_time <= calib_end:
                         calib_dict = all_calibs[this_calib_id]
+                        self.calib_id = this_calib_id
                         #print(f'Using Calibration: {this_calib_id}') # for debugging...
                         break
             if not calib_dict:
@@ -97,6 +99,7 @@ class Diagnostic():
             else:
                 print(f"get_calib() error; Unknown calibration found for {calib_id} - No calib_file set in diagnostics.toml?")
                 return None
+            self.calib_id = calib_id
 
         # before returning, if processed file is set, try load it and return contents with dictionary
         if not no_proc:
@@ -166,11 +169,12 @@ class Diagnostic():
         This can be wrapped by the child function for added functionality.
         """
 
-        # set calibration dictionary
+        # set calibration dictionary (if we need to)
         if calib_id:
             self.calib_dict = self.get_calib(calib_id)
         else:
-            self.calib_dict = self.get_calib(shot_dict)
+            if not len(self.calib_dict):
+                self.calib_dict = self.get_calib(shot_dict)
 
         # TO DO: check if image type, and if not, skip this... although you probably won't call this function if not image?
         # do standard image calibration. Transforms, background, ROIs etc.
@@ -182,6 +186,14 @@ class Diagnostic():
         
         return img, x, y
    
+    def check_calib(self, shot_dict=None, print_all=False):
+        """Wrapper function for checking calibration and img calibration"""
+        if shot_dict:
+            self.get_proc_shot(shot_dict, debug=True)
+        print(f'Using Calibration ID: {self.calib_id}')
+        if print_all:
+            print(self.calib_dict)
+        return 
 
     def run_img_calib(self, img_data, debug=False):
         """Central wrapper function for processing image data using calibration"""

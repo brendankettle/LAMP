@@ -55,6 +55,38 @@ class ImageProc():
         self.img_data = self.img_data - img
         return self.img_data
     
+    def hist(self,roi=None, bins=10,range=None, density=None, weights=None, debug=False):
+        if roi:
+            data = self.get_img()[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]].flatten()
+        else:
+            data = self.get_img().flatten()
+        hist_data, bin_edges = np.histogram(data,bins=bins, range=range, density=density,weights=weights)
+        bin_centres = (bin_edges[:-1] + bin_edges[1:]) / 2
+        if debug:
+            plt.figure()
+            im = plt.imshow(self.get_img(), vmin=np.percentile((self.get_img()), 1), vmax=np.percentile((self.get_img()), 99))
+            cb = plt.colorbar(im)
+            if roi:
+                ax = plt.gca()
+                rect = patches.Rectangle((roi[0][0], roi[0][1]), (roi[1][0]-roi[0][0]), (roi[1][1]-roi[0][1]), linewidth=1, edgecolor='r', facecolor='none')
+                ax.add_patch(rect)
+            plt.tight_layout()
+            plt.title('Image to histogram')
+            plt.show(block=False)
+
+            plt.figure()
+            plt.hist(data, log=True, bins=bins, range=range, density=density, weights=weights)
+            plt.xlabel('Pixel Value')
+            plt.ylabel('Probability') if density else plt.ylabel('Frequency') 
+            plt.show(block=False)
+            plt.figure()
+            plt.hist(data, log=False, bins=bins, range=range, density=density, weights=weights)
+            plt.xlabel('Pixel Value')
+            plt.ylabel('Probability') if density else plt.ylabel('Frequency') 
+            plt.show(block=False)
+
+        return hist_data, bin_centres
+
     def resample(self, width=None, height=None, scale=None, interp=cv.INTER_CUBIC):
         # resize image and CONSERVE COUNTS
         # if scale factor, work out
