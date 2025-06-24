@@ -173,7 +173,7 @@ class Diagnostic():
         if calib_id:
             self.calib_dict = self.get_calib(calib_id)
         else:
-            if not len(self.calib_dict):
+            if not self.calib_dict or not len(self.calib_dict):
                 self.calib_dict = self.get_calib(shot_dict)
 
         # TO DO: check if image type, and if not, skip this... although you probably won't call this function if not image?

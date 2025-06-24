@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.optimize as optimize
+from scipy import ndimage
+import matplotlib.patches as patches
 from ..diagnostic import Diagnostic
 from ..utils.image_proc import ImageProc
 
@@ -49,6 +51,45 @@ class FocalSpot(Diagnostic):
     def fit_spot(self):
 
         return
+    
+    def find_spot(self, shot_dict, box=None, mask=0.05, debug=False):
+        """Use centre of mass to get x,y of spot"""
+        # this will (hopefully) do a background correction etc.
+        img, x, y = self.get_proc_shot(shot_dict)
+        fimg = img.copy()
+        # mask any low level pixels to zero, to help with large area level over backgrounds
+        fimg[fimg < (np.max(fimg)*mask)] = 0
+        # then a median filter to cut hard hits
+        fimg = ndimage.median_filter(fimg,size=5)
+        # find first rough position using coarse centre of mass
+        fcy,fcx = ndimage.center_of_mass(fimg)
+        # then do another centre of mass, within this box (to remove error from large scale variations in image)
+        if not box:
+            box = int(np.mean([len(x),len(y)])/4) # default to 1/4 of image width/length
+        bx1 = int(fcx-(box/2))
+        bx2 = int(fcx+(box/2))
+        by1 = int(fcy-(box/2))
+        by2 = int(fcy+(box/2))
+        img_roi = fimg[by1:by2,bx1:bx2]
+        scy,scx = ndimage.center_of_mass(img_roi)
+        cx = bx1 + scx
+        cy = by1 + scy
+        if debug:
+            plt.figure()
+            # plot original image, not filtered
+            im = plt.pcolormesh(x, y, img, vmin=np.percentile(img.flatten(),1), vmax=np.percentile(img.flatten(),99.99), shading='auto')
+            plt.scatter(cx,cy, marker='+', color = 'red', s=int(np.mean([len(x),len(y)])/5))
+            ax = plt.gca()
+            rect = patches.Rectangle((bx1, by1), (bx2-bx1), (by2-by1), linewidth=1, edgecolor='r', facecolor='none')
+            ax.add_patch(rect)
+            cb = plt.colorbar(im)
+            plt.title(self.shot_string(shot_dict))
+            plt.xlabel('?')
+            plt.ylabel('?') 
+            plt.axis('equal')
+            plt.tight_layout()
+            plt.show(block=False)
+        return cx,cy
     
     def gauss2Dbeam(self,U,a0,a1,a2,a3,a4,a5):
         # a0 peak,

@@ -227,6 +227,7 @@ class ImageProc():
         
         elif type.lower() == 'surface':
             # feed list of ROIs or data, and then interpolate surface across this before subtracting
+            # PROBLEM IF THESE OVERLAP??
             if roi is None:
                 print("bkg_sub error: No roi provided for type=surface")
             if not isinstance(roi, list):
