@@ -22,14 +22,18 @@ class GeminiMirage(DAQ):
         super().__init__(exp_obj, config=config)
         return
 
-    def _build_shot_filepath(self, diagnostic, date, run, shotnum, ext):
+    def _build_shot_filepath(self, diagnostic, date, run, shotnum, ext, burst=None):
         """This is used internally, and so can be DAQ specific"""
         if 'shotnum_zfill' in self.config:
             zfill = self.config['shotnum_zfill']
         else:
             zfill = 3 # default?
+        if burst:
+            burst_str = f'{burst}/'
+        else:
+            burst_str = ''
+        shot_path = Path(f'{self.data_folder}/{diagnostic}/{date}/{run}/{burst_str}Shot{str(shotnum).zfill(zfill)}.{ext}')
         # check file?
-        shot_path = f'{self.data_folder}/{diagnostic}/{date}/{run}/Shot{str(shotnum).zfill(zfill)}.{ext}'
         return shot_path
     
     def _read_mirage_db(self, filepath='data.sqlite'):
@@ -124,7 +128,11 @@ class GeminiMirage(DAQ):
         diag_config = self.ex.diags[diag_name].config
         ext = diag_config['data_ext']
         folder = diag_config['data_folder']
-        if os.path.isfile(self._build_shot_filepath(folder, shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], ext)):
+        if 'burst' in shot_dict: 
+            burst = shot_dict['burst']
+        else:
+            burst = None
+        if os.path.isfile(self._build_shot_filepath(folder, shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], ext, burst=burst)):
             return True
         else:
             return False
@@ -138,14 +146,14 @@ class GeminiMirage(DAQ):
         # Check if shot_dict is not dictionary; could just be filepath
         if isinstance(shot_dict, str):
             # If not dictionary, assume filepath
-            segs = shot_dict.split('/') # does this work for all OS's?? probably a better path function here
-            shot_str = segs[-1].split('.')[0]
-            run_str = segs[-2]
-            date_str = segs[-3]
+            # segs = shot_dict.split('/') # does this work for all OS's?? probably a better path function here
+            # shot_str = segs[-1].split('.')[0]
+            # run_str = segs[-2]
+            # date_str = segs[-3]
             # print(shot_str)
             # print(run_str)
             # print(date_str)
-            shot_filepath = f'{self.data_folder}/{shot_dict}'
+            shot_filepath = Path(f'{self.data_folder}/{shot_dict}')
             shot_data = self.load_imdata(shot_filepath)
         else:
             diag_config = self.ex.diags[diag_name].config
@@ -164,8 +172,12 @@ class GeminiMirage(DAQ):
                 if param not in shot_dict:
                     print(f"get_shot_data() error: {self.__name} DAQ requires a shot_dict['{param}'] value")
                     return None
-
-            shot_filepath = self._build_shot_filepath(diag_config['data_folder'], shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], diag_config['data_ext'])
+            if 'burst' in shot_dict: 
+                burst = shot_dict['burst']
+            else:
+                burst = None
+                
+            shot_filepath = self._build_shot_filepath(diag_config['data_folder'], shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], diag_config['data_ext'], burst=burst)
 
             if diag_config['data_type'] == 'image':
                 shot_data = self.load_imdata(shot_filepath)
@@ -175,7 +187,9 @@ class GeminiMirage(DAQ):
         return shot_data
     
     def get_shot_dicts(self, diag_name, timeframe, exceptions=None):
-        """timeframe can be 'all' or a dictionary containing lists of dates, or runs"""
+        """timeframe can be 'all' or a dictionary containing lists of dates, or runs
+        To Do: Still need to add burst support!
+        """
 
         diag_config = self.ex.diags[diag_name].config
         diag_folder = f"{self.data_folder}/{diag_config['data_folder']}"
@@ -212,6 +226,7 @@ class GeminiMirage(DAQ):
                     if os.path.isdir(os.path.join(date_folder, run_name)):
                         runs.append(run_name)
             # now we have date and runs, get shots
+            # TO DO: WHAT ABOUT BURSTS!
             for run in sorted(runs):
                 run_folder = os.path.join(date_folder, str(run))
                 shotnums = []
