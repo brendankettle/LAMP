@@ -228,6 +228,8 @@ class Diagnostic():
         # if img_data is passed as a shot dictionary or filepath, grab the actual image
         if isinstance(img_data, dict) or isinstance(img_data, str):
             img_data = self.get_shot_data(img_data)
+            if img_data is None: # no file found
+                return None, None, None
 
         img = ImageProc(data=img_data)
 

@@ -56,6 +56,8 @@ class FocalSpot(Diagnostic):
         """Use centre of mass to get x,y of spot"""
         # this will (hopefully) do a background correction etc.
         img, x, y = self.get_proc_shot(shot_dict)
+        if img is None: # no image data?
+            return None, None
         fimg = img.copy()
         # mask any low level pixels to zero, to help with large area level over backgrounds
         fimg[fimg < (np.max(fimg)*mask)] = 0
