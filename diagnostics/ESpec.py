@@ -43,6 +43,9 @@ class ESpec(Diagnostic):
         # loads calib id and run_img_calib for standard calibration routines
         img, x, y = super().get_proc_shot(shot_dict, calib_id=calib_id, debug=debug)
 
+        if img is None:
+            return None, None, None
+
         # assuming mm here for units
         # either don't or use conversion functions...
         self.x_mm = x
@@ -158,6 +161,9 @@ class ESpec(Diagnostic):
         """Integrate across the non-dispersive axis and return a spectral lineout"""
         img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
 
+        if img is None:
+            return None, None
+
         if 'axis' in self.calib_dict['dispersion'] and self.calib_dict['dispersion']['axis'].lower() == 'y':
             spec = np.sum(img, 1)
             MeV = y
@@ -194,6 +200,9 @@ class ESpec(Diagnostic):
     def get_spectrum_metrics(self, shot_dict, calib_id=None, roi_MeV=None, roi_mrad=None, percentile=95, debug=False):
         """"""
         spec, MeV = self.get_spectrum(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad,  debug=debug)
+
+        if spec is None:
+            return None, None, None
 
         # first apply some smoothing, to reduce noise effects. These details could be passed as options?
         spec = savgol_filter(spec, int(len(MeV)/50), 2)
@@ -296,6 +305,8 @@ class ESpec(Diagnostic):
     def get_div(self, shot_dict, calib_id=None, roi_MeV=None,  roi_mrad=None, debug=False):
         """Currently integrating across the spatial axis. Could be something more involved?"""
         img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
+        if img is None:
+            return None, None
         if 'axis' in  self.calib_dict['divergence'] and self.calib_dict['divergence']['axis'].lower() == 'x':
             mrad = x
             sum_lineout = np.sum(img, 0)
@@ -319,6 +330,8 @@ class ESpec(Diagnostic):
             return fwhm[0] #return the difference (full width)
         # TODO: Return Error estimate as well
         lineout, mrad = self.get_div(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
+        if lineout is None:
+            return None, None
         lineout_smoothed = savgol_filter(lineout, int(len(mrad)/10), 2)
         peak_location_i = np.argmax(lineout_smoothed)
         peak_location = mrad[peak_location_i]
@@ -346,6 +359,8 @@ class ESpec(Diagnostic):
             return False
 
         img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
+        if img is None:
+            return None
 
         # we have to unfold count changes again for dMeV and dmrad
         if 'axis' in self.calib_dict['dispersion'] and self.calib_dict['dispersion']['axis'].lower() == 'y':
