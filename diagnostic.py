@@ -122,6 +122,9 @@ class Diagnostic():
             calib_subfolder = ''
         return Path(os.path.join(self.ex.config['paths']['root'],self.ex.config['paths']['calibs_folder'], calib_subfolder, filename))
 
+    def file_exists(self, shot_dict):
+        return self.DAQ.file_exists(self.config['name'], shot_dict)
+
     def load_calib_file(self, filename, file_type=None, options=None):
         calibs  = load_file(self.build_calib_filepath(filename), file_type=file_type, options=options)
         return calibs
