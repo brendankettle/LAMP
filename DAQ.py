@@ -19,6 +19,9 @@ class DAQ():
         except (FileNotFoundError) as Error:
             print(f'load_imdata() error: Could not find {shot_filepath}')
             imdata = None
+        except (TypeError) as Error:
+            print(f'load_imdata() error: File type error, could not find {shot_filepath}')
+            imdata = None
         return imdata
 
     def load_data(self, shot_filepath, file_type=None):
