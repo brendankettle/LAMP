@@ -43,6 +43,9 @@ class ESpec(Diagnostic):
         # loads calib id and run_img_calib for standard calibration routines
         img, x, y = super().get_proc_shot(shot_dict, calib_id=calib_id, debug=debug)
 
+        if img is None:
+            return None, None, None
+
         # assuming mm here for units
         # either don't or use conversion functions...
         self.x_mm = x
@@ -356,6 +359,8 @@ class ESpec(Diagnostic):
             return False
 
         img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id, roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
+        if img is None:
+            return None
 
         # we have to unfold count changes again for dMeV and dmrad
         if 'axis' in self.calib_dict['dispersion'] and self.calib_dict['dispersion']['axis'].lower() == 'y':
