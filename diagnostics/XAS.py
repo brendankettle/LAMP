@@ -215,16 +215,23 @@ class XAS(Diagnostic):
             ref_lin_x = []
             self.ref_lin = np.array([])
         else:
-            ref_lin_raw = np.mean(self.ref_lins,0)
-
             # progress update
             if debug: print(f'Making reference signal shape. Averaging over {str(len(self.ref_lins))} files ({str(skipped)} skipped). Threshold: {ref_threshold}.')
-            # Normalise
+            
+            ref_lin_raw = np.mean(self.ref_lins,0)
+
+            # Normalise each lineout
             if 'norm_kernel' in self.calib_dict:
                 norm_kernel = self.calib_dict['norm_kernel']
             else:
                 norm_kernel = int(len(ref_lin_raw)/10)
+            # normalise the average first 
             self.ref_lin_raw = ref_lin_raw / np.max(smooth_lin(ref_lin_raw, norm_kernel))
+            # and each for lineout, normalise individually to get a standard deviation
+            ref_lins_normed = []
+            for ref_lin in self.ref_lins:
+                ref_lins_normed.append(ref_lin / np.max(smooth_lin(ref_lin, norm_kernel)))
+            ref_lin_std = np.std(np.array(ref_lins_normed),0)
 
             # Fitting smooth curve to data?
             if fitting == 'SplitPoly9':
@@ -279,7 +286,9 @@ class XAS(Diagnostic):
                 plt.xlabel(xlabel)
                 plt.legend()
 
+                ref_lin_std_plot = smooth_lin(ref_lin_std, ref_kernel) / 2
                 plt.figure()
+                plt.gca().fill_between(ref_lin_x, self.ref_lin - ref_lin_std_plot, self.ref_lin + ref_lin_std_plot, alpha=0.3, label='Std. Dev.')
                 plt.plot(ref_lin_x, self.ref_lin_raw, label='Raw Data')
                 plt.plot(ref_lin_x, self.ref_lin, label=f'Fit (Using:{fitting})')
                 plt.title('Average Reference Lineout')
@@ -486,7 +495,7 @@ class XAS(Diagnostic):
             plt.ylabel('-Ln(Transmission)')
         return self.roi_eV, self.abs_lins
     
-    def make_nabs(self, roi=None, method='average', preedge_buffer_eV = None, postedge_buffer_eV = None, frac_threshold = None, debug=True, flat_preedge=False):
+    def make_nabs(self, roi=None, method='average', preedge_buffer_eV = None, postedge_buffer_eV = None, preedge_min_eV=None, postedge_max_eV=None, flat_preedge=False, flat_postedge=False, frac_threshold = None, debug=True):
         """Generate (list of) normalised absorption profile(s).
         You can do this either individually or with the signal averaged first  """
         # Make absorption lineouts? (includes reference making etc.)
@@ -496,6 +505,10 @@ class XAS(Diagnostic):
             preedge_buffer_eV = self.calib_dict['preedge_buffer_eV']
         if not postedge_buffer_eV:
             postedge_buffer_eV = self.calib_dict['postedge_buffer_eV']
+        if not preedge_min_eV and 'preedge_min_eV' in self.calib_dict:
+            preedge_min_eV = self.calib_dict['preedge_min_eV']
+        if not postedge_max_eV and 'postedge_max_eV' in self.calib_dict:
+            postedge_max_eV = self.calib_dict['postedge_max_eV']
         if not frac_threshold:
             frac_threshold = self.calib_dict['frac_threshold']
         edge_eV = self.calib_dict['edge_eV']
@@ -528,7 +541,7 @@ class XAS(Diagnostic):
         # Which method?
         if method == 'average':
             avg_abs_lin = np.mean(np.array(self.abs_lins),0)
-            self.nabs_eV, self.nabs_lin, self.nabs_pre_fit, self.nabs_post_fit = self.normalise_lin(nabs_eV,avg_abs_lin[start_i:end_i],edge_eV,preedge_buffer_eV,postedge_buffer_eV,debug=debug,return_fits=True,flat_preedge=flat_preedge)
+            self.nabs_eV, self.nabs_lin, self.nabs_pre_fit, self.nabs_post_fit = self.normalise_lin(nabs_eV,avg_abs_lin[start_i:end_i],edge_eV,preedge_buffer_eV=preedge_buffer_eV,postedge_buffer_eV=postedge_buffer_eV, preedge_min_eV=preedge_min_eV, postedge_max_eV=postedge_max_eV,flat_preedge=flat_preedge,flat_postedge=flat_postedge,return_fits=True,debug=debug)
             self.nabs_lins = self.nabs_lin
             self.nabs_pre_fits = self.nabs_pre_fit
             self.nabs_post_fits = self.nabs_post_fit
@@ -537,7 +550,7 @@ class XAS(Diagnostic):
             self.nabs_pre_fits = []
             self.nabs_post_fits = []
             for abs_lin in self.abs_lins:
-                nabs_eV, nabs_lin, nabs_pre_fit, nabs_post_fit = self.normalise_lin(nabs_eV,abs_lin[start_i:end_i],edge_eV,preedge_buffer_eV,postedge_buffer_eV,debug=debug,return_fits=True,flat_preedge=flat_preedge)
+                nabs_eV, nabs_lin, nabs_pre_fit, nabs_post_fit = self.normalise_lin(nabs_eV,abs_lin[start_i:end_i],edge_eV,preedge_buffer_eV=preedge_buffer_eV,postedge_buffer_eV=postedge_buffer_eV, preedge_min_eV=preedge_min_eV, postedge_max_eV=postedge_max_eV,flat_preedge=flat_preedge,flat_postedge=flat_postedge,return_fits=True,debug=debug)
                 self.nabs_lins.append(nabs_lin)
                 self.nabs_pre_fits.append(nabs_pre_fit)
                 self.nabs_post_fits.append(nabs_post_fit)
@@ -546,7 +559,7 @@ class XAS(Diagnostic):
             raise Exception('Unknown method for make_nabs()')
         return self.nabs_eV, self.nabs_lins
     
-    def normalise_lin(self, abs_eV, abs_lin, edge_eV, preedge_buffer_eV=None, postedge_buffer_eV=None, return_fits=False, flat_preedge=False, debug=True):
+    def normalise_lin(self, abs_eV, abs_lin, edge_eV, preedge_buffer_eV=None, postedge_buffer_eV=None, preedge_min_eV=None, postedge_max_eV=None, flat_preedge=False, flat_postedge=False, return_fits=False, debug=True):
         """Normalise an absorption profile by fitting above and below the edge """
         if not preedge_buffer_eV:
             preedge_buffer_eV = self.calib_dict['preedge_buffer_eV']
@@ -560,33 +573,46 @@ class XAS(Diagnostic):
         preedge_end_i = (np.abs(abs_eV - edge_start_eV)).argmin()
         postedge_start_i = (np.abs(abs_eV - edge_end_eV)).argmin()
         # ... and express again as eV
-        preedge_start_eV = abs_eV[0]
+        if preedge_min_eV:
+            preedge_start_i = (np.abs(abs_eV - preedge_min_eV)).argmin()
+        else:
+            preedge_start_i = 0
+        preedge_start_eV = abs_eV[preedge_start_i]
         preedge_end_eV = abs_eV[preedge_end_i]
+        if postedge_max_eV:
+            postedge_end_i = (np.abs(abs_eV - postedge_max_eV)).argmin()
+        else:
+            postedge_end_i = -1
         postedge_start_eV = abs_eV[postedge_start_i]
-        postedge_end_eV = abs_eV[-1]
-        if debug: print('Fitting pre-edge from ' + str(preedge_start_eV) + ' eV (idx=0) to ' + str(preedge_end_eV) + ' eV (idx=' + str(preedge_end_i) + ')')
-        if debug: print('Fitting post-edge from ' + str(postedge_start_eV) + ' eV (idx=' + str(postedge_start_i) + ') to ' + str(postedge_end_eV) + ' eV (idx=' + str(len(abs_lin)) + ')')
+        postedge_end_eV = abs_eV[postedge_end_i]
+        if debug: print(f'Fitting pre-edge from {preedge_start_eV:.1f} eV (idx={preedge_start_i}) to {preedge_end_eV:.1f} eV (idx={preedge_end_i})')
+        if debug: print(f'Fitting post-edge from  {postedge_start_eV:.1f} eV (idx={str(postedge_start_i)}) to {postedge_end_eV:.1f} eV (idx={postedge_end_i})')
         # Fit to our pre-edge
         if flat_preedge or ('flat_preedge' in self.calib_dict and self.calib_dict['flat_preedge']):
-            # assume flat constant (as not enough signal?)
-            preedge_avg = np.mean(abs_lin[:preedge_end_i+1])
+            # assume flat constant (as maybe not enough signal?)
+            preedge_avg = np.mean(abs_lin[preedge_start_i:preedge_end_i+1])
             pre_fit = np.ones(len(abs_eV)) * preedge_avg
         else:
-            x = abs_eV[:preedge_end_i+1]
-            y = abs_lin[:preedge_end_i+1]
+            x = abs_eV[preedge_start_i:preedge_end_i+1]
+            y = abs_lin[preedge_start_i:preedge_end_i+1]
             pre_pfit = np.polyfit(x, y, 1)
             pre_fit = np.polyval(pre_pfit, abs_eV)
         # And fit to post edge
-        x = abs_eV[postedge_start_i:]
-        y = abs_lin[postedge_start_i:]
-        post_pfit = np.polyfit(x, y, 1)
-        post_fit = np.polyval(post_pfit, abs_eV)
+        if flat_postedge or ('flat_postedge' in self.calib_dict and self.calib_dict['flat_postedge']):
+            # assume flat constant (as maybe not enough signal?)
+            postedge_avg = np.mean(abs_lin[postedge_start_i:])
+            post_fit = np.ones(len(abs_eV)) * postedge_avg
+        else:
+            x = abs_eV[postedge_start_i:postedge_end_i]
+            y = abs_lin[postedge_start_i:postedge_end_i]
+            post_pfit = np.polyfit(x, y, 1)
+            post_fit = np.polyval(post_pfit, abs_eV)
         # If things go awry, set debugging=True in arugments for some helpful plotting
         if debug:
             plt.figure()
             plt.plot(abs_eV,abs_lin, color='g', linewidth=1)
-            plt.plot(abs_eV[:preedge_end_i],abs_lin[:preedge_end_i], color='b', linewidth=1)
-            plt.plot(abs_eV[postedge_start_i:],abs_lin[postedge_start_i:], color='r', linewidth=1)
+            plt.plot(abs_eV[preedge_start_i:preedge_end_i],abs_lin[preedge_start_i:preedge_end_i], color='b', linewidth=1)
+            plt.plot(abs_eV[postedge_start_i:postedge_end_i],abs_lin[postedge_start_i:postedge_end_i], color='r', linewidth=1)
             plt.plot(abs_eV,pre_fit, color='c', linewidth=1)
             plt.plot(abs_eV,post_fit, color='m', linewidth=1)
             plt.title('normalise_lin() Debugging')
@@ -598,6 +624,11 @@ class XAS(Diagnostic):
             return nabs_eV, nabs_lin, pre_fit, post_fit
         else:
             return nabs_eV, nabs_lin
+
+    def find_edge(self, norm_profile, edge_frac=0.3):
+        """NEEDS TO BE WRITTEN... THEN WORKED INTO match_dispersino at least"""
+        ei = 0
+        return ei
 
     def match_dispersion(self, edge_nabs=None, preedge_buffer_eV = None, postedge_buffer_eV = None, debug=True):
         """Use the absorption edge of the data to fix the spectral dispersion.
