@@ -87,8 +87,9 @@ class Experiment:
         diag_module = 'LAMP.diagnostics.' + diag_type
         try:
             diag_lib = importlib.import_module(diag_module)
-        except ImportError:
-            print(f'Warning! Could not find Diagnostics module: {diag_module}')
+        except ImportError as exc:
+            print(f'Warning! Could not import Diagnostics module: {diag_module}. Exception given below.')
+            print(exc)
             self.diags[diag_name] = False
             #raise Exception(f'Could not find Diagnostics module: {diag_module}')
         else:
