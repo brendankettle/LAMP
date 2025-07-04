@@ -77,7 +77,7 @@ class GeminiMirage(DAQ):
 
     def get_shot_info(self, shot_dict, eCat=True):
 
-        if not self.mirage_db:
+        if self.mirage_db is None:
             self._read_mirage_db()
 
         runstr = f"{shot_dict['date']}/{shot_dict['run']}"
@@ -93,7 +93,7 @@ class GeminiMirage(DAQ):
                     'timestamp': timestamp}
             
             if eCat and 'eCat_file' in self.config:
-                if not self.eCat_db:
+                if self.eCat_db is None:
                     self._read_eCat_db()
                 row = self.eCat_db.loc[self.eCat_db['Id'] == gsn] # Id is the GSN
                 if not row.empty:

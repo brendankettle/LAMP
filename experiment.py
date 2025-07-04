@@ -91,7 +91,7 @@ class Experiment:
             print(f'Warning! Could not import Diagnostics module: {diag_module}. Exception given below.')
             print(exc)
             self.diags[diag_name] = False
-            #raise Exception(f'Could not find Diagnostics module: {diag_module}')
+            #raise Exception(f'Could not import Diagnostics module: {diag_module}')
         else:
             #if callable(diag_class := getattr(diag_lib, diag_type)):
             diag_class = getattr(diag_lib, diag_type)
