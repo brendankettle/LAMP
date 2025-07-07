@@ -8,17 +8,17 @@ from .results import Results
 
 class Experiment:
 
-    def __init__(self, root_folder):
-        """Load config, load DAQ, add diagnostics"""
+    def __init__(self, root_folder, local_config='local.toml', global_config='global.toml', diagnostics='diagnostics.toml'):
+        """LAMP entry point. Load config, load DAQ, add diagnostics"""
 
         # Load local config
-        local_config_filepath = Path(root_folder + 'local.toml')
+        local_config_filepath = Path(root_folder + local_config)
         if not os.path.exists(local_config_filepath):
             raise Exception(f'Problem finding local config file: {local_config_filepath}')
         local_config = load_file(local_config_filepath)
 
         # load global config and save to object
-        global_config_filepath = Path(root_folder + 'global.toml')
+        global_config_filepath = Path(root_folder + global_config)
         if not os.path.exists(global_config_filepath):
             raise Exception(f'Problem finding global config file: {global_config_filepath}')
         self.config = load_file(global_config_filepath)
@@ -37,6 +37,7 @@ class Experiment:
         if self.config['setup']['DAQ'].lower() == 'none':
             print('To Do: Support single file analysis... This could just be another DAQ module called None...')
         else:
+            # TO DO: User defined DAQs
             DAQ_module = 'LAMP.DAQs.' + self.config['setup']['DAQ']
             try:
                 DAQ_lib = importlib.import_module(DAQ_module)
@@ -54,7 +55,7 @@ class Experiment:
 
         # loop through diagnostics and add
         self.diags = {}
-        diag_config_filepath = Path(root_folder + 'diagnostics.toml')
+        diag_config_filepath = Path(root_folder + diagnostics)
         if os.path.exists(diag_config_filepath):
             self.diag_config = load_file(diag_config_filepath)
             for diag_name in self.diag_config: 
@@ -62,6 +63,7 @@ class Experiment:
                     self.add_diagnostic(diag_name)
 
         # loop through metas and add
+        # To Do: Not really made use of this yet... Meant for shot sheets etc.
         self.metas = {}
         meta_config_filepath = Path(root_folder + 'metas.toml')
         if os.path.exists(meta_config_filepath):
@@ -84,21 +86,43 @@ class Experiment:
         else:
             raise Exception(f'No diagnostic type defined for: {diag_name}')
 
+        found = False
         diag_module = 'LAMP.diagnostics.' + diag_type
-        try:
+        try: 
             diag_lib = importlib.import_module(diag_module)
         except ImportError as exc:
-            print(f'Warning! Could not import Diagnostics module: {diag_module}. Exception given below.')
-            print(exc)
-            self.diags[diag_name] = False
-            #raise Exception(f'Could not import Diagnostics module: {diag_module}')
+            # User module?
+            if 'user_diagnostics' in self.config['paths']:
+                user_diag_module = self.config['paths']['user_diagnostics'] + diag_type
+                try:
+                    diag_lib = importlib.import_module(user_diag_module)
+                except ImportError as user_exc:
+                    print(f'Warning! Could not import Diagnostics module: {diag_module} (or {user_diag_module}). Exceptions given below.')
+                    print('Exception when tried user module:')
+                    print(user_exc)
+                    print('Exception when tried LAMP module:')
+                    print(exc)
+                    self.diags[diag_name] = False
+                else:
+                    found = True
+                    user_text = '(User) ' 
+            else:
+                print(f'Warning! Could not import Diagnostics module: {diag_module}. Exception given below.')
+                print(exc)
+                self.diags[diag_name] = False
+                #raise Exception(f'Could not import Diagnostics module: {diag_module}')
         else:
+            found = True
+            user_text = ''
+        
+        if found:
             #if callable(diag_class := getattr(diag_lib, diag_type)):
             diag_class = getattr(diag_lib, diag_type)
             if callable(diag_class):
-                print(f'Adding Diagnostic: {diag_name} [{diag_type}]')
+                print(f'Adding {user_text}Diagnostic: {diag_name} [{diag_type}]')
                 self.diags[diag_name] = diag_class(self, self.diag_config[diag_name])
             else:
+                # what's different about this to above?
                 print(f'Warning! Could not find Diagnostic object: {diag_type}')
                 self.diags[diag_name] = False
                 #raise Exception(f'Could not find Diagnostic object: {diag_type}')
