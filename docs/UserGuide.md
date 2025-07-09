@@ -180,11 +180,30 @@ Below is my best effort of a pictorial description of how LAMP actually works! O
 ![Flowchat showing how LAMP works](./imgs/HowLAMPWorks.png)
 	
 
+## Adding your own diagnostic
+
+It is very possible to make your own "user-defined" diagnostic (outside of those written and pre-defined by the LAMP cpde).
+To do so, make sure you have a *user_diagnostics* entry in the global.toml configuration file, under the *paths* subsection.
+This points to the folder containing the diagnostic module you have written.
+Note, the contents of the config entry is taken in the import module command, so periods instead of slashes for folders.
+For example if you have created a folder *./diagnostics/* containing your diagnostic module files, then the global.toml entry would be as follows:
+
+```
+[paths]
+user_diagnostics = 'diagnostics.'
+```
+
 ## Starting a new experiment
 
 NOTE: This should already be done within an experiment repository, most people won't have to do this. 
 If you need help, ask BK, but normally I have set all this up.
-I will eventually put some help here...
+I will eventually put some help here... but in general you will need to create at least the following files:
+
+- local.toml
+- global.toml
+- diagnostics.toml
+
+As well as the calibration files required for each diagnostic added. 
 
 <a name="developing-lamp"></a> 
 # 2. Developing LAMP 

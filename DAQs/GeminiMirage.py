@@ -235,13 +235,17 @@ class GeminiMirage(DAQ):
                 elif isinstance(timeframe, dict) and 'shotnums' in timeframe:
                     shotnums = timeframe['shotnums']
                 else:
-                    for filename in os.listdir(run_folder):
-                        if os.path.isfile(os.path.join(run_folder, filename)):
-                            if 'shot' in filename.lower():
-                                m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
-                                shotnums.append(int(m.group()))
-                                #print(f"{date} / {run} / {shotnums[-1]}")
-                    shotnums = sorted(shotnums)
+                    if os.path.isdir(run_folder):
+                        for filename in os.listdir(run_folder):
+                            if os.path.isfile(os.path.join(run_folder, filename)):
+                                if 'shot' in filename.lower():
+                                    m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
+                                    shotnums.append(int(m.group()))
+                                    #print(f"{date} / {run} / {shotnums[-1]}")
+                        shotnums = sorted(shotnums)
+                    else:
+                        print(f'Error; cannot find data folder to scan for shots: {run_folder}')
+                        return False
 
                 # OK, build the list to return!
                 for shotnum in shotnums:

@@ -448,9 +448,10 @@ class XAS(Diagnostic):
 
         if debug:
             plt.figure()
+            smooth_factor = int(len(lin_x)/20)
             for ti in range(len(self.trans_lins)):
-                plt.plot(lin_x, self.trans_lins[ti], label=self.sig_shot_dicts_used[ti]['shotnum'])
-            plt.title('Transmission profiles')
+                plt.plot(lin_x, smooth_lin(self.trans_lins[ti], smooth_factor), label=self.sig_shot_dicts_used[ti]['shotnum'])
+            plt.title(f'Transmission profiles (smoothing={smooth_factor})')
             plt.xlabel('Photon Energy [eV]')
             plt.ylabel('Transmission')
             plt.legend()
@@ -481,9 +482,10 @@ class XAS(Diagnostic):
             print('Making absorption profiles (' + str(len(self.trans_lins)) + ' files)')
 
             plt.figure()
+            smooth_factor = int(len(self.roi_eV)/20)
             for ai in range(len(self.abs_lins)):
-                plt.plot(self.roi_eV, self.abs_lins[ai], label=self.sig_shot_dicts_used[ai]['shotnum'])
-            plt.title('Absorption profiles')
+                plt.plot(self.roi_eV, smooth_lin(self.abs_lins[ai],30), label=self.sig_shot_dicts_used[ai]['shotnum'])
+            plt.title(f'Absorption profiles (smoothing={smooth_factor})')
             plt.xlabel('Photon Energy [eV]')
             plt.ylabel('-Ln(Transmission)')
             plt.legend()

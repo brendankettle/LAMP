@@ -184,6 +184,9 @@ class ImageProc():
             else:
                 print('bkg_sub error: No axis provided for type=gradient')
 
+            #
+            # TO DO: Definitely could do with more details on error of fitting. How far is fit from data?
+            #
             if debug:
                 plt.figure()
                 im = plt.imshow(self.get_img(), vmin=np.percentile(self.get_img(), 5), vmax=np.percentile(self.get_img(), 99))
@@ -272,6 +275,10 @@ class ImageProc():
             XY_grid = np.vstack((X_grid.ravel(), Y_grid.ravel())).T
             bkg_img = model.predict(poly.transform(XY_grid)).reshape(X_grid.shape)
 
+            #
+            # TO DO: Definitely could do with more details on error of fitting. How far is fit from data?
+            #
+            
             if debug:
                 plt.figure()
                 im = plt.imshow(img_data, vmin=np.percentile(img_data, 5), vmax=np.percentile(img_data, 99))

@@ -43,6 +43,8 @@ class Interferometer(Diagnostic):
         # and then get absolute value (from complex)
         fourier_amp = np.abs(fftshift(fourier_img))
 
+        # Haidinger fringes?
+
         return fourier_amp
 
     def fringe_level(self, shot_dict, mask=None, line_pts=None, line_width=10, percentile_cut=99.9, debug=False):
