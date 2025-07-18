@@ -280,9 +280,10 @@ class XAS(Diagnostic):
 
             if debug:
                 plt.figure()
+                smooth_factor = int(len(ref_lin_x)/20)
                 for ri in range(len(self.ref_lins)):
-                    plt.plot(ref_lin_x, self.ref_lins[ri], label=shot_dicts_used[ri]['shotnum'])
-                plt.title('Reference Lineouts')
+                    plt.plot(ref_lin_x, smooth_lin(self.ref_lins[ri],smooth_factor), label=shot_dicts_used[ri]['shotnum'])
+                plt.title(f'Reference Lineouts (smoothing={smooth_factor}px for plotting)')
                 plt.xlabel(xlabel)
                 plt.legend()
 
@@ -363,9 +364,10 @@ class XAS(Diagnostic):
         if debug: 
             print(f'Made signal profiles: {str(len(self.sig_lins))} files ({str(skipped)} skipped). Threshold: {sig_threshold}')
             plt.figure()
+            smooth_factor = int(len(sig_lin_x)/20)
             for si in range(len(self.sig_lins)):
-                plt.plot(sig_lin_x, self.sig_lins[si], label=shot_dicts_used[si]['shotnum'])
-            plt.title('Signal Lineouts')
+                plt.plot(sig_lin_x, smooth_lin(self.sig_lins[si],smooth_factor), label=shot_dicts_used[si]['shotnum'])
+            plt.title(f'Signal Lineouts (smoothing={smooth_factor}px for plotting)')
             plt.xlabel(xlabel)
             plt.legend()
         
@@ -451,7 +453,7 @@ class XAS(Diagnostic):
             smooth_factor = int(len(lin_x)/20)
             for ti in range(len(self.trans_lins)):
                 plt.plot(lin_x, smooth_lin(self.trans_lins[ti], smooth_factor), label=self.sig_shot_dicts_used[ti]['shotnum'])
-            plt.title(f'Transmission profiles (smoothing={smooth_factor})')
+            plt.title(f'Transmission profiles (smoothing={smooth_factor}px for plotting)')
             plt.xlabel('Photon Energy [eV]')
             plt.ylabel('Transmission')
             plt.legend()
@@ -485,7 +487,7 @@ class XAS(Diagnostic):
             smooth_factor = int(len(self.roi_eV)/20)
             for ai in range(len(self.abs_lins)):
                 plt.plot(self.roi_eV, smooth_lin(self.abs_lins[ai],30), label=self.sig_shot_dicts_used[ai]['shotnum'])
-            plt.title(f'Absorption profiles (smoothing={smooth_factor})')
+            plt.title(f'Absorption profiles (smoothing={smooth_factor}px for plotting)')
             plt.xlabel('Photon Energy [eV]')
             plt.ylabel('-Ln(Transmission)')
             plt.legend()

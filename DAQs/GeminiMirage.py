@@ -137,26 +137,15 @@ class GeminiMirage(DAQ):
         else:
             return False
 
-    # perhaps some of this can move to base class?
-    def get_shot_data(self, diag_name, shot_dict):
-        """Univeral function for returning shot data given a diagnostic and shot dictionary
-        This probably needs path work to make sure it works on all OS's
-        """
+    def get_filepath(self, diag_name, shot_dict):
+        """Required function to return shot filepath, given the diagnostic name and a shot dict (or filename str)"""
+
+        diag_config = self.ex.diags[diag_name].config
 
         # Check if shot_dict is not dictionary; could just be filepath
         if isinstance(shot_dict, str):
-            # If not dictionary, assume filepath
-            # segs = shot_dict.split('/') # does this work for all OS's?? probably a better path function here
-            # shot_str = segs[-1].split('.')[0]
-            # run_str = segs[-2]
-            # date_str = segs[-3]
-            # print(shot_str)
-            # print(run_str)
-            # print(date_str)
-            shot_filepath = Path(f'{self.data_folder}/{shot_dict}')
-            shot_data = self.load_imdata(shot_filepath)
+            shot_filepath = Path(f'{self.data_folder}/{shot_dict}') # should this be diagnostic folder?
         else:
-            diag_config = self.ex.diags[diag_name].config
             required = ['data_folder','data_ext','data_type']
             for param in required:
                 if param not in diag_config:
@@ -179,12 +168,23 @@ class GeminiMirage(DAQ):
                 
             shot_filepath = self._build_shot_filepath(diag_config['data_folder'], shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], diag_config['data_ext'], burst=burst)
 
-            if diag_config['data_type'] == 'image':
-                shot_data = self.load_imdata(shot_filepath)
-            else:
-                print('Non-image data loading not yet supported... probably need to add text at least?')
+        return shot_filepath
+    
+    # # perhaps some of this can move to base class?
+    # def get_shot_data(self, diag_name, shot_dict):
+    #     """Univeral function for returning shot data given a diagnostic and shot dictionary
+    #     This probably needs path work to make sure it works on all OS's
+    #     """
+    #     shot_filepath = self.get_filepath(diag_name, shot_dict)
 
-        return shot_data
+    #     diag_config = self.ex.diags[diag_name].config
+    
+    #     if diag_config['data_type'] == 'image':
+    #         shot_data = self.load_imdata(shot_filepath)
+    #     else:
+    #         shot_data = self.load_data(shot_filepath, file_type=diag_config['data_ext'])
+
+    #     return shot_data
     
     def get_shot_dicts(self, diag_name, timeframe, exceptions=None):
         """timeframe can be 'all' or a dictionary containing lists of dates, or runs

@@ -24,6 +24,10 @@ class ELINP2024(DAQ):
 
     def get_shot_data(self, diag_name, shot_dict):
 
+        #
+        # TO DO: Move some of this to base class
+        #
+
         diag_config = self.ex.diags[diag_name].config
 
         # Double check if shot_dict is dictionary; could just be filepath
@@ -51,7 +55,7 @@ class ELINP2024(DAQ):
             if diag_config['data_type'] == 'image':
                 shot_data = self.load_imdata(shot_filepath)
             else:
-                print('Non-image data loading not yet supported... probably need to add text at least?')
+                shot_data = self.load_data(shot_filepath, file_type=diag_config['data_ext'])
 
         # raw filepath?
         else:

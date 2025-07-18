@@ -65,6 +65,10 @@ def save_file(filepath, data, file_type=None, options=None):
         print(f"IO error; save_file(); no known type '{file_type}'")
     return
 
+#
+# TODO: Look for these functions automatically in some subfolder? (and import)
+#
+
 def load_npy(filepath):
     return np.load(Path(filepath))
 

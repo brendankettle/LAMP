@@ -45,6 +45,10 @@ class ZEUSSept2024(DAQ):
 
     def get_shot_data(self, diag_name, shot_dict):
 
+        #
+        # TO DO: Move some of this to base class
+        #
+
         diag_config = self.ex.diags[diag_name].config
 
         # Double check if shot_dict is dictionary; could just be filepath
@@ -77,9 +81,10 @@ class ZEUSSept2024(DAQ):
             if diag_config['data_type'] == 'image':
                 shot_data = self.load_imdata(shot_filepath)
             else:
-                shot_data = self.load_data(shot_filepath)
+                shot_data = self.load_data(shot_filepath, file_type=diag_config['data_ext'])
 
         # raw filepath?
+        # TODO: This could be a non-image filte type...
         else:
             # look for file first
             shot_filepath = os.path.join(Path(self.data_folder), Path(shot_dict.lstrip('\/')))

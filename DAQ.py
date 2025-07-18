@@ -4,7 +4,11 @@ from pathlib import Path
 from .utils.io import load_file
 
 class DAQ():
-    """Base class for DAQs
+    """Base class for DAQs.
+    DAQs that call this function should have (at least), the following functions:
+        - build_time_point(shot_dict)
+        - get_filepath(diag_name, shot_dict) [or get_shot_data()?]
+        - get_shot_dicts(diag_name, timeframe) ?
     """
 
     def __init__(self, exp_obj, config=None):
@@ -27,6 +31,20 @@ class DAQ():
     def load_data(self, shot_filepath, file_type=None):
         data = load_file(Path(shot_filepath), file_type=file_type)
         return data
+    
+    def get_shot_data(self, diag_name, shot_dict):
+        """Requires DAQ to provide get_filepath()
+        """
+        shot_filepath = self.get_filepath(diag_name, shot_dict)
+
+        diag_config = self.ex.diags[diag_name].config
+    
+        if diag_config['data_type'] == 'image':
+            shot_data = self.load_imdata(shot_filepath)
+        else:
+            shot_data = self.load_data(shot_filepath, file_type=diag_config['data_ext'])
+
+        return shot_data
     
     def shot_string(self, shot_dict):
 
