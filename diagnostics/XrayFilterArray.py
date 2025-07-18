@@ -7,10 +7,10 @@ from scipy.special import kv
 from scipy.linalg import lstsq
 from scipy.optimize import least_squares, leastsq
 from scipy.interpolate import interp1d
-from ..diagnostic import Diagnostic
-from ..utils.image_proc import ImageProc
-from ..utils.xrays.filter_transmission import filter_transmission
-from ..utils.io import load_csv
+from LAMP.diagnostic import Diagnostic
+from LAMP.utils.image_proc import ImageProc
+from LAMP.utils.xrays.filter_transmission import filter_transmission
+from LAMP.utils.io import load_csv
 
 # TODO: Some of this was bodged quickly, need to make sure it's fully compatiable/flexible
 # TODO: Bayesian fitting (see Evas previous code)

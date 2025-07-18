@@ -37,21 +37,40 @@ class Experiment:
         if self.config['setup']['DAQ'].lower() == 'none':
             print('To Do: Support single file analysis... This could just be another DAQ module called None...')
         else:
-            # TO DO: User defined DAQs
             DAQ_module = 'LAMP.DAQs.' + self.config['setup']['DAQ']
-            try:
+            try: 
                 DAQ_lib = importlib.import_module(DAQ_module)
-            except ImportError:
-                raise Exception(f'Error importing DAQ module: {DAQ_module}')
+            except ImportError as exc:
+                # User supplied DAQ?
+                if 'user_DAQs' in self.config['paths']:
+                    user_DAQ_module = self.config['paths']['user_DAQs'] + self.config['setup']['DAQ']
+                    try:
+                        DAQ_lib = importlib.import_module(user_DAQ_module)
+                    except ImportError as user_exc:
+                        print(f'Warning! Could not import DAQ module: {DAQ_module} (or {user_DAQ_module}). Exceptions given below.')
+                        print('Exception when tried user module:')
+                        print(user_exc)
+                        print('Exception when tried LAMP module:')
+                        raise Exception(exc)
+                    else:
+                        user_text = '(User) ' 
+                else:
+                    print(f'Warning! Could not import Diagnostics module: {DAQ_module}. Exception given below.')
+                    raise Exception(exc)
+            else:
+                user_text = ''
+          
             #self.DAQ = DAQ_lib.DAQ(self)
             #if callable(DAQ_class := getattr(DAQ_lib, self.config['setup']['DAQ'])):
             DAQ_class = getattr(DAQ_lib, self.config['setup']['DAQ'])
             if callable(DAQ_class):
-                print(f"Using DAQ: {self.config['setup']['DAQ']}")
+                print(f"Using {user_text}DAQ: {self.config['setup']['DAQ']}")
                 if 'DAQ_config' in self.config:
                     self.DAQ = DAQ_class(self, self.config['DAQ_config'])
                 else:
                     self.DAQ = DAQ_class(self)
+            else:
+                print(f"Error! Could not call {user_text}DAQ: {self.config['setup']['DAQ']}")
 
         # loop through diagnostics and add
         self.diags = {}

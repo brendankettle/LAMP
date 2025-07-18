@@ -5,10 +5,10 @@ from scipy.interpolate import interp1d
 from scipy.signal import savgol_filter
 import re
 
-from ..diagnostic import Diagnostic
-from ..utils.image_proc import ImageProc
-from ..utils.general import dict_update, mindex
-from ..utils.plotting import *
+from LAMP.diagnostic import Diagnostic
+from LAMP.utils.image_proc import ImageProc
+from LAMP.utils.general import dict_update, mindex
+from LAMP.utils.plotting import *
 
 class ESpec(Diagnostic):
     """Electron (charged particle?) Spectrometer.

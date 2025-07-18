@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 import re
-from ..DAQ import DAQ
+from LAMP.DAQ import DAQ
 
 class ELINP2024(DAQ):
     """Interface layer for ELINP in April/May 2024. Assumes Michigan DAQ code?

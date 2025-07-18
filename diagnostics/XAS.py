@@ -3,10 +3,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.patches as patches
 
-from ..diagnostic import Diagnostic
-from ..utils.xrays.calc_bragg_dispersion import calc_bragg_dispersion
-from ..utils.general import smooth_lin
-from ..utils.general import first_index
+from LAMP.diagnostic import Diagnostic
+from LAMP.utils.xrays.calc_bragg_dispersion import calc_bragg_dispersion
+from LAMP.utils.general import smooth_lin
+from LAMP.utils.general import first_index
 
 class XAS(Diagnostic):
     """X-ray Absorption Spectrometer

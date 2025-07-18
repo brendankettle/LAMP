@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 import csv
 import re
-from ..DAQ import DAQ
+from LAMP.DAQ import DAQ
 
 class ALEPH2022(DAQ):
     """Interface layer for ALEPH, Colorado in 2022. Uses Michigan DAQ code.

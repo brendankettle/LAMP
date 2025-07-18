@@ -4,8 +4,8 @@ import pandas as pd
 import scipy.optimize as optimize
 from scipy import ndimage
 import matplotlib.patches as patches
-from ..diagnostic import Diagnostic
-from ..utils.image_proc import ImageProc
+from LAMP.diagnostic import Diagnostic
+from LAMP.utils.image_proc import ImageProc
 
 class FocalSpot(Diagnostic):
     """Focal Spot camera

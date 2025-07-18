@@ -8,9 +8,9 @@ import re
 from scipy.optimize import curve_fit
 from scipy.ndimage import binary_dilation, binary_fill_holes
 
-from ..diagnostic import Diagnostic
-from ..utils.plotting import *
-from ..utils.general import mindex
+from LAMP.diagnostic import Diagnostic
+from LAMP.utils.plotting import *
+from LAMP.utils.general import mindex
 
 class Scintillator(Diagnostic):
     """

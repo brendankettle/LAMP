@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 import sqlite3
 import pandas as pd
-from ..DAQ import DAQ
+from LAMP.DAQ import DAQ
 
 class GeminiMirage(DAQ):
     """Interface layer for Gemini, using Mirage

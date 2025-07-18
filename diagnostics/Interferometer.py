@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from ..diagnostic import Diagnostic
-from ..utils.image_proc import ImageProc
+from LAMP.diagnostic import Diagnostic
+from LAMP.utils.image_proc import ImageProc
 from scipy.fft import fft2, fftshift
 from skimage.measure import profile_line
 

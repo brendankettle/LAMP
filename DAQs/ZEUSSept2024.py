@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 import re
-from ..DAQ import DAQ
+from LAMP.DAQ import DAQ
 
 class ZEUSSept2024(DAQ):
     """Interface layer for Zeus, Michigan in September 2024, TA1. 
