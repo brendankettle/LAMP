@@ -6,10 +6,12 @@ from pathlib import Path
 from scipy import ndimage
 from skimage.morphology import reconstruction
 import re
-from .utils.io import *
-from .utils.general import dict_update
-from .utils.image_proc import ImageProc
-from .utils.plotting import plot_montage
+from LAMP.utils.io import *
+from LAMP.utils.general import dict_update
+from LAMP.utils.image_proc import ImageProc
+from LAMP.utils.plotting import plot_montage
+from LAMP.utils.plotting import get_colormap
+
 
 class Diagnostic():
     """Base class for Diagnostics. 
@@ -548,7 +550,27 @@ class Diagnostic():
         else:
             print(f"to_mrad error; unknown angular units {units}")
 
+    def plot_proc_shot(self, shot_dict, calib_id=None, vmin=None, vmax=None, colormap='plasma', debug=False):
 
+        img, x, y = self.get_proc_shot(shot_dict, calib_id=calib_id, debug=debug)
+
+        if vmin is None:
+            vmin = np.nanmin(img)
+        if vmax is None:
+            #vmax = np.nanmax(img)
+            vmax = np.percentile(img,99)
+
+        fig = plt.figure()
+        im = plt.pcolormesh(x, y, img, vmin=vmin, vmax=vmax, cmap=get_colormap(colormap), shading='auto')
+        cb = plt.colorbar(im)
+        #cb.set_label(self.make_units(self.img_units), rotation=270, labelpad=20)
+        plt.title(self.shot_string(shot_dict))
+        # ToDo: Use x_units or y_units var for labels
+        plt.tight_layout()
+        plt.show(block=False)
+
+        return fig, plt.gca()
+    
     def montage(self, timeframe, calib_id=None, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1, axis_label = '', cb_label='', debug=False):
         """Default wrapper function. This can be overwritten by diagnostic with more options
         The diagnostic itslef needs to have a get_proc_shot() defined.

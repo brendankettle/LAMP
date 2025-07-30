@@ -26,8 +26,9 @@ It is “Open-access” rather than open source; requests for access will be acc
 ## Table of contents
 1. [Getting Started](#getting-started)
 2. [Developing LAMP](#developing-lamp)
-3. [Diagnostic Manuals](#diagnostic-manuals)
-4. [DAQs](#DAQs)
+3. [Useful Utilities](#useful-utilities)
+4. [Diagnostic Manuals](#diagnostic-manuals)
+5. [DAQs](#DAQs)
 
 <a name="getting-started"></a>
 # 1. Getting Started
@@ -260,8 +261,20 @@ To Do. Required function calls?
 
 <hr/>
 
+<a name="useful-utilities"></a>
+# 3. Useful Utilities
+
+Any scripts or diagnostics can always call the pre-written utility functions packaged with LAMP.
+This can be useful for many reasons, including IO functions, image processing, etc.
+
+Some useful utiliies include... give details on each...
+
+- X-ray filter transmission
+- Image processing
+- ...
+
 <a name="diagnostic-manuals"></a> 
-# 3. Diagnostic Manuals
+# 4. Diagnostic Manuals
 
 The following portion of this documentation will focus on the details of using each diagnostic.
 Please keep the following in mind.
@@ -312,7 +325,7 @@ divergence
 ...
 
 <a name="DAQs"></a>
-# 4. DAQs
+# 5. DAQs
 
 ## Gemini Mirage
 

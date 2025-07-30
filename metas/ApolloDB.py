@@ -1,6 +1,6 @@
 import os
-from ..meta import meta
-from ..utils.io import load_file
+from LAMP.meta import meta
+from LAMP.utils.io import load_file
 
 class ApolloDB(meta):
     """Interface layer for Apollo control / shot logs

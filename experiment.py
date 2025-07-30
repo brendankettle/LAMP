@@ -3,8 +3,8 @@
 import os
 from pathlib import Path
 import importlib
-from .utils.io import load_file
-from .results import Results
+from LAMP.utils.io import load_file
+from LAMP.results import Results
 
 class Experiment:
 

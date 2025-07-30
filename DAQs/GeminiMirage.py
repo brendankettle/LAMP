@@ -48,6 +48,7 @@ class GeminiMirage(DAQ):
         if not os.path.exists(Path(full_filepath)):
             print(f'Gemini Mirage Database Error; {full_filepath} not found')
 
+        # TODO: More error handling here!
         con = sqlite3.connect(full_filepath)
         # cur = con.cursor()
         # res = cur.execute('SELECT * FROM shot_summary')

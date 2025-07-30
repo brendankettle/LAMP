@@ -704,7 +704,7 @@ class ESpec(Diagnostic):
         return ''.join(units)
 
 
-    def plot_proc_shot(self, shot_dict, calib_id=None, roi_MeV=None, roi_mrad=None, vmin=None, vmax=None, debug=False):
+    def plot_proc_shot(self, shot_dict, calib_id=None, roi_MeV=None, roi_mrad=None, vmin=None, vmax=None, colormap='electron_beam', colormap_cut=5, debug=False):
 
         # below still assumes X = spectral, Y =  divergence
         espec_img, x, y = self.get_proc_shot(shot_dict,calib_id=calib_id,roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
@@ -716,7 +716,7 @@ class ESpec(Diagnostic):
             vmax = np.percentile(espec_img,99)
 
         fig = plt.figure()
-        im = plt.pcolormesh(x, y, espec_img, vmin=vmin, vmax=vmax, shading='auto')
+        im = plt.pcolormesh(x, y, espec_img, vmin=vmin, vmax=vmax, cmap=get_colormap(colormap, option=colormap_cut), shading='auto')
         cb = plt.colorbar(im)
         cb.set_label(self.make_units(self.img_units), rotation=270, labelpad=20)
         plt.title(self.shot_string(shot_dict))

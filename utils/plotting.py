@@ -1,8 +1,32 @@
 """Centralised plotting class/functions?
 """
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+from matplotlib.colors import ListedColormap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
+
+def get_colormap(name, default='plasma', option=None):
+    """Wrapper to return custom LAMP colourmaps"""
+    if name.lower() == 'electron_beam':
+        # Jet, but with white as first 5% of values
+        orig_cm = mpl.colormaps['jet'].resampled(256)
+        newcolors = orig_cm(np.linspace(0, 1, 256))
+        white = np.array([256/256, 256/256, 256/256, 1])
+        if option is not None:
+            end_index = int((option/100)*256) # percentage to make white
+        else:
+            end_index = int((5/100)*256)
+        newcolors[:end_index, :] = white
+        colormap = ListedColormap(newcolors)
+    elif name in mpl.colormaps:
+        # standard matplotlib map?
+        colormap = mpl.colormaps[name]
+    else:
+        print(f'Warning get_colormap(), could not match colormap: {name}. Using {default}')
+        colormap = mpl.colormaps[default]
+
+    return colormap
 
 def create_montage(images, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, num_rows=1, transpose=True, divider=True):
     """ num_rows currently only works for =1

@@ -1,7 +1,7 @@
 from matplotlib import image
 import numpy as np
 from pathlib import Path
-from .utils.io import load_file
+from LAMP.utils.io import load_file
 
 class DAQ():
     """Base class for DAQs.
