@@ -244,6 +244,7 @@ class GeminiMirage(DAQ):
                                     shotnums.append(int(m.group()))
                                     #print(f"{date} / {run} / {shotnums[-1]}")
                         # Convert to a set to get unique numbers, then back to a sorted list
+                        # Test change
                         shotnums = sorted(list(set(shotnums)))
                     else:
                         print(f'Error; cannot find data folder to scan for shots: {run_folder}')
