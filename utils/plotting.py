@@ -19,6 +19,14 @@ def get_colormap(name, default='plasma', option=None):
             end_index = int((5/100)*256)
         newcolors[:end_index, :] = white
         colormap = ListedColormap(newcolors)
+        # use set_under?
+        # import matplotlib.colors as colors
+        # palette = plt.get_cmap('jet')
+        # palette.set_under('white', 0)  
+        # norm = colors.BoundaryNorm(levels, ncolors=palette.N)
+        # im = ax.imshow(Z, cmap=palette,
+        #             norm=norm,
+        #             aspect='auto', extent=[x0, x1, y0, y1])
     elif name in mpl.colormaps:
         # standard matplotlib map?
         colormap = mpl.colormaps[name]

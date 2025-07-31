@@ -7,6 +7,10 @@ import matplotlib.patches as patches
 from LAMP.diagnostic import Diagnostic
 from LAMP.utils.image_proc import ImageProc
 
+#
+# SHOULD THIS JUST BE ALL IN THE CAMERA DIAGNOSTIC?
+#
+
 class FocalSpot(Diagnostic):
     """Focal Spot camera
     """

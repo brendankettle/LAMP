@@ -106,6 +106,79 @@ class ImageProc():
         self.set_img(res_img)
         return self.get_img()
     
+    def surface_fit(self, roi, degree=2, debug=False):
+        # feed list of ROIs or data, and then interpolate surface across this before subtracting
+        # PROBLEM IF THESE OVERLAP??
+
+        img_data = self.get_img()
+        ROIS = roi
+        XYS = []
+        ZS = []
+        for ROI in ROIS:
+            X = np.linspace(ROI[0][0],ROI[1][0],ROI[1][0]-ROI[0][0]) 
+            Y = np.linspace(ROI[0][1],ROI[1][1],ROI[1][1]-ROI[0][1]) 
+            XYS.append(np.reshape(np.meshgrid(X, Y),(2,-1)).T)
+            Z = img_data[ROI[0][1]:ROI[1][1], ROI[0][0]:ROI[1][0]]
+            ZS.append(np.reshape(Z,(1,-1)).T)
+
+        PXY = np.vstack(XYS)
+        ALLX = PXY[:,0]
+        ALLY = PXY[:,1]
+        ALLZ = np.vstack(ZS)[:,0]
+
+        poly = PolynomialFeatures(degree)
+        XY_poly = poly.fit_transform(PXY)
+
+        # Fit the polynomial regression model
+        model = LinearRegression()
+        model.fit(XY_poly, ALLZ)
+
+        # Predict Z values for the fitted surface
+        #Z_pred = model.predict(XY_poly)
+
+        # Plotting the fitted surface
+        X_plot = np.linspace(0, np.shape(img_data)[1], np.shape(img_data)[1]) #np.linspace(ALLX.min(), ALLX.max(), 1000)
+        Y_plot = np.linspace(0, np.shape(img_data)[0], np.shape(img_data)[0]) #np.linspace(ALLY.min(), ALLY.max(), 1000)
+        X_grid, Y_grid = np.meshgrid(X_plot, Y_plot)
+        XY_grid = np.vstack((X_grid.ravel(), Y_grid.ravel())).T
+        surf_fit_img = model.predict(poly.transform(XY_grid)).reshape(X_grid.shape)
+
+        #
+        # TO DO: Definitely could do with more details on error of fitting. How far is fit from data?
+        #
+        
+        if debug:
+            plt.figure()
+            im = plt.imshow(img_data, vmin=np.percentile(img_data, 5), vmax=np.percentile(img_data, 99))
+            cb = plt.colorbar(im)
+            ax = plt.gca()
+            for ROI in ROIS:
+                rect = patches.Rectangle((ROI[0][0], ROI[0][1]), (ROI[1][0]-ROI[0][0]), (ROI[1][1]-ROI[0][1]), linewidth=1, edgecolor='r', facecolor='none')
+                ax.add_patch(rect)
+            plt.show(block=False)
+
+            # Plotting the original data points
+            # fig = plt.figure()
+            # ax = fig.add_subplot(111, projection='3d')
+            # ax.scatter(ALLX, ALLY, ALLZ, color='blue', label='Original Data')
+            # ax.plot_surface(X_grid, Y_grid, bkg_img, color='red', alpha=0.5, label='Fitted Surface')
+            # ax.set_xlabel('X')
+            # ax.set_ylabel('Y')
+            # ax.set_zlabel('Z')
+            # ax.legend()
+            # plt.show(block=False)
+
+            fig = plt.figure()
+            im = plt.pcolormesh(X_plot, Y_plot, surf_fit_img, shading='auto')
+            cb = plt.colorbar(im)
+            #cb.set_label(self.make_units(self.img_units), rotation=270, labelpad=20)
+            plt.tight_layout()
+            plt.title('Calculated surface fit image')
+            plt.show(block=False)
+        
+        return surf_fit_img, X_plot, Y_plot
+
+
     def bkg_sub(self, type, roi=None, axis=None, data=None, order=None, options=None, debug=True):
         """Could this be its own class?"""
 
@@ -229,91 +302,27 @@ class ImageProc():
 
         
         elif type.lower() == 'surface':
-            # feed list of ROIs or data, and then interpolate surface across this before subtracting
-            # PROBLEM IF THESE OVERLAP??
+
             if roi is None:
                 print("bkg_sub error: No roi provided for type=surface")
             if not isinstance(roi, list):
                 print('bkg_sub error: roi should be list of rois for type=surface')
                 return False
+        
+            if order is not None:
+                bkg_img, X, Y = self.surface_fit(roi, degree=order, debug=debug)
+            else:
+                bkg_img, X, Y = self.surface_fit(roi, debug=debug)
 
             img_data = self.get_img()
-            ROIS = roi
-            XYS = []
-            ZS = []
-            for ROI in ROIS:
-                X = np.linspace(ROI[0][0],ROI[1][0],ROI[1][0]-ROI[0][0]) 
-                Y = np.linspace(ROI[0][1],ROI[1][1],ROI[1][1]-ROI[0][1]) 
-                XYS.append(np.reshape(np.meshgrid(X, Y),(2,-1)).T)
-                Z = img_data[ROI[0][1]:ROI[1][1], ROI[0][0]:ROI[1][0]]
-                ZS.append(np.reshape(Z,(1,-1)).T)
 
-            PXY = np.vstack(XYS)
-            ALLX = PXY[:,0]
-            ALLY = PXY[:,1]
-            ALLZ = np.vstack(ZS)[:,0]
-
-            # Define the degree of the polynomial
-            if order:
-                degree = order
-            else:
-                degree = 2
-            poly = PolynomialFeatures(degree)
-            XY_poly = poly.fit_transform(PXY)
-
-            # Fit the polynomial regression model
-            model = LinearRegression()
-            model.fit(XY_poly, ALLZ)
-
-            # Predict Z values for the fitted surface
-            #Z_pred = model.predict(XY_poly)
-
-            # Plotting the fitted surface
-            X_plot = np.linspace(0, np.shape(img_data)[1], np.shape(img_data)[1]) #np.linspace(ALLX.min(), ALLX.max(), 1000)
-            Y_plot = np.linspace(0, np.shape(img_data)[0], np.shape(img_data)[0]) #np.linspace(ALLY.min(), ALLY.max(), 1000)
-            X_grid, Y_grid = np.meshgrid(X_plot, Y_plot)
-            XY_grid = np.vstack((X_grid.ravel(), Y_grid.ravel())).T
-            bkg_img = model.predict(poly.transform(XY_grid)).reshape(X_grid.shape)
-
-            #
-            # TO DO: Definitely could do with more details on error of fitting. How far is fit from data?
-            #
-            
             if debug:
-                plt.figure()
-                im = plt.imshow(img_data, vmin=np.percentile(img_data, 5), vmax=np.percentile(img_data, 99))
-                cb = plt.colorbar(im)
-                ax = plt.gca()
-                for ROI in ROIS:
-                    rect = patches.Rectangle((ROI[0][0], ROI[0][1]), (ROI[1][0]-ROI[0][0]), (ROI[1][1]-ROI[0][1]), linewidth=1, edgecolor='r', facecolor='none')
-                    ax.add_patch(rect)
-                plt.show(block=False)
-
-                # Plotting the original data points
-                # fig = plt.figure()
-                # ax = fig.add_subplot(111, projection='3d')
-                # ax.scatter(ALLX, ALLY, ALLZ, color='blue', label='Original Data')
-                # ax.plot_surface(X_grid, Y_grid, bkg_img, color='red', alpha=0.5, label='Fitted Surface')
-                # ax.set_xlabel('X')
-                # ax.set_ylabel('Y')
-                # ax.set_zlabel('Z')
-                # ax.legend()
-                # plt.show(block=False)
-
                 fig = plt.figure()
-                im = plt.pcolormesh(X_plot, Y_plot, bkg_img, shading='auto')
-                cb = plt.colorbar(im)
-                #cb.set_label(self.make_units(self.img_units), rotation=270, labelpad=20)
-                plt.tight_layout()
-                plt.title('Calculated Background image')
-                plt.show(block=False)
-
-                fig = plt.figure()
-                im = plt.pcolormesh(X_plot, Y_plot, img_data - bkg_img, vmin=np.percentile(img_data - bkg_img, 10), vmax=np.percentile(img_data - bkg_img, 90), shading='auto')
+                im = plt.pcolormesh(X, Y, img_data - bkg_img, vmin=np.percentile(img_data - bkg_img, 10), vmax=np.percentile(img_data - bkg_img, 90), shading='auto')
                 cb = plt.colorbar(im)
                 ax = plt.gca()
                 #cb.set_label(self.make_units(self.img_units), rotation=270, labelpad=20)
-                for ROI in ROIS:
+                for ROI in roi:
                     rect = patches.Rectangle((ROI[0][0], ROI[0][1]), (ROI[1][0]-ROI[0][0]), (ROI[1][1]-ROI[0][1]), linewidth=1, edgecolor='r', facecolor='none')
                     ax.add_patch(rect)
                 plt.title('Background corrected image')
