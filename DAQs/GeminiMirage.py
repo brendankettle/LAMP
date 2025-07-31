@@ -243,7 +243,8 @@ class GeminiMirage(DAQ):
                                     m = re.search(r'\d+$', os.path.splitext(filename)[0]) # gets last numbers, after extension removed
                                     shotnums.append(int(m.group()))
                                     #print(f"{date} / {run} / {shotnums[-1]}")
-                        shotnums = sorted(shotnums)
+                        # Convert to a set to get unique numbers, then back to a sorted list
+                        shotnums = sorted(list(set(shotnums)))
                     else:
                         print(f'Error; cannot find data folder to scan for shots: {run_folder}')
                         return False
