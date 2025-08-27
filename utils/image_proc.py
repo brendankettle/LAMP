@@ -158,10 +158,11 @@ class ImageProc():
             plt.show(block=False)
 
             # Plotting the original data points
+            # This isn't great; smooth data, subtract fit, then plot 2D image of errors?
             # fig = plt.figure()
             # ax = fig.add_subplot(111, projection='3d')
             # ax.scatter(ALLX, ALLY, ALLZ, color='blue', label='Original Data')
-            # ax.plot_surface(X_grid, Y_grid, bkg_img, color='red', alpha=0.5, label='Fitted Surface')
+            # ax.plot_surface(X_grid, Y_grid, surf_fit_img, color='red', alpha=0.5, label='Fitted Surface')
             # ax.set_xlabel('X')
             # ax.set_ylabel('Y')
             # ax.set_zlabel('Z')

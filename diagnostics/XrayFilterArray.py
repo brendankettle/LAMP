@@ -155,6 +155,8 @@ class XrayFilterArray(Diagnostic):
         # get measured signals through each filter element
         element_signals = self.get_element_signals(shot_dict)
 
+
+        # IS LEASTSQ CORRECT HERE?? scipys minimize function??
         params, pcov, infodict, errmsg, success = leastsq(self.diff_measured_synchrotron, x0=[E_crit_guess,height_guess], args=(eV, shared_throughput, filter_transmissions, element_signals), full_output=True)
         
         # To obtain the covariance matrix of the parameters x, cov_x must be multiplied by the variance of the residuals – see curve_fit.

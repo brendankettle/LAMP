@@ -18,8 +18,11 @@ class Diagnostic():
     Currently this mostly handles loading/saving calibrations.
     """
 
-    calib_dict = {}
     calib_id = None
+    calib_dict = {} # filled when calibrations are loaded
+    calib_dict_fixed = {} # overwrites / persists when new calibration are loaded
+    calib_start = 0 # for keeping track of calibration in shot timeline
+    calib_end = 0 # for keeping track of calibration in shot timeline
 
     def __init__(self, exp_obj, config):
         self.ex = exp_obj # pass in experiment object
@@ -43,16 +46,16 @@ class Diagnostic():
 
     def get_calib(self, calib_id=None, no_proc=False):
         """Take a calibration id of some form, and return calibration dictionary.
-            - = None: Try and use pre-saved calibration dict within object
-            - = Dictionary: Assume a shot dictionary, and look for configuration using dates
-            - = (string) ID String:  Look for a dictionary within the master calibration file, with this ID
-            - = (string) Filepath: Look for a dictionary within a calibration file?
+            - None: Try and use pre-saved calibration dict within object
+            - Dictionary: Assume a shot dictionary, and look for configuration using dates
+            - (string) ID String:  Look for a dictionary within the master calibration file, with this ID
+            - (string) Filepath: Look for a dictionary within a calibration file?
         """
-        # If none passed, try use pre-saved calib input
+        # If none passed, try use pre-saved calib 
         if calib_id is None:
             if self.calib_dict:
                 calib_dict = self.calib_dict
-                return calib_dict # exiting now instead of loading savefile down below? (again?)
+                return calib_dict # returning now, not trying to load processed file
             else:
                 print('get_calib() error; None passed and no calibration loaded yet')
                 return None
@@ -61,24 +64,28 @@ class Diagnostic():
         if isinstance(calib_id, dict):
             shot_dict = calib_id
             shot_time = self.DAQ.build_time_point(shot_dict)
-            # load all calibrations in master file
-            all_calibs = self.load_calib_file(self.config['calib_file'])
-            # loop through calibrations and 
-            calib_dict = None
-            for this_calib_id in all_calibs:
-                if 'start' in all_calibs[this_calib_id]:
-                    start_shot_dict  = all_calibs[this_calib_id]['start']
-                    calib_start  = self.DAQ.build_time_point(start_shot_dict)
-                    end_shot_dict = all_calibs[this_calib_id]['end']
-                    calib_end  = self.DAQ.build_time_point(end_shot_dict)
-                    if shot_time >= calib_start and shot_time <= calib_end:
-                        calib_dict = all_calibs[this_calib_id]
-                        self.calib_id = this_calib_id
-                        #print(f'Using Calibration: {this_calib_id}') # for debugging...
-                        break
-            if not calib_dict:
-                print("get_calib() error; Could not place shot in calibration timeline")        
-                return None
+            # are we already using the correct calibration? Then return dict so we don't keep loading
+            if shot_time >= self.calib_start and shot_time <= self.calib_end:
+                calib_dict = self.calib_dict
+            else:
+                # load all calibrations in master file
+                all_calibs = self.load_calib_file(self.config['calib_file'])
+                # loop through calibrations and 
+                calib_dict = None
+                for this_calib_id in all_calibs:
+                    if 'start' in all_calibs[this_calib_id]:
+                        start_shot_dict  = all_calibs[this_calib_id]['start']
+                        self.calib_start  = self.DAQ.build_time_point(start_shot_dict)
+                        end_shot_dict = all_calibs[this_calib_id]['end']
+                        self.calib_end  = self.DAQ.build_time_point(end_shot_dict)
+                        if shot_time >= self.calib_start and shot_time <= self.calib_end:
+                            calib_dict = all_calibs[this_calib_id]
+                            self.calib_id = this_calib_id
+                            #print(f'Using Calibration: {this_calib_id}') # for debugging...
+                            break
+                if not calib_dict:
+                    print("get_calib() error; Could not place shot in calibration timeline")        
+                    return None
 
         # passing string?
         if isinstance(calib_id, str):
@@ -93,7 +100,7 @@ class Diagnostic():
                 else:
                     # default calibration id set?
                     if 'calib_default' in self.config:
-                        print(f"Using default calibraiton: {self.config['calib_default']}")
+                        print(f"Using default calibration: {self.config['calib_default']}")
                         calib_dict = all_calibs[self.config['calib_default']]
                     else:
                         print(f"get_calib() error; No calibration input ID found for {calib_id} in master calib input file")
@@ -115,8 +122,39 @@ class Diagnostic():
                 else:
                     print(f"get_calib() warning; no processed file found for '{calib_dict['proc_file']}'")
 
+        # load persistent calibs
+        for param in self.calib_dict_fixed:
+            # if self.calib_dict_fixed[param] is dict:
+            #     # setting a whole subset of values?
+            #     for sub_param in self.calib_dict_fixed[param]:
+            #         self.calib_dict[param][sub_param] = self.calib_dict_fixed[param][sub_param]
+            # else:
+            # This should still work if param is a dictionary?
+            calib_dict[param] = self.calib_dict_fixed[param]
+
         return calib_dict
     
+    def fix_calib(self, param, value, remove=False):
+        """This is to add to or overwrite a param in the calibration dictionary, keeping it persistent.
+        An important difference here is that this will stay if a new calibration is loaded.
+        Setting remove=True will no longer keep the calibration value as persistent. 
+        You can either set one last time (using param and value), or it will if value=False, it will be removed completely."""
+
+        if not remove:
+            # update current dict
+            # this should still work if "value" is a dictionary of sub params?
+            self.calib_dict[param] = value 
+            # and keep track of it as fixed param
+            self.calib_dict_fixed[param] = value
+        # removing?
+        else:
+            del self.calib_dict_fixed[param] # no longer persistent
+            if value is False:
+                del self.calib_dict[param] # delete param completely
+            else:
+                self.calib_dict[param] = value # set one last time
+        return
+
     def build_calib_filepath(self, filename):
         if 'calib_subfolder' in self.config:
             calib_subfolder = self.config['calib_subfolder']
@@ -174,12 +212,13 @@ class Diagnostic():
         This can be wrapped by the child function for added functionality.
         """
 
-        # set calibration dictionary (if we need to)
+        # set calibration dictionary
         if calib_id:
             self.calib_dict = self.get_calib(calib_id)
         else:
-            if not self.calib_dict or not len(self.calib_dict):
-                self.calib_dict = self.get_calib(shot_dict)
+            # if not self.calib_dict or not len(self.calib_dict):
+            #     self.calib_dict = self.get_calib(shot_dict)
+            self.calib_dict = self.get_calib(shot_dict)
 
         # TO DO: check if image type, and if not, skip this... although you probably won't call this function if not image?
         # do standard image calibration. Transforms, background, ROIs etc.
@@ -238,7 +277,7 @@ class Diagnostic():
 
         img = ImageProc(data=img_data)
 
-        if 'dark' in self.calib_dict:
+        if 'dark' in self.calib_dict and self.calib_dict['dark'] is not False:
             shot_dicts = self.DAQ.get_shot_dicts(self.config['name'], self.calib_dict['dark']['data']) # darks should be a timeline dict
             # now we have the shot dictionary, check if it's the same as previously loaded, and if so, return saved dark
             dark_img = np.array([])
@@ -259,14 +298,14 @@ class Diagnostic():
                 self.dark_shot_dicts = shot_dicts
             img.subtract(dark_img)
 
-        if 'median_filter' in self.calib_dict:
+        if 'median_filter' in self.calib_dict and self.calib_dict['median_filter'] is not False:
             if 'stage' in self.calib_dict['median_filter'] and self.calib_dict['median_filter']['stage'].lower() == 'original':
                 img.median_filter(size=self.calib_dict['median_filter']['size'])
 
-        if 'background' in self.calib_dict:
+        if 'background' in self.calib_dict and self.calib_dict['background'] is not False:
             if 'stage' in self.calib_dict['background'] and self.calib_dict['background']['stage'].lower() == 'original':
                 do_bkg_sub()
-        if 'background2' in self.calib_dict:
+        if 'background2' in self.calib_dict and self.calib_dict['background2'] is not False:
             if 'stage' in self.calib_dict['background2'] and self.calib_dict['background2']['stage'].lower() == 'original':
                 do_bkg_sub('background2')
 
@@ -283,7 +322,7 @@ class Diagnostic():
         #         # this will probably have to go later? (after transform)
         #         print('To Do! ROI processing for transformed Co-ords... etc.')
 
-        if 'transform' in self.calib_dict:
+        if 'transform' in self.calib_dict and self.calib_dict['transform'] is not False:
             img_data, x, y = self.transform(img_data, self.calib_dict['transform'])
             if debug:
                 plt.figure()
@@ -295,7 +334,7 @@ class Diagnostic():
                 plt.show(block=False)
         else:
             # non-transform functions
-            if 'img_rotation' in self.calib_dict:
+            if 'img_rotation' in self.calib_dict and self.calib_dict['img_rotation'] is not False:
                 img_data = ndimage.rotate(img_data, self.calib_dict['img_rotation'], reshape=False)
 
             if 'flipud' in self.calib_dict and self.calib_dict['flipud']:
@@ -323,7 +362,7 @@ class Diagnostic():
             img_data = reconstruction(seed, mask, method='erosion')
 
         # change orientation? landscape or portrait
-        if 'orientate' in self.calib_dict:
+        if 'orientate' in self.calib_dict and self.calib_dict['orientate'] is not False:
             if self.calib_dict['orientate'].lower() == 'transpose':
                 img_data = np.transpose(img_data)
             elif self.calib_dict['orientate'].lower() == 'acw':
@@ -338,14 +377,14 @@ class Diagnostic():
         # Fix! switching back to img object again...
         img = ImageProc(data=img_data)
 
-        if 'median_filter' in self.calib_dict:
+        if 'median_filter' in self.calib_dict and self.calib_dict['median_filter'] is not False:
             if 'stage' in self.calib_dict['median_filter'] and self.calib_dict['median_filter']['stage'].lower() == 'transformed':
                 img.median_filter(size=self.calib_dict['median_filter']['size'])
 
-        if 'background' in self.calib_dict:
+        if 'background' in self.calib_dict and self.calib_dict['background'] is not False:
             if 'stage' in self.calib_dict['background'] and self.calib_dict['background']['stage'].lower() == 'transformed':
                 do_bkg_sub()
-        if 'background2' in self.calib_dict:
+        if 'background2' in self.calib_dict and self.calib_dict['background2'] is not False:
             if 'stage' in self.calib_dict['background2'] and self.calib_dict['background2']['stage'].lower() == 'transformed':
                 do_bkg_sub('background2')
 
