@@ -19,7 +19,7 @@ class ZEUSAug2025(DAQ):
     def _build_shot_filepath(self, diag_folder, date, run_folder, shotnum, ext, data_stem=None, burst_folder='Burst0001'):
         """This is used internally, and so can be DAQ specific"""
         # Using Apollo DAQ format:
-        if not data_stem:
+        if data_stem is not None:
             data_stem = f'{diag_folder}_'
         shot_filepath = Path(f'{self.data_folder}/{date}/{run_folder}/{burst_folder}/{diag_folder}/{data_stem}shot_{str(shotnum).zfill(5)}.{ext}')
         # .tif or .tiff??? this is definitely a bodge...

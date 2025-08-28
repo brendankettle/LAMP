@@ -19,27 +19,21 @@ class Apollo(DAQ):
     
     def _build_shot_filepath(self, diag_folder, date, run_folder, shotnum, ext, data_stem=None, burst_folder='Burst0001'):
         """This is used internally, and so can be DAQ specific"""
-        # Try new DAQ; file structure changed after shots on 15th, but before shots on 19th September. Then back to Apollo later...
-        shot_filepath_try = Path(f'{self.data_folder}/{date}/{run_folder}/{diag_folder}/shot{str(shotnum)}.{ext}')
 
-        if shot_filepath_try.is_file():
-            shot_filepath = shot_filepath_try
-        else:
-            # check for Apollo format instead?
-            if not data_stem:
-                data_stem = f'{diag_folder}_'
+        if data_stem is not None:
+            data_stem = f'{diag_folder}_'
+        shot_filepath = Path(f'{self.data_folder}/{date}/{run_folder}/{burst_folder}/{diag_folder}/{data_stem}shot_{str(shotnum).zfill(5)}.{ext}')
+        # .tif or .tiff??? this is definitely a bodge...
+        if not shot_filepath.is_file():
+            if ext.lower() == 'tif':
+                ext = 'tiff'
+            elif ext.lower() == 'tiff':
+                ext = 'tif'
             shot_filepath = Path(f'{self.data_folder}/{date}/{run_folder}/{burst_folder}/{diag_folder}/{data_stem}shot_{str(shotnum).zfill(5)}.{ext}')
-            # .tif or .tiff??? this is definitely a bodge...
-            if not shot_filepath.is_file():
-                if ext.lower() == 'tif':
-                    ext = 'tiff'
-                elif ext.lower() == 'tiff':
-                    ext = 'tif'
-                shot_filepath = Path(f'{self.data_folder}/{date}/{run_folder}/{burst_folder}/{diag_folder}/{data_stem}shot_{str(shotnum).zfill(5)}.{ext}')
 
 
         if not shot_filepath.is_file():
-            print(f'Error, Could not find {str(shot_filepath_try)} or {str(shot_filepath)}') 
+            print(f'Error, Could not find {str(shot_filepath)}') 
             return False
         
         return shot_filepath
