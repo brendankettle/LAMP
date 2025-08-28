@@ -82,7 +82,8 @@ class Apollo(DAQ):
         # TODO: This could be a non-image filte type...
         else:
             # look for file first
-            shot_filepath = os.path.join(Path(self.data_folder), Path(shot_dict.lstrip('\/')))
+            #shot_filepath = os.path.join(Path(self.data_folder), Path(shot_dict.lstrip('\/')))
+            shot_filepath = os.path.join(os.path.normpath(self.data_folder.replace('\\', '/')), os.path.normpath(shot_dict.replace('\\', '/')))
             if os.path.exists(shot_filepath):
                 filepath_no_ext, file_ext = os.path.splitext(shot_filepath)
                 img_exts = {".tif",".tiff"}
