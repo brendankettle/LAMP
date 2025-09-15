@@ -280,6 +280,10 @@ class Material():
         self.material = self.engine.parse_formula(material)
         self.density = density
 
+        # BK added
+        if len(self.material) == 0:
+            print(f'Warning, pyNist, unrecognised material: {material}')
+
         ## handle energies = None case 
         # load energies of first element to use as base
 
@@ -324,6 +328,7 @@ class Material():
     def get_transmission(self, thickness):
         ''' calculates the transmission of x-rays through a layer:
         * thickness must be in mm '''
+        self.sigma[self.sigma<0] = -self.sigma[self.sigma<0] # bug fix for some errornaeous data, e.g. in Ni?
         return np.exp(-self.sigma*self.density*(thickness*0.1))
 
     def get_absorption(self, thickness):
