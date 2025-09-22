@@ -520,3 +520,82 @@ class ImageProc():
         self.y = self.tform_dict['y']
 
         return self.get_img(), self.x, self.y
+    
+    def blob_filter(self, threshold = 50, size=1, img_max=pow(2,16), debug=False):
+        """Wrapper for OpenCV functions
+        TODO: Add the option to pass the other arguments; interia, convexity etc."""
+
+        # need to first conver to 8 bit
+        blob_img = self.get_img().copy()
+        blob_img[blob_img<0] = 0 # assume no negatives (background corrected)
+        blob_img = (blob_img / img_max) * 255 # can't normalise to max, should be normalise to maximum POSSIBLE counts
+        blob_img = blob_img.astype(np.uint8) 
+
+        # Setup SimpleBlobDetector parameters
+        params = cv.SimpleBlobDetector_Params()
+        # Thresholds for binarization
+        params.minThreshold = threshold 
+        params.maxThreshold = 255
+        params.thresholdStep = 1
+        # Filter by colour ??
+        params.filterByColor = False
+        #params.blobColor = 255 # this might just be zero or 255, whether you are looking for dark or bright?
+        # Filter by Area
+        params.filterByArea = True
+        params.minArea = size
+        # Filter by Circularity
+        params.filterByCircularity = False
+        #params.minCircularity = 0.1
+        # Filter by Convexity
+        params.filterByConvexity = False
+        #params.minConvexity = 0.87
+        # Filter by Inertia
+        params.filterByInertia = False
+        #params.minInertiaRatio = 0.01
+        # Create a detector with the parameters
+        detector = cv.SimpleBlobDetector_create(params)
+
+        # Detect blobs
+        keypoints = detector.detect(blob_img)
+
+        if len(keypoints) > 0:
+            img = self.get_img()
+            # https://docs.opencv.org/3.4/d2/d29/classcv_1_1KeyPoint.html
+            sizes = []
+            blobs = []
+            responses = []
+            #plt.figure()
+            ymax = np.shape(img)[0]
+            xmax = np.shape(img)[1]
+            for keypoint in keypoints:
+                x = keypoint.pt[0]
+                y = keypoint.pt[1]
+                size = keypoint.size
+                #plt.scatter(x,y,size)
+                sizes.append(size)
+                responses.append(keypoint.response) #??
+                y1 = min(ymax,max(0,int(np.floor(y-size)-1)))
+                y2 = min(ymax,max(0,int(np.ceil(y+size)+1)))
+                x1 = min(xmax,max(0,int(np.floor(x-size)-1)))
+                x2 = min(xmax,max(0,int(np.ceil(x+size)+1)))
+                blobs.append(img[y1:y2,x1:x2].copy())
+                median = int(np.median(img[y1:y2,x1:x2]))
+                img[y1:y2,x1:x2] = np.ones(np.shape(img[y1:y2,x1:x2])) * median
+                if debug:
+                    print(f'Blob replaced: x={x}, y={y}, size={size}, max={np.max(blobs[-1])}. Median: {median}')
+
+            if debug:
+                # print(f'{len(keypoints)} blobs removed.')
+                # plt.figure()
+                # im = plt.imshow(blob_img, vmin=0, vmax=255)
+                # plt.colorbar(im)
+                # plt.show(block=False)
+                for blob in blobs:
+                    plt.figure()
+                    im = plt.imshow(blob)
+                    plt.colorbar(im)
+                    plt.show(block=False)
+
+            self.set_img(img)
+
+        return self.get_img(), len(keypoints)

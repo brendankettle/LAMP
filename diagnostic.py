@@ -243,6 +243,7 @@ class Diagnostic():
         """Central wrapper function for processing image data using calibration"""
 
         # background correction wrapper called at the appropriate stage
+        # this could definitely be nicer... use kwargs
         def do_bkg_sub(calib_label='background'):
             if 'type' not in self.calib_dict[calib_label]:
                 print(f'run_img_calib() error: {calib_label} error: No type set')
@@ -271,6 +272,7 @@ class Diagnostic():
 
         # if img_data is passed as a shot dictionary or filepath, grab the actual image
         if isinstance(img_data, dict) or isinstance(img_data, str):
+            shot_dict = img_data
             img_data = self.get_shot_data(img_data)
             if img_data is None: # no file found
                 return None, None, None
@@ -297,6 +299,17 @@ class Diagnostic():
                 self.dark_img = dark_img
                 self.dark_shot_dicts = shot_dicts
             img.subtract(dark_img)
+
+        if 'blob_filter' in self.calib_dict and self.calib_dict['blob_filter'] is not False:
+            kwargs = {}
+            for param in ['threshold', 'size', 'img_max', 'debug']:
+                if param in self.calib_dict['blob_filter']: 
+                    kwargs[param] = self.calib_dict['blob_filter'][param]
+            _, num_blobs = img.blob_filter(**kwargs)
+            if num_blobs> 0 and (debug or ('debug' in self.calib_dict['blob_filter'] and self.calib_dict['blob_filter']['debug'])):
+                if 'shot_dict' in locals():
+                    shot_dict_str = f'({shot_dict})'
+                print(f'{num_blobs} removed. {shot_dict_str}')
 
         if 'median_filter' in self.calib_dict and self.calib_dict['median_filter'] is not False:
             if 'stage' in self.calib_dict['median_filter'] and self.calib_dict['median_filter']['stage'].lower() == 'original':
