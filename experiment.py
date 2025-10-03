@@ -202,7 +202,7 @@ class Experiment:
         db = Results(self, self.config, db_name)
         return db
 
-    def make_call_calibs(self):
+    def make_all_calibs(self):
         """Loop through all diagnostics, for each, loop through calibrations, if proc file set, make"""
         for diag_name in self.diags.keys():
             print(f"Making calibrations for {diag_name} [{self.diag_config[diag_name]['type']}]")
