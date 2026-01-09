@@ -13,7 +13,7 @@ pip install lamp
 Or to upgrade to the latest version;
 
 ```
-pip upgrade lamp
+pip install lamp --upgrade
 ```
 
 For a list of required packages please see the [documentation](https://github.com/brendankettle/LAMP/blob/main/docs/UserGuide.md).
