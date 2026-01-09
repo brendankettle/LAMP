@@ -93,7 +93,7 @@ def create_montage(images, x_roi=None, y_roi=None, x_downsample=1, y_downsample=
 
     return montage, x_locs
 
-def plot_montage(images, x_roi=None, y_roi=None, axis=None, x_downsample=1, y_downsample=1, title='', num_rows=1, transpose=True, shot_labels=None, y_label=None, cb_label=None, vmin=None, vmax=None):
+def plot_montage(images, x_roi=None, y_roi=None, axis=None, x_downsample=1, y_downsample=1, title='', num_rows=1, transpose=False, shot_labels=None, y_label=None, cb_label=None, vmin=None, vmax=None, colormap='plasma', colormap_option=None):
     """ images should be an [m, n, count] array of images, where m = Y size, n = X size
     ROI values in image pixels - probably easier to handle ROIs before this function?
     num_rows currently only works for =1"""
@@ -134,7 +134,7 @@ def plot_montage(images, x_roi=None, y_roi=None, axis=None, x_downsample=1, y_do
 
     fig = plt.figure()
     ax = plt.gca()
-    im = ax.pcolormesh(xaxis, yaxis, montage, vmin=vmin, vmax=vmax, shading='auto')
+    im = ax.pcolormesh(xaxis, yaxis, montage, vmin=vmin, vmax=vmax, shading='auto', cmap=get_colormap(colormap, option=colormap_option))
     ax.set_ylabel(y_label)
     ax.set_title(title, y=-0.2)
     divider = make_axes_locatable(ax)

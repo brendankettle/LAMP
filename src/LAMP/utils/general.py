@@ -73,3 +73,22 @@ def first_index(haystack, needle, side='left', cut='low'):
         print('Error, unknown "side" argument for first_index. Allowed options are "left" or "right"')
 
     return idx
+
+def gaussian(x, A, x0, FWHM, H=0):
+    sigma = FWHM / 2.35482 
+    return H + A * np.exp(-(x - x0)**2 / (2 * sigma**2))
+
+def gauss_conv(x,y,gFWHM,cmode='same'):
+    """Convolve a gaussian of certain FWHM with x and y data.
+    gFWHM units are in x units"""
+    # make gaussian, with same x scale step
+    dx = np.mean(np.diff(x))
+    #print(dx)
+    gx = np.linspace(-2*gFWHM,2*gFWHM, int((4*gFWHM)/dx))
+    #print(np.mean(np.diff(gx)))
+    gauss = gaussian(gx,A=1,x0=0,FWHM=gFWHM)
+    # convolve with data
+    conv_y = np.convolve(y,gauss,mode=cmode)
+    # normalise??
+    conv_y = conv_y / np.sum(gauss)
+    return conv_y

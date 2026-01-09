@@ -1,4 +1,4 @@
-import os
+import os, sys
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -55,9 +55,17 @@ class Results():
         print(f'Results database saved: {self.db_filepath}') # Temp?
         return
         
-    def add(self, shot_dict, name, value, description='', details='', user='', script='', overwrite=True):
+    def add(self, name, value, shot_dict=None, description='', details='', user='', script='', overwrite=True, save=True):
 
+        # if shot_dict is empty (''), make a blank dictionary, save as general data
+        if shot_dict == '' or shot_dict is None: 
+            multi_index_names = self.db.index.names # work out what is in shot dictionary
+            shot_dict_names = multi_index_names[:-1]# last one is "name"
+            shot_dict = {v:'' for v in shot_dict_names} # turn into dictionary
         indexes = self.make_index(shot_dict, name)
+
+        if not script:
+            script = sys.argv[0] # __file__
 
         data_dict = {'value': value, 'description': description, 'details': details, 'user': user, 'script': script, 'timestamp': time.time()}
 
@@ -71,10 +79,20 @@ class Results():
             #print('Exists') # temp
             self.db.loc[index_values] = data_dict
 
+        # save by default (turn off if you are adding lots of rows, but don't want to filewrite each time?)
+        if save:
+            self.db.to_pickle(self.db_filepath)
+
         return
     
-    def get(self, shot_dict, name, info=False):
+    def get(self, name, shot_dict=None, info=False):
     
+        # if shot_dict is empty (''), make a blank dictionary, assuming getting general data
+        if shot_dict == '' or shot_dict is None: 
+            multi_index_names = self.db.index.names # work out what is in shot dictionary
+            shot_dict_names = multi_index_names[:-1]# last one is "name"
+            shot_dict = {v:'' for v in shot_dict_names} # turn into dictionary
+
         # can this work? if missing an index, remove from this (temporary) copy of dataframe
         df = self.db
         # for dict_key in shot_dict:
@@ -120,7 +138,14 @@ class Results():
         unique_shots = shot_df.index.droplevel(name_level).to_flat_index().unique().to_list()
         return unique_shots
     
-    def delete(self, shot_dict, name=''):
+    def delete(self, name, shot_dict=None):
+        
+        # if shot_dict is empty (''), make a blank dictionary, assuming getting general data
+        if shot_dict == '' or shot_dict is None: 
+            multi_index_names = self.db.index.names # work out what is in shot dictionary
+            shot_dict_names = multi_index_names[:-1]# last one is "name"
+            shot_dict = {v:'' for v in shot_dict_names} # turn into dictionary
+
         # print(self.make_index_values(shot_dict, name))
         self.db = self.db.drop(index=self.make_index_values(shot_dict, name))
         #print(self.db.head())

@@ -1,5 +1,5 @@
 import os
-from configparser import ConfigParser, ExtendedInterpolation
+#from configparser import ConfigParser, ExtendedInterpolation
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -623,7 +623,7 @@ class Diagnostic():
 
         return fig, plt.gca()
     
-    def montage(self, timeframe, calib_id=None, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1, axis_label = '', cb_label='', debug=False):
+    def montage(self, timeframe, calib_id=None, x_roi=None, y_roi=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=False, num_rows=1, axis_label = '', cb_label='', colormap='plasma', colormap_option=None, debug=False):
         """Default wrapper function. This can be overwritten by diagnostic with more options
         The diagnostic itslef needs to have a get_proc_shot() defined.
         Also the DAQ has to have get_shot_dicts()"""
@@ -669,6 +669,6 @@ class Diagnostic():
         # cb_label = self.make_units(self.img_units)
 
         fig, ax = plot_montage(images, axis=axis, x_downsample=x_downsample, y_downsample=y_downsample, title=self.shot_string(timeframe), 
-                               vmin=vmin, vmax=vmax, transpose=transpose, cb_label=cb_label, y_label=axis_label, num_rows=num_rows, shot_labels=shot_labels)
+                               vmin=vmin, vmax=vmax, transpose=transpose, cb_label=cb_label, y_label=axis_label, num_rows=num_rows, shot_labels=shot_labels, colormap=colormap, colormap_option=colormap_option)
 
         return fig, ax

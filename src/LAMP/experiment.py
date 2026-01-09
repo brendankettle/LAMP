@@ -12,13 +12,13 @@ class Experiment:
         """LAMP entry point. Load config, load DAQ, add diagnostics"""
 
         # Load local config
-        local_config_filepath = Path(root_folder + local_config)
+        local_config_filepath = Path(root_folder) / Path(local_config)
         if not os.path.exists(local_config_filepath):
             raise Exception(f'Problem finding local config file: {local_config_filepath}')
         local_config = load_file(local_config_filepath)
 
         # load global config and save to object
-        global_config_filepath = Path(root_folder + global_config)
+        global_config_filepath = Path(root_folder) / Path(global_config)
         if not os.path.exists(global_config_filepath):
             raise Exception(f'Problem finding global config file: {global_config_filepath}')
         self.config = load_file(global_config_filepath)
@@ -74,7 +74,7 @@ class Experiment:
 
         # loop through diagnostics and add
         self.diags = {}
-        diag_config_filepath = Path(root_folder + diagnostics)
+        diag_config_filepath = Path(root_folder) / Path(diagnostics)
         if os.path.exists(diag_config_filepath):
             self.diag_config = load_file(diag_config_filepath)
             for diag_name in self.diag_config: 
@@ -84,7 +84,7 @@ class Experiment:
         # loop through metas and add
         # To Do: Not really made use of this yet... Meant for shot sheets etc.
         self.metas = {}
-        meta_config_filepath = Path(root_folder + 'metas.toml')
+        meta_config_filepath = Path(root_folder) / Path('metas.toml')
         if os.path.exists(meta_config_filepath):
             self.meta_config = load_file(meta_config_filepath)
             for meta_name in self.meta_config: 

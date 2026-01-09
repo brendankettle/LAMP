@@ -1,0 +1,93 @@
+# Calibration  files use the TOML language: https://toml.io/en/
+# Each different calibration should have it's own entry of the following format;
+# [calibration_id]
+#   notes = 'Some calibration notes'
+#   proc_file = 'OutPutFileName.pkl' # if making processed details elsewhere...
+#   start = {A Shot dictionary} # e.g. {date = 20240110, run = 'run01', shot = 0}
+#   end = {A Shot dictionary} # e.g. {date = 20240110, run = 'run01', shot = 0}
+#   ...
+
+[20250124]
+    notes = 'Initial Calibration'
+    proc_file = 'ESpec_calib.pkl'
+    start = {date = 20250124, run = 'run01', shot = 0}
+    end = {date = 20250202, run = 'run01', shot = 0}
+
+    [20250124.transform]
+    description = "20250124 spatial calibration"
+    raw_img = {date = 20250124, run = 'cal01', shotnum = 1} #'/calibrations/ESpec/20241225_espec.tiff' # can be filepath or shot dict?
+    # E.g. tpoints = [[x1_px, y1_px], [x1_mm, y1_mm], ... ]
+    tpoints = [
+        [1999,1066], [0, 0],
+        [1190,1057], [200, 0],
+        [355,1048], [412, 0],
+        [1995,1353], [0, 71],
+        [1187,1349], [200, 71],
+        [353,1328], [412, 71],
+        ]
+    img_size_t = [412,71]
+    offsets = [0,0]
+    e_offsets = [-47,35] # if displacement doesn't start at zero point on lanex, some shift off, can define here?
+    img_size_px = [4120,710]
+    notes = ""   
+
+    [20250124.background] # needs checked!!
+    stage = 'transformed'
+    type = 'gradient' 
+    axis = 'horizontal'
+    order = 6
+    roi =  [[500,50],[4100,150]] # this is still pixels even though its transformed??
+
+    [20250124.dispersion]
+    filename = "eSpec_disp_20250124_screen_m_E_MeV.csv"
+    spatial_units = "m"
+    spectral_units = "MeV"
+    axis = "x"
+
+    [20250124.divergence]
+    # TODO: Allow this to be a function of pixel
+    mm_to_screen = 1550 # Guess! 
+    axis = "y"
+
+[20250203]
+    notes = 'Initial Calibration'
+    proc_file = 'eSpec_calib_20250203.pkl'
+    start = {date = 20250203, run = 'run01', shot = 0}
+    end = {date = 20250331, run = 'run99', shot = 0}
+
+    [20250203.transform]
+    description = "20250203 spatial calibration"
+    raw_img = {date = 20250203, run = 'ref02', shotnum = 1} #'/calibrations/ESpec/20241225_espec.tiff' # can be filepath or shot dict?
+    # E.g. tpoints = [[x1_px, y1_px], [x1_mm, y1_mm], ... ]
+    tpoints = [
+        [2444,1086], [0, 0], # 
+        [1293,1072], [200, 0],
+        [86,1063], [412, 0],
+        [2442,1496], [0, 71],
+        [1293,1482], [200, 71],
+        [78,1482], [412, 71],
+        ]
+    img_size_t = [412,71]
+    offsets = [0,0]
+    e_offsets = [-47,35] # if displacement doesn't start at zero point on lanex, some shift off, can define here?
+    img_size_px = [4120,710]
+    notes = ""   
+
+    [20250203.background] # needs checked!!
+    stage = 'transformed'
+    type = 'gradient' 
+    axis = 'horizontal'
+    order = 6
+    #roi =  [[100,50],[4100,100]] # this is still pixels even though its transformed??
+    roi =  [[100,600],[4100,650]] # this is still pixels even though its transformed??
+
+    [20250203.dispersion]
+    filename = "eSpec_disp_20250124_screen_m_E_MeV.csv"
+    spatial_units = "m"
+    spectral_units = "MeV"
+    axis = "x"
+
+    [20250203.divergence]
+    # TODO: Allow this to be a function of pixel
+    mm_to_screen = 1400 # Guess! 
+    axis = "y"

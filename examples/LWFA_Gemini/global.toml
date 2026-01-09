@@ -1,0 +1,5 @@
+[setup]
+DAQ = 'GeminiMirage'
+
+[paths]
+calibs_folder = './calibs/' 

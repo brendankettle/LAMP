@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lamp"
+version = "0.1.0"
+authors = [
+  { name="Brendan Kettle", email="b.kettle@imperial.ac.uk" },
+]
+description = "Laser-plasma Analysis for Multiple Platforms"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "BSD-3-Clause"
+license-files = [
+    "LICENSE",
+]
+
+dependencies = [
+    "numpy",
+    "matplotlib",
+    "pathlib",
+    "toml",
+    "pickle",
+    "json",
+    "scipy",
+    "scikit-image",
+    "scikit-learn",
+    "opencv-python",
+]
+
+[project.urls]
+Homepage = "https://github.com/brendankettle/LAMP"
+Issues = "https://github.com/brendankettle/LAMP/issues"

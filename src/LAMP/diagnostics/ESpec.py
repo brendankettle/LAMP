@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from scipy.interpolate import interp1d
 from scipy.signal import savgol_filter
 import re
@@ -646,7 +645,7 @@ class ESpec(Diagnostic):
     # PLOTTING FUNCTIONS
     # ------------------------------------------------------ #
 
-    def montage(self, timeframe, calib_id=None, roi_MeV=None, roi_mrad=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1, debug=False):
+    def montage(self, timeframe, calib_id=None, roi_MeV=None, roi_mrad=None, x_downsample=1, y_downsample=1, exceptions=None, vmin=None, vmax=None, transpose=True, num_rows=1, colormap='electron_beam', colormap_option=5, debug=False):
         """Wrapper for diagnostic make_montage() function, mainly to set axis"""
 
         if calib_id:
@@ -696,7 +695,7 @@ class ESpec(Diagnostic):
         cb_label = self.make_units(self.img_units)
 
         fig, ax = plot_montage(images, axis=axis, x_downsample=x_downsample, y_downsample=y_downsample, title=self.shot_string(timeframe), 
-                               vmin=vmin, vmax=vmax, transpose=transpose, cb_label=cb_label, y_label=axis_label, num_rows=num_rows, shot_labels=shot_labels)
+                               vmin=vmin, vmax=vmax, transpose=transpose, cb_label=cb_label, y_label=axis_label, num_rows=num_rows, shot_labels=shot_labels, colormap=colormap, colormap_option=colormap_option)
 
         return fig, ax
 
@@ -704,7 +703,7 @@ class ESpec(Diagnostic):
         return ''.join(units)
 
 
-    def plot_proc_shot(self, shot_dict, calib_id=None, roi_MeV=None, roi_mrad=None, vmin=None, vmax=None, colormap='electron_beam', colormap_cut=5, debug=False):
+    def plot_proc_shot(self, shot_dict, calib_id=None, roi_MeV=None, roi_mrad=None, vmin=None, vmax=None, colormap='electron_beam', colormap_option=5, debug=False):
 
         # below still assumes X = spectral, Y =  divergence
         espec_img, x, y = self.get_proc_shot(shot_dict,calib_id=calib_id,roi_MeV=roi_MeV, roi_mrad=roi_mrad, debug=debug)
@@ -716,7 +715,7 @@ class ESpec(Diagnostic):
             vmax = np.percentile(espec_img,99)
 
         fig = plt.figure()
-        im = plt.pcolormesh(x, y, espec_img, vmin=vmin, vmax=vmax, cmap=get_colormap(colormap, option=colormap_cut), shading='auto')
+        im = plt.pcolormesh(x, y, espec_img, vmin=vmin, vmax=vmax, cmap=get_colormap(colormap, option=colormap_option), shading='auto')
         cb = plt.colorbar(im)
         cb.set_label(self.make_units(self.img_units), rotation=270, labelpad=20)
         plt.title(self.shot_string(shot_dict))
@@ -751,3 +750,5 @@ class ESpec(Diagnostic):
         plt.show(block=False)
 
         return fig
+    
+    # To Do: plot_spectra(self, timeframe):

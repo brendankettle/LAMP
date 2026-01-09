@@ -77,7 +77,10 @@ def save_npy(filepath, data):
 
 def load_csv(filepath, delimiter=',', col_dtypes=None, skip_header=0): # cold_dtypes=float
     # Pandas might be better here? problems with mixed data types...
-    return np.genfromtxt(Path(filepath), delimiter=delimiter, dtype=col_dtypes, skip_header=skip_header, encoding=None)
+    data = np.genfromtxt(Path(filepath), delimiter=delimiter, dtype=col_dtypes, skip_header=skip_header, encoding=None)
+    if type(data[0]) == np.void: # if problems loading datatypes, try to return an array
+        data = np.array(list(map(list, data))) 
+    return data
 
 def save_csv(filepath, data, delimiter=","):
     return np.savetxt(filepath, data, delimiter=delimiter)
@@ -88,7 +91,7 @@ def load_pickle(filepath):
 
 def save_pickle(filepath, data):
     with open(Path(filepath), 'wb') as handle:
-        pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(data, handle, protocol=4)#pickle.HIGHEST_PROTOCOL) # use version 4 so some people don't break the loading for earlier python versions
     return
 
 def load_json(filepath):
