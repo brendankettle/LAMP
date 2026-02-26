@@ -70,8 +70,19 @@ class GeminiMirage(DAQ):
         """Read an export eCat csv file to a pandas dataframe"""
         if not filepath:
             filepath = self.config['eCat_file']
-        full_filepath = Path(os.path.join(self.data_folder,filepath))
-        if not os.path.exists(Path(full_filepath)):
+        # try a few different locations
+        full_filepath = None
+        trail_filepaths = [
+            Path(filepath),
+            Path(self.data_folder) / Path(filepath),
+            Path(self.ex.config['paths']['root']) / Path(filepath),
+        ]
+        if 'metas_folder' in self.ex.config['paths']:
+            trail_filepaths.append(Path(self.ex.config['paths']['root']) / Path(self.ex.config['paths']['metas_folder']) / Path(filepath))
+        for trail_filepath in trail_filepaths:
+            if os.path.exists(trail_filepath):
+                full_filepath = trail_filepath
+        if not full_filepath:
             print(f'Gemini eCat Database Error; {full_filepath} not found')
         self.eCat_db = pd.read_csv(full_filepath)
         return self.eCat_db
@@ -139,13 +150,15 @@ class GeminiMirage(DAQ):
             return False
 
     def get_filepath(self, diag_name, shot_dict):
-        """Required function to return shot filepath, given the diagnostic name and a shot dict (or filename str)"""
+        """Required function to return shot filepath, given the diagnostic name and a shot dict (or filename str or path)"""
 
         diag_config = self.ex.diags[diag_name].config
 
         # Check if shot_dict is not dictionary; could just be filepath
         if isinstance(shot_dict, str):
             shot_filepath = Path(f'{self.data_folder}/{shot_dict}') # should this be diagnostic folder?
+        elif isinstance(shot_dict, Path):
+            shot_filepath = Path(self.data_folder) / shot_dict
         else:
             required = ['data_folder','data_ext','data_type']
             for param in required:
@@ -192,6 +205,11 @@ class GeminiMirage(DAQ):
         To Do: Still need to add burst support!
         """
 
+        # if we get a list, assume it is already a list of shot_dicts and just return
+        # this might seem silly, but it gives the user an option of defining a list of shots for some embedded functions
+        if isinstance(timeframe, list):
+            return timeframe # which is really probably shot_dicts
+        
         diag_config = self.ex.diags[diag_name].config
         diag_folder = f"{self.data_folder}/{diag_config['data_folder']}"
 
@@ -206,8 +224,10 @@ class GeminiMirage(DAQ):
                     # add filename to list (quick bodge here to try and catch only real date folders)
                     if len(dir_name) == 8:
                         dates.append(int(dir_name))
+        # define a dictionary of dates
         elif isinstance(timeframe, dict) and 'dates' in timeframe:
             dates = timeframe['dates']
+        # dictionary with one date
         elif isinstance(timeframe, dict) and 'date' in timeframe:
             dates = [timeframe['date']]
 

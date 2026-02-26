@@ -80,6 +80,7 @@ class Apollo(DAQ):
 
         # raw filepath?
         # TODO: This could be a non-image filte type...
+        # TODO: Tidy this up! Use Path() and check if is str or Path - See GeminiMirage DAQ
         else:
             # look for file first
             #shot_filepath = os.path.join(Path(self.data_folder), Path(shot_dict.lstrip('\/')))
