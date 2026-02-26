@@ -19,13 +19,13 @@ class ImageProc():
         - ?
     """
 
-    img_data = None
-    tform_dict = None
-
     def __init__(self, filepath=None, data=None):
+        self.img_data = None
+        self.tform_dict = None
+    
         if data is not None:
             self.set_img(data)
-        elif not isinstance(filepath, str):
+        elif not isinstance(filepath, (str,Path)):
             data = filepath
             self.set_img(data) # assume data passed first? (not filepath string)
         elif filepath is not None:
@@ -46,6 +46,8 @@ class ImageProc():
     def load_img(self, filepath):
         # Only if not using DAQ...
         #img = imread(Path(filepath)).astype(float)
+        if isinstance(filepath, Path):
+            filepath = str(filepath)
         img = cv.imread(filepath, cv.IMREAD_UNCHANGED).astype(float)
         assert img is not None, f"file could not be read, check with os.path.exists(): {filepath}"
         self.set_img(img)
@@ -182,6 +184,11 @@ class ImageProc():
 
     def bkg_sub(self, type, roi=None, axis=None, data=None, order=None, options=None, debug=True):
         """Could this be its own class?"""
+
+        #
+        # To Do: Would be good to be able to pass a mask for pixels to surface fit to.
+        # Also different types of surface fits?
+        #
 
         # switch between background type
         if type.lower() == 'img':
