@@ -23,6 +23,8 @@ def load_file(filepath, file_type=None, options=None):
             data = load_npy(filepath)
         elif file_ext.lower() == '.toml':
             data = load_toml(filepath)
+        elif file_ext.lower() == '.txt':
+            data = load_text(filepath, options)
         elif file_ext.lower() == '.tif':
             data = image.imread(filepath)
         else:
@@ -39,6 +41,8 @@ def load_file(filepath, file_type=None, options=None):
         data = load_toml(filepath)
     elif file_type.lower() == 'tif':
         data = image.imread(filepath)
+    elif file_type.lower() == 'txt' or file_type.lower() == 'text':
+        data = load_text(filepath, options)
     else:
         print(f"IO error; load_file(); no known type '{file_type}'")
     return data
@@ -68,6 +72,40 @@ def save_file(filepath, data, file_type=None, options=None):
 #
 # TODO: Look for these functions automatically in some subfolder? (and import)
 #
+
+def load_text(filepath, options=None):
+
+    if not isinstance(options, dict):
+        options = {}
+
+    if 'dtype' in options:
+        dtype = options['dtype']
+    else:
+        dtype = float
+    if 'comments' in options:
+        comments = options['comments']
+    else:
+        comments = '#'
+    if 'delimiter' in options:
+        delimiter = options['delimiter']
+    else:
+        delimiter = None
+    if 'skip_header' in options:
+        skip_header = options['skip_header']
+    else:
+        skip_header = 0
+    if 'skip_footer' in options:
+        skip_footer = options['skip_footer']
+    else:
+        skip_footer = 0
+    if 'usecols' in options:
+        usecols = options['usecols']
+    else:
+        usecols = None
+
+    data = np.genfromtxt(filepath, dtype=dtype, comments=comments, delimiter=delimiter, skip_header=skip_header, skip_footer=skip_footer, usecols=usecols)
+
+    return data
 
 def load_npy(filepath):
     return np.load(Path(filepath))
