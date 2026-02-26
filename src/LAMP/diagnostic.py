@@ -18,12 +18,6 @@ class Diagnostic():
     Currently this mostly handles loading/saving calibrations.
     """
 
-    calib_id = None
-    calib_dict = {} # filled when calibrations are loaded
-    calib_dict_fixed = {} # overwrites / persists when new calibration are loaded
-    calib_start = 0 # for keeping track of calibration in shot timeline
-    calib_end = 0 # for keeping track of calibration in shot timeline
-
     def __init__(self, exp_obj, config):
         self.ex = exp_obj # pass in experiment object
         self.DAQ = self.ex.DAQ # shortcut to DAQ
@@ -31,6 +25,16 @@ class Diagnostic():
         # self.load_config(config_filepath)
         self.config = config
         self.config['data_type'] = self.data_type # need to define data type in child class. I.e image or text?
+
+        # All of these below need to be defined here, rather than above as a class attribute, so they don't change on different instances of diagnostics
+        self.calib_dict_fixed = {} # overwrites / persists when new calibration are loaded
+        self.calib_id = None
+        self.calib_dict = {} # filled when calibrations are loaded
+        self.calib_start = 0 # for keeping track of calibration in shot timeline
+        self.calib_end = 0 # for keeping track of calibration in shot timeline
+        self.x = None
+        self.y = None
+
         return
 
     def __repr__(self):
@@ -92,7 +96,7 @@ class Diagnostic():
             # let's look for a file first
             if os.path.exists(self.build_calib_filepath(calib_id)):
                 calib_dict = self.load_calib_file(calib_id)
-            # no file, so let's look for ID key within the master calibration input file (if set in config)
+            # no calib file, so let's look for ID key within the master calibration input file (if set in config)
             elif 'calib_file' in self.config:
                 all_calibs = self.load_calib_file(self.config['calib_file'])
                 if calib_id in all_calibs:
@@ -102,13 +106,19 @@ class Diagnostic():
                     if 'calib_default' in self.config:
                         print(f"Using default calibration: {self.config['calib_default']}")
                         calib_dict = all_calibs[self.config['calib_default']]
-                    else:
-                        print(f"get_calib() error; No calibration input ID found for {calib_id} in master calib input file")
-                        return None
+                    # else:
+                    #     print(f"get_calib() error; No calibration input ID found for {calib_id} in master calib input file")
+                    #     return None
             else:
                 print(f"get_calib() error; Unknown calibration found for {calib_id} - No calib_file set in diagnostics.toml?")
                 return None
             self.calib_id = calib_id
+
+        # If none of these above has worked, perhaps a shot string was passed - and we already have a calibration?
+        if ('calib_dict' not in locals()) and self.calib_dict:
+            calib_dict = self.calib_dict
+        elif 'calib_dict' not in locals():
+            print('Error; coud not set calibration dictionary, and none pre-existing')
 
         # before returning, if processed file is set, try load it and return contents with dictionary
         if not no_proc:
@@ -220,15 +230,23 @@ class Diagnostic():
             #     self.calib_dict = self.get_calib(shot_dict)
             self.calib_dict = self.get_calib(shot_dict)
 
-        # TO DO: check if image type, and if not, skip this... although you probably won't call this function if not image?
         # do standard image calibration. Transforms, background, ROIs etc.
-        img, x, y = self.run_img_calib(shot_dict, debug=debug)
+        if self.config['data_type'].lower() == 'image':
+            img, x, y = self.run_img_calib(shot_dict, debug=debug)
+            self.curr_img = img
+            self.x = x
+            self.y = y
+            return img, x, y
+        # do text calibrations
+        elif self.config['data_type'].lower() == 'text':
+            x, data = self.run_text_calib(shot_dict, debug=debug)
+            self.x = x
+            return x, data
+        # what else? binary?
+        else:
+            print(f"Unrecognised data type: {self.config['data_type']}")
+            return None
 
-        self.curr_img = img
-        self.x = x
-        self.y = y
-        
-        return img, x, y
    
     def check_calib(self, shot_dict=None, print_all=False):
         """Wrapper function for checking calibration and img calibration"""
@@ -238,6 +256,82 @@ class Diagnostic():
         if print_all:
             print(self.calib_dict)
         return 
+
+    def run_text_calib(self, data, debug=False):
+        """Central wrapper function for processing text data using calibration"""
+        # Could be 1-D array (Y), or 2-D array (X,Y), or even N-D array? (Y1,Y2... YN)
+
+        # if img_data is passed as a shot dictionary or filepath, grab the actual image
+        if isinstance(data, dict) or isinstance(data, str) or isinstance(data, Path):
+            shot_dict = data
+            data = self.get_shot_data(shot_dict)
+
+        # arrange data
+        # for now, if two columns, assume first is X and second Y
+        # if one column, assume it's Y.
+        # but this should really be configurable
+        if data.ndim > 1:
+            x = data[:,0]
+            data = data[:,1]
+        else:
+            x = np.arange(len(data))
+
+        # darks?
+        if 'dark' in self.calib_dict and self.calib_dict['dark'] is not False:
+            shot_dicts = self.DAQ.get_shot_dicts(self.config['name'], self.calib_dict['dark']['data']) # darks should be a timeline dict
+            # now we have the shot dictionary, check if it's the same as previously loaded, and if so, return saved dark
+            dark_data = np.array([])
+            if hasattr(self, 'dark_shot_dicts') and hasattr(self, 'dark_data'):
+                if shot_dicts == self.dark_shot_dicts:
+                    dark_data = self.dark_data
+            if not dark_data.any():
+                # loop through all shots, and build average dark
+                num_shots = 0
+                for shot_dict in shot_dicts:
+                    shot_data = self.get_shot_data(shot_dict)
+                    if shot_data.ndim > 1:
+                        shot_data = shot_data[:,1]
+                    if 'sum_data' in locals():
+                        sum_data += shot_data
+                    else:
+                        sum_data = shot_data
+                    num_shots += 1
+                dark_data = sum_data / num_shots
+                self.dark_data = dark_data
+                self.dark_shot_dicts = shot_dicts
+            data = data - dark_data
+
+        # median?
+        if 'median_filter' in self.calib_dict and self.calib_dict['median_filter'] is not False:
+            print('Warning, text median needs implemented...')
+
+        # background?
+        if 'background' in self.calib_dict and self.calib_dict['background'] is not False:
+            print('Warning, text background correction needs implemented...')
+
+        # scale?
+        # this is probably if X data isn't given - make sure not to use both!
+        if 'scale' in self.calib_dict:
+            # fixed pixel converison
+            if 'pixel_size' in self.calib_dict['scale']:
+                x = x * self.calib_dict['scale']['pixel_size']
+            # set it directly?
+            if 'pixel_array' in self.calib_dict['scale']:
+                x = self.calib_dict['scale']['pixel_array']
+            # or load file?
+            if 'pixel_file' in self.calib_dict['scale']:
+                x = self.load_calib_file(self.calib_dict['scale']['pixel_file'])
+            # setting units?
+            if 'units' in self.calib_dict['scale']:
+                self.x_units = self.calib_dict['scale']['units']
+            if 'x_units' in self.calib_dict['scale']:
+                self.x_units = self.calib_dict['scale']['x_units']
+
+        # roi?
+
+        # read header info??
+
+        return x, data
 
     def run_img_calib(self, img_data, debug=False):
         """Central wrapper function for processing image data using calibration"""
@@ -271,7 +365,7 @@ class Diagnostic():
 
 
         # if img_data is passed as a shot dictionary or filepath, grab the actual image
-        if isinstance(img_data, dict) or isinstance(img_data, str):
+        if isinstance(img_data, dict) or isinstance(img_data, str) or isinstance(img_data, Path):
             shot_dict = img_data
             img_data = self.get_shot_data(img_data)
             if img_data is None: # no file found
@@ -401,10 +495,10 @@ class Diagnostic():
             if 'stage' in self.calib_dict['background2'] and self.calib_dict['background2']['stage'].lower() == 'transformed':
                 do_bkg_sub('background2')
 
-        # if 'zero_cut' in self.calib_dict and self.calib_dict['zero_cut']:
-        #     img_data = img.get_img()
-        #     img_data[img_data<0] = 0
-        #     img.set_img(img_data)
+        if 'zero_cut' in self.calib_dict and self.calib_dict['zero_cut']:
+            img_data = img.get_img()
+            img_data[img_data<0] = 0
+            img.set_img(img_data)
 
         # if x / y not set (i.e. no transforms etc.), use pixel numbers
         if 'x' not in locals():
@@ -527,7 +621,7 @@ class Diagnostic():
         if debug:
             # if debugging, plot raw image
             plt.figure()
-            im = plt.imshow(raw_img)
+            im = plt.imshow(raw_img, vmax=np.percentile(raw_img,90)) # try and bring brightness/contrast to see features?
             plt.plot(p_px[:,0],p_px[:,1],'r+')
             cb = plt.colorbar(im)
             cb.set_label('Counts on CCD', rotation=270, labelpad=20)
