@@ -28,8 +28,9 @@ class DAQ():
             imdata = None
         return imdata
 
-    def load_data(self, shot_filepath, file_type=None):
-        data = load_file(Path(shot_filepath), file_type=file_type)
+    def load_data(self, shot_filepath, file_type=None, options=None):
+        # To Do: need to implement proper IO class 
+        data = load_file(Path(shot_filepath), file_type=file_type, options=options)
         return data
     
     def get_shot_data(self, diag_name, shot_dict):
@@ -41,8 +42,15 @@ class DAQ():
     
         if diag_config['data_type'] == 'image':
             shot_data = self.load_imdata(shot_filepath)
+        elif diag_config['data_type'] == 'text':
+            if 'data_options' in diag_config:
+                options = diag_config['data_options'] 
+            else:
+                options = None
+            shot_data = self.load_data(shot_filepath, file_type=diag_config['data_ext'], options=options)
         else:
-            shot_data = self.load_data(shot_filepath, file_type=diag_config['data_ext'])
+            print(f"warning, data_type not recognised: {diag_config['data_type']}, for {diag_name}")
+            shot_data = None
 
         return shot_data
     
