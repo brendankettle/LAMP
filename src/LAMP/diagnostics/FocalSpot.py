@@ -1,3 +1,4 @@
+from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -6,28 +7,29 @@ from scipy import ndimage
 import matplotlib.patches as patches
 from LAMP.diagnostic import Diagnostic
 from LAMP.utils.image_proc import ImageProc
-
-#
-# SHOULD THIS JUST BE ALL IN THE CAMERA DIAGNOSTIC?
-#
+from LAMP.utils.general import mindex
 
 class FocalSpot(Diagnostic):
     """Focal Spot camera
     """
 
+    # To Do - errors!
+    # To Do - mroe details on fitting for debug?
+
     __version = 0.1
     __authors = ['Brendan Kettle']
-    __requirements = ''
+    __requirements = 'scipy'
     data_type = 'image'
-
-    curr_img = None
-    img_units = 'Counts'
-    x_mm, y_mm = None, None
-    calib_dict = None
 
     def __init__(self, exp_obj, config_filepath):
         """Initiate parent base Diagnostic class to get all shared attributes and funcs"""
         super().__init__(exp_obj, config_filepath)
+        
+        # All of these below need to be defined here, rather than above as a class attribute, so they don't change on different instances of diagnostics
+        self.curr_img = None
+        self.img_units = 'Counts'
+        self.x_units, self.y_units = 'px','px'
+    
         return
     
     def plot_proc_shot(self, shot_dict, calib_id=None, vmin=None, vmax=None, debug=False):
@@ -44,24 +46,37 @@ class FocalSpot(Diagnostic):
         cb = plt.colorbar(im)
         cb.set_label(self.img_units, rotation=270, labelpad=20)
         plt.title(self.shot_string(shot_dict))
-        plt.xlabel('[um]')
-        plt.ylabel('[um]') 
+        plt.xlabel(self.x_units) 
+        plt.ylabel(self.y_units) 
         plt.axis('equal')
         plt.tight_layout()
         plt.show(block=False)
 
         return fig, plt.gca()
     
-    def fit_spot(self):
-
-        return
-    
-    def find_spot(self, shot_dict, box=None, mask=0.05, debug=False):
+    def find_spot(self, img, x=None, y=None, box=None, mask=0.05, debug=False):
         """Use centre of mass to get x,y of spot"""
-        # this will (hopefully) do a background correction etc.
-        img, x, y = self.get_proc_shot(shot_dict)
+        # To Do: could make it so "box" could be a mask??
+
+        # if a dictionary or string is passed, get img data (and x/y cords)
+        if isinstance(img, dict) or isinstance(img, str) or isinstance(img, Path):
+            img, x, y = self.get_proc_shot(img,debug=debug)
+
         if img is None: # no image data?
             return None, None
+        
+        # no x/y? use calibration? or pixels
+        if x is None:
+            if self.x is None:
+                x = np.arange(np.shape(img)[1])
+            else:
+                x = self.x
+        if y is None:
+            if self.y is None:
+                y = np.arange(np.shape(img)[0])
+            else:
+                y = self.y
+
         fimg = img.copy()
         # mask any low level pixels to zero, to help with large area level over backgrounds
         fimg[fimg < (np.max(fimg)*mask)] = 0
@@ -78,69 +93,296 @@ class FocalSpot(Diagnostic):
         by2 = int(fcy+(box/2))
         img_roi = fimg[by1:by2,bx1:bx2]
         scy,scx = ndimage.center_of_mass(img_roi)
-        cx = bx1 + scx
-        cy = by1 + scy
+        cx = x[int(bx1 + scx)] # we want it in real units
+        cy = y[int(by1 + scy)] # we want it in real units
+
+        # def calcCOW(img,X,Y,img_thresh=0.5):
+        #     iSel = img>img_thresh
+        #     c_x = np.sum(X[iSel]*img[iSel])/np.sum(img[iSel])
+        #     c_y = np.sum(Y[iSel]*img[iSel])/np.sum(img[iSel])
+        #     return c_x,c_y
+
         if debug:
             plt.figure()
             # plot original image, not filtered
             im = plt.pcolormesh(x, y, img, vmin=np.percentile(img.flatten(),1), vmax=np.percentile(img.flatten(),99.99), shading='auto')
             plt.scatter(cx,cy, marker='+', color = 'red', s=int(np.mean([len(x),len(y)])/5))
             ax = plt.gca()
-            rect = patches.Rectangle((bx1, by1), (bx2-bx1), (by2-by1), linewidth=1, edgecolor='r', facecolor='none')
+            rect = patches.Rectangle((x[bx1], y[by1]), (x[bx2]-x[bx1]), (y[by2]-y[by1]), linewidth=1, edgecolor='r', facecolor='none')
             ax.add_patch(rect)
             cb = plt.colorbar(im)
-            plt.title(self.shot_string(shot_dict))
-            plt.xlabel('?')
-            plt.ylabel('?') 
+            plt.xlabel(self.x_units)
+            plt.ylabel(self.y_units) 
             plt.axis('equal')
             plt.tight_layout()
             plt.show(block=False)
-        return cx,cy
-    
-    def gauss2Dbeam(self,U,a0,a1,a2,a3,a4,a5):
+
+        return cx,cy  
+
+    def gauss2D(self, U, a0, a1, a2, a3, a4, a5):
         # a0 peak,
-        # a2,a4 widths
         # a1,a3 centers
-        # a5 angle
+        # a2,a4 widths
+        # a5 angle (radians)
+        # background offset?
         f = a0*np.exp( -(
             ( U[:,0]*np.cos(a5)-U[:,1]*np.sin(a5) - a1*np.cos(a5)+a3*np.sin(a5) )**2/(2*a2**2) + 
             ( U[:,0]*np.sin(a5)+U[:,1]*np.cos(a5) - a1*np.sin(a5)-a3*np.cos(a5) )**2/(2*a4**2) ) )
+        
+        # below is the same as above
+        # x = U[:,0]
+        # y = U[:,1]
+        # amplitude = a0
+        # x0 = a1
+        # y0 = a3
+        # sigma_x = a2
+        # sigma_y = a4
+        # theta = a5
+        # cos_t = np.cos(theta)
+        # sin_t = np.sin(theta)
+        # a = (cos_t**2) / (2*sigma_x**2) + (sin_t**2) / (2*sigma_y**2)
+        # b = (-sin_t*cos_t) / (2*sigma_x**2) + (sin_t*cos_t) / (2*sigma_y**2)
+        # c = (sin_t**2) / (2*sigma_x**2) + (cos_t**2) / (2*sigma_y**2)
+        # f = amplitude * np.exp(-(a*(x - x0)**2 + 2*b*(x - x0)*(y - y0) + c*(y - y0)**2))
+
         return f
     
-    def gauss2DbeamFit(self,pG,U,I):
-        f = self.gauss2Dbeam(U,*pG)
+    def gauss2D_fitfunc(self, pG, U, I):
+        f = self.gauss2D(U,*pG)
         fErr = np.sqrt(np.mean((f-I)**2))
         return fErr
-
-    def fitBeam(self,x,y,img,r_max=100,pGuess = (1,0,.1,0,.1,0),tol=1e-4):
+    
+    def fit_gauss2D(self, img, x, y, p_guess=None, r_max=100, tol=1e-4, debug=False): # bounds?
 
         (Ny,Nx) = np.shape(img)
         (X,Y) = np.meshgrid(x,y)
 
-        # make beam mask
-        R = np.sqrt((X)**2+(Y)**2)
-        beamMask = (R<r_max)*(img>np.max(img*np.exp(-1)))
+        if p_guess is None:
+            cx, cy = self.find_spot(img, debug=debug)
+            # a0 peak; a1,a3 centers; a2,a4 widths; a5 angle
+            p_guess = (np.max(img), cx, (abs(np.max(x)-np.min(x))/10), cy, (abs(np.max(y)-np.min(y))/10), 0)
+            #print(p_guess)
 
-        I = img[beamMask]
+        # make beam mask
+        R = np.sqrt((X-cx)**2+(Y-cy)**2) # some radius
+        beamMask = (R<r_max)*(img>np.max(img*np.exp(-1))) # but also only use 1/e intensity (for fit)
+        I = img[beamMask].flatten()
+        #I = img.copy().flatten()
+        # To Do: Some debugging of mask
+
         XY = np.zeros((np.size(I),2))
-        XY[:,0] = X[beamMask]
-        XY[:,1] = Y[beamMask]
+        XY[:,0] = X[beamMask].flatten()#[beamMask]
+        XY[:,1] = Y[beamMask].flatten()#[beamMask]
         XYfull = np.zeros((np.size(X),2))
         XYfull[:,0] = X.flatten()
         XYfull[:,1] = Y.flatten()
 
-        
-        #(pFit,pcov) = sci.optimize.curve_fit(gauss2Dbeam, XY, I,p0=pGuess)
+        #(pFit,pcov) = sci.optimize.curve_fit(gauss2Dbeam, XY, I, p0=pGuess)
         a = (XY,I)
-        z = optimize.minimize(self.gauss2DbeamFit,pGuess,args=a, tol=tol,method='Nelder-Mead')
+        bnds = ((0,None),(None,None),(None,None),(None,None),(None,None),(None,None))
+        z = optimize.minimize(self.gauss2D_fitfunc, p_guess, args=a, tol=tol, bounds=bnds, method='Nelder-Mead')
         pFit = z.x
-        Ibeam = self.gauss2Dbeam(XYfull,*pFit)
+        #print(pFit)
+        Ibeam = self.gauss2D(XYfull,*pFit)
 
         imgBeam = np.reshape(Ibeam,(Ny,Nx))
 
         return imgBeam, pFit
+    
+    def fit_spot(self, img, x=None, y=None, p_guess=None, r_max=100, tol=1e-4, debug=False):
 
-    # MONTAGE FUNCTION
+        # if a dictionary or string is passed, get img data (and x/y cords)
+        if isinstance(img, dict) or isinstance(img, str) or isinstance(img, Path):
+            img, x, y = self.get_proc_shot(img,debug=debug)
+
+        if img is None: # no image data?
+            return None, None
+        
+        # no x/y? use calibration? or pixels
+        if x is None:
+            if self.x is None:
+                x = np.arange(np.shape(img)[1])
+            else:
+                x = self.x
+        if y is None:
+            if self.y is None:
+                y = np.arange(np.shape(img)[0])
+            else:
+                y = self.y
+
+        img_fit, p_fit = self.fit_gauss2D(img, x, y, p_guess=p_guess, r_max=r_max, tol=tol) # r_max=r_max
+
+        if debug:
+            cx = p_fit[1]
+            cy = p_fit[3]
+            gFWHM = 2 *np.sqrt(2 * np.log(2))
+            fwhm_x = p_fit[2] * gFWHM
+            fwhm_y = p_fit[4] * gFWHM
+            xmin = cx - r_max
+            xmax = cx + r_max
+            ymin = cy - r_max
+            ymax = cy + r_max
+            FWHM_ellipse1 = patches.Ellipse(xy=(cx, cy), width=fwhm_x, height=fwhm_y, edgecolor='r', fc='None', linewidth=2)
+            FWHM_ellipse2 = patches.Ellipse(xy=(cx, cy), width=fwhm_x, height=fwhm_y, edgecolor='r', fc='None', linewidth=2) # this complains if you try attach the same patch twice, can you copy?
+            FWHM_ellipse3 = patches.Ellipse(xy=(cx, cy), width=fwhm_x, height=fwhm_y, edgecolor='r', fc='None', linewidth=2) 
+
+            # data and fit side by side?
+            fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+            img_roi = img[mindex(y,ymin):mindex(y,ymax),mindex(x,xmin):mindex(x,xmax)]
+            img_fit_roi = img_fit[mindex(y,ymin):mindex(y,ymax),mindex(x,xmin):mindex(x,xmax)]
+            img_diff_roi = img_fit_roi - img_roi
+            im1 = ax1.pcolormesh(x[mindex(x,xmin):mindex(x,xmax)], y[mindex(y,ymin):mindex(y,ymax)], img_roi, vmin=np.percentile(img_roi.flatten(),1), vmax=np.percentile(img_roi.flatten(),99.99), shading='auto')
+            im2 = ax2.pcolormesh(x[mindex(x,xmin):mindex(x,xmax)], y[mindex(y,ymin):mindex(y,ymax)], img_fit_roi, vmin=np.percentile(img_fit_roi.flatten(),1), vmax=np.percentile(img_fit_roi.flatten(),99.99), shading='auto')
+            im3 = ax3.pcolormesh(x[mindex(x,xmin):mindex(x,xmax)], y[mindex(y,ymin):mindex(y,ymax)], img_diff_roi, vmin=np.percentile(img_diff_roi.flatten(),1), vmax=np.percentile(img_diff_roi.flatten(),99.99), shading='auto')
+            cb = plt.colorbar(im2)
+            cb = plt.colorbar(im3)
+            ax1.add_patch(FWHM_ellipse1)
+            ax2.add_patch(FWHM_ellipse2)
+            ax3.add_patch(FWHM_ellipse3)
+            ax1.set_title('Data')
+            ax2.set_title('Fit')
+            ax3.set_title('Difference')
+            ax1.set_xlabel(self.x_units)
+            ax1.set_ylabel(self.y_units) 
+            ax2.set_xlabel(self.x_units)
+            ax2.set_ylabel(self.y_units) 
+            ax3.set_xlabel(self.x_units)
+            ax3.set_ylabel(self.y_units) 
+            ax1.axis('equal')
+            ax2.axis('equal')
+            ax3.axis('equal')
+            plt.show(block=False)
+
+        return img_fit, p_fit
+
+    def anaylse_spot(self, img, x=None, y=None, r_max=100, debug=False):
+
+        # if a dictionary or string is passed, get img data
+        if isinstance(img, dict) or isinstance(img, str) or isinstance(img, Path):
+            shot_dict = img
+            img, x, y = self.get_proc_shot(img,debug=debug)
+
+        # no x/y? use calibration? or pixels
+        if x is None:
+            if self.x is None:
+                x = np.arange(np.shape(img)[1])
+            else:
+                x = self.x
+        if y is None:
+            if self.y is None:
+                y = np.arange(np.shape(img)[0])
+            else:
+                y = self.y
+
+        metrics = {}
+
+        # fit spot
+        img_fit, p_fit = self.fit_spot(img, x, y, r_max=r_max, debug=debug)
+        if debug:
+            plt.suptitle(shot_dict)
+
+        gFWHM = 2 *np.sqrt(2 * np.log(2))
+        metrics['fwhm_x'] = p_fit[2] * gFWHM
+        metrics['fwhm_y'] = p_fit[4] * gFWHM
+        metrics['centre_x'] = p_fit[1] 
+        metrics['centre_y'] = p_fit[3] 
+        metrics['angle'] = p_fit[5] 
+
+        # energy fraction? (In ROI)
+        xmin = metrics['centre_x'] - r_max
+        xmax = metrics['centre_x'] + r_max
+        ymin = metrics['centre_y'] - r_max
+        ymax = metrics['centre_y'] + r_max
+        img_roi = img[mindex(y,ymin):mindex(y,ymax),mindex(x,xmin):mindex(x,xmax)]
+        img_fit_roi = img_fit[mindex(y,ymin):mindex(y,ymax),mindex(x,xmin):mindex(x,xmax)]
+        iSel = img_roi>=(np.max(img_fit_roi/2))
+        metrics['fwhm_energy'] = np.sum(img_roi[iSel])/np.sum(img_roi)
+
+        # calculate a0 map?
+        # laser_sigma = laser_duration_FWHM/(2*np.sqrt(2*np.log(2))) # laser_duration_FWHM = 45e-15
+        # laser_peak_power = laser_energy/np.sqrt(2*np.pi*laser_sigma**2)  # laser_energy in J
+        # W_per_m2_per_count = laser_peak_power/(np.sum(img)*(um_per_pix*1e-6)**2)
+        # from scipy.constants import c, epsilon_0, pi, m_e, e
+        # lambda_0 = 800e-9
+        # omega_0 = 2*pi*c/lambda_0
+        # img_a_fit = np.sqrt(2*(img_fit*W_per_m2_per_count)/(c*epsilon_0))*e/(m_e*omega_0*c)
+        # a0 = np.max(img_a_fit) ??
+
+        return metrics
+
+    def get_spot_stats(self, shot_dicts, debug=False):
+        # median +/- std is better than mean for quoted values?
+        # FWHMs, angle, energy fraction FWHM, a0?
+        
+        stats = {}
+        for shot_dict in shot_dicts:
+            if debug:
+                print(f'Analysing {shot_dict}')
+            metrics = self.anaylse_spot(shot_dict, debug=debug)
+            for mname in metrics:
+                if mname in stats:
+                    stats[mname]['values'].append(metrics[mname])
+                else:
+                    stats[mname] = {'values':  [metrics[mname]]}
+                
+        # make stats
+        for mname in stats:
+            stats[mname]['mean'] = np.mean(stats[mname]['values'])
+            stats[mname]['median'] = np.median(stats[mname]['values'])
+            stats[mname]['std'] = np.std(stats[mname]['values'])
+
+        return stats
+
+    def plot_spot_stats(self, shot_dicts, debug=False):
+
+        stats = self.get_spot_stats(shot_dicts, debug=debug)
+
+        print(f"FWHM X (Mean +/- Std Dev.): {stats['fwhm_x']['mean']:.1f} +/- {stats['fwhm_x']['std']:.1f} {self.x_units} (Median={stats['fwhm_x']['median']:.1f})")
+        print(f"FWHM Y (Mean +/- Std Dev.): {stats['fwhm_y']['mean']:.1f} +/- {stats['fwhm_y']['std']:.1f} {self.y_units} (Median={stats['fwhm_y']['median']:.1f})")
+        print(f"Centre X (Mean +/- Std Dev.): {int(stats['centre_x']['mean'])} +/- {int(stats['centre_x']['std'])} {self.x_units} (Median={int(stats['centre_x']['median'])})")
+        print(f"Centre Y (Mean +/- Std Dev.): {int(stats['centre_y']['mean'])} +/- {int(stats['centre_y']['std'])} {self.y_units} (Median={int(stats['centre_y']['median'])})")
+        print(f"Angle (Mean +/- Std Dev.): {np.rad2deg(stats['angle']['mean']):.1f} +/- {np.rad2deg(stats['angle']['std']):.1f} degrees (Median={np.rad2deg(stats['angle']['median']):.1f})")
+        print(f"Energy in FWHM (Mean +/- Std Dev.): {(stats['fwhm_energy']['mean']*100):.1f} +/- {(stats['fwhm_energy']['std']*100):.1f}% (Median={(stats['fwhm_energy']['median']*100):.1f})")
+
+        plt.figure()
+        plt.scatter(np.arange(len(stats['fwhm_x']['values'])), stats['fwhm_x']['values'])
+        plt.ylabel(self.x_units)
+        plt.title('FWHM X')
+        plt.show(block=False)
+
+        plt.figure()
+        plt.scatter(np.arange(len(stats['fwhm_y']['values'])), stats['fwhm_y']['values'])
+        plt.ylabel(self.y_units)
+        plt.title('FWHM Y')
+        plt.show(block=False)
+
+        plt.figure()
+        plt.scatter(np.arange(len(stats['fwhm_energy']['values'])), np.array(stats['fwhm_energy']['values'])*100)
+        plt.ylabel('%')
+        plt.title('FWHM Energy %')
+        plt.show(block=False)
+        
+        plt.figure()
+        plt.scatter(np.arange(len(stats['centre_x']['values'])), stats['centre_x']['values'])
+        plt.ylabel(self.x_units)
+        plt.title('Centre X')
+        plt.show(block=False)
+        
+        plt.figure()
+        plt.scatter(np.arange(len(stats['centre_y']['values'])), stats['centre_y']['values'])
+        plt.ylabel(self.y_units)
+        plt.title('Centre Y')
+        plt.show(block=False)
+
+        plt.figure()
+        plt.scatter(np.arange(len(stats['angle']['values'])), np.rad2deg(stats['angle']['values']))
+        plt.ylabel('Degrees')
+        plt.title('Angle')
+        plt.show(block=False)
+
+        return
+    
+    # MONTAGE FUNCTION?
 
 # lambda_0 = 800e-9
 # omega_0 = 2*pi*c/lambda_0
@@ -153,9 +395,6 @@ class FocalSpot(Diagnostic):
 # img_a = e*E_V_per_m/(m_e*omega_0*c)
 # ...
 # img_a_fit = np.sqrt(2*(imgBeam*W_per_m2_per_count)/(c*epsilon_0))*e/(m_e*omega_0*c)
-# ...
-# iSel = imgBeam>(np.max(imgBeam/2))
-# fwhm_energy = np.sum(img[iSel])/np.sum(img)
 # ...
 # a_0.append(np.max(median_filter(img_a,(3))))
 # a_0_fit.append(np.max(img_a_fit))
@@ -170,107 +409,6 @@ class FocalSpot(Diagnostic):
 # print(f'Mean angle of spot to cam horizontal {np.mean(theta*180/pi):3.03f} degrees')
 # print(f'Mean fwhm energy fraction {np.mean(fwhm_energy):3.03f} +- {np.std(fwhm_energy):3.03f}')
 # ...
-# x_plot = np.linspace(-rMax,rMax,num=1000)
-# y_plot = np.linspace(-rMax,rMax,num=1000)
-# [Xp,Yp] = np.meshgrid(x_plot,y_plot)
-# XY = np.stack((Xp.flatten(),Yp.flatten()),axis=1)
-# p = (np.mean(a_0),0,np.mean(w_x)*np.sqrt(2),0,np.mean(w_y)*np.sqrt(2),np.mean(theta))
-# a_xy_avg = gauss2Dbeam(XY,*p)
-# a_xy_avg = np.reshape(a_xy_avg,(1000,1000))
-
-# Below is from FocalSpot.py from RR?
-#
-# import scipy.optimize as opt
-#
-# def two_d_gaussian(T, amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
-#     x=T[0]
-#     y=T[1]
-#     g = amplitude*np.exp(-calc_ellipse(x, y, xo, yo, sigma_x, sigma_y, theta)/2.0)+offset
-#     # if np.sum(T-g)<=0:
-#     #     return 10**10
-#     # else:
-#     return g.ravel()
-
-# def calc_ellipse(x, y, xo, yo, sigma_x, sigma_y, theta):
-#     a = (np.cos(theta)**2)/(sigma_x**2) + (np.sin(theta)**2)/(sigma_y**2)
-#     b = 2.0*np.cos(theta)*np.sin(theta)*(1.0/(sigma_x**2)-1.0/(sigma_y**2))
-#     c = (np.sin(theta)**2)/(sigma_x**2) + (np.cos(theta)**2)/(sigma_y**2)
-#     g = a*((x-xo)**2) + b*(x-xo)*(y-yo) + c*((y-yo)**2)
-#     return g
-
-# def calc_moments_spot(img_array_2D, axs, peak_amp, axs_index):
-#     """
-
-#     """
-#     im_summed_ax=np.sum(img_array_2D, axis=axs_index)
-#     im_summed_ax[np.where(im_summed_ax<0.36*peak_amp)]=0.0
-#     central_pos=np.trapz(im_summed_ax*axs, axs)/np.trapz(im_summed_ax, axs)
-#     sigma_ax=(np.trapz(im_summed_ax*axs**2, axs)/np.trapz(im_summed_ax, axs)-central_pos**2)**0.5
-#     return central_pos, sigma_ax
-
-
-# def convert_width_to_FHWM(width):
-#     return width*(2.0*np.log(2.0))**0.5
-
-# def find_nearest(array, value):
-#     array = np.asarray(array)
-#     idx = (np.abs(array - value)).argmin()
-#     return array[idx]
-
-# class FocalSpot:
-#     """
-
-#     """
-# #amplitude, xo, yo, sigma_x, sigma_y, theta, offset
-#     def __init__(self, focal_pos_x=None, focal_pos_x_err=None, focal_pos_y=None, focal_pos_y_err=None, focal_pos_z=None, focal_pos_z_err=None, FWHM_x=None, FWHM_x_err=None, FWHM_y=None, FWHM_y_err=None, angle_rot=None, angle_rot_err=None, energy_frac_FWHM=None, energy_frac_FWHM_err=None, microns_per_pixel=None, microns_per_pixel_err=None):
-#         self.focal_pos_x=focal_pos_x
-#         self.focal_pos_x_err=focal_pos_x_err
-#         self.focal_pos_y=focal_pos_y
-#         self.focal_pos_y_err=focal_pos_y_err
-#         self.focal_pos_z=focal_pos_z
-#         self.focal_pos_z_err=focal_pos_z_err
-#         self.FWHM_x=FWHM_x
-#         self.FWHM_x_err=FWHM_x_err
-#         self.FWHM_y=FWHM_y
-#         self.FWHM_y_err=FWHM_y_err
-#         self.angle_rot=angle_rot
-#         self.angle_rot_err=angle_rot_err
-#         self.energy_frac_FWHM=energy_frac_FWHM
-#         self.energy_frac_FWHM_err=energy_frac_FWHM_err
-#         self.microns_per_pixel=microns_per_pixel
-#         self.microns_per_pixel_err=microns_per_pixel_err
-
-#     def get_spot_properties_lst_sqrd_fit(self, im):
-#         """
-
-#         """
-#         y_max, x_max=im.shape
-#         x = np.linspace(0, x_max, x_max)#*microns_per_pixel
-#         y = np.linspace(0, y_max, y_max)#*microns_per_pixel
-#         X, Y = np.meshgrid(x, y)
-#         bkg_counts=np.mean(im[0:277, 0:44])
-#         im=im-bkg_counts
-
-#         # estimates for fitted elliptical gaussian properties
-#         peak_amp=np.amax(im)
-#         centre_x_pos, sigma_x=calc_moments_spot(im, x, peak_amp, 0)
-#         centre_y_pos, sigma_y=calc_moments_spot(im, y, peak_amp, 1)
-#         angle_rot=np.arctan(sigma_x/sigma_y)
-#         initial_guess = [peak_amp*0.9,centre_x_pos,centre_y_pos,sigma_x,sigma_y,angle_rot,bkg_counts]
-
-#         # least squares fit focal spot to elliptical gaussian
-#         popt, pcov = opt.curve_fit(two_d_gaussian, [X, Y], im.flatten(), p0=initial_guess, bounds=(0, 5000))
-
-#         # calculate energy in FWHM
-#         ellipse=calc_ellipse(X, Y, popt[1], popt[2], popt[3], popt[4], popt[5])
-#         counts_in_FWHM=np.sum(im[np.where(ellipse<1.0)])
-#         frac_total_counts_in_FWHM=counts_in_FWHM/np.sum(im)
-
-#         #convert spatial focal spot properties to micron units
-#         popt[1:5]=popt[1:5]*self.microns_per_pixel
-#         popt=list(popt)
-#         popt.append(frac_total_counts_in_FWHM)
-#         return popt
 
 # class Laser:
 #     """
