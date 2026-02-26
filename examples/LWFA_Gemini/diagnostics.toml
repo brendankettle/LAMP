@@ -3,7 +3,6 @@ on_startup = false
 type = 'ESpec'
 data_folder = '/ESpec/' 
 data_stem = '' 
-data_type = 'image'
 data_ext = 'tif'
 calib_subfolder = './' 
 calib_file = 'ESpec_calibs.toml'

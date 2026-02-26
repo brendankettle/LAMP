@@ -89,14 +89,13 @@ Each section should be labelled with the diagnostic name, and contain a set list
 Edit this if you want to add a new diagnostic to the experiment. 
 An example, with explanations for the various configuration values, is given below. 
 These configuration values are constant throughout the entire experiment being analysed, and are mostly to do with how the diagnostic is saving. 
-Not calibraiton values that might change (for which, see below).
+Not calibration values that might change (for which, see below).
 
 ```
 [eSpecHigh]
 type = 'ESpec' # either included LAMP module, or user defined
 data_folder = '/eSpec/' # sub folder from root data path
 data_stem = 'ESpec_' # empty for some DAQs 
-data_type = 'image'
 data_ext = 'tif'
 calib_subfolder = './eSpecs/' # optional subfolder for calibrations
 calib_file = 'eSpec_calibs.toml' # required calibration file, even it is a 'dummy'
@@ -105,7 +104,6 @@ calib_file = 'eSpec_calibs.toml' # required calibration file, even it is a 'dumm
 type = 'XrayFilterArray'
 data_folder = '/Betatron/' 
 data_stem = 'OnAxis_' 
-data_type = 'image'
 data_ext = 'tif'
 calib_subfolder = './Betatron/' # optional
 calib_file = 'Betatron_calibs.toml'

@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.signal import savgol_filter
@@ -20,17 +21,19 @@ class ESpec(Diagnostic):
     __requirements = 'cv2'
     data_type = 'image'
 
-    # my (BK) thinking is that it is better to keep track of all the different units for the x/y axis
-    # also, sticking to the same units (mm/MeV/mrad) helps make it easier to convert from different calibrations and simplify plotting
-    curr_img = None
-    img_units = ['Counts']
-    x_mm, y_mm = None, None
-    x_mrad, y_mrad = None, None
-    x_MeV, y_MeV = None, None
-
     def __init__(self, exp_obj, config_filepath):
         """Initiate parent base Diagnostic class to get all shared attributes and funcs"""
         super().__init__(exp_obj, config_filepath)
+
+        # my (BK) thinking is that it is better to keep track of all the different units for the x/y axis
+        # also, sticking to the same units (mm/MeV/mrad) helps make it easier to convert from different calibrations and simplify plotting
+        # All of these below need to be defined here, rather than above as a class attribute, so they don't change on different instances of diagnostics
+        self.curr_img = None
+        self.img_units = ['Counts']
+        self.x_mm, self.y_mm = None, None
+        self.x_mrad, self.y_mrad = None, None
+        self.x_MeV, self.y_MeV = None, None
+        
         return
 
     def get_proc_shot(self, shot_dict, calib_id=None, apply_disp=True, apply_div=True, apply_charge=True, roi_mm=None, roi_MeV=None, roi_mrad=None, debug=False):
@@ -340,7 +343,7 @@ class ESpec(Diagnostic):
             plt.plot(mrad, lineout_smoothed, label='Smoothed')
             plt.title(shot_dict)
             plt.xlabel('mrad') 
-            plt.ylabel('fc/mrad')
+            plt.ylabel('fc/mrad??')
             plt.tight_layout()
             plt.legend()
             plt.show(block=False)
@@ -530,7 +533,9 @@ class ESpec(Diagnostic):
         return img_data, mrad
 
     # Charge calibration functions
-    def QLtoPSL(self, X, R=25, S=4000, L=5, G=16, scanner='GE'):
+    def QLtoPSL(self, X, R=25, S=4000, L=5, G=16, scanner='GE', debug=True):
+        if debug:
+            print(f'QLtoPSL: Using scanner={scanner}')
         if scanner.lower() == 'ge':
             # Maddox. For use on .gel files!
             # For S, you will need to know the PMT value at the time of scanning and use a calibration for S=4000/h(V)
@@ -547,9 +552,13 @@ class ESpec(Diagnostic):
             return (R/100)**2 * (4000/S) * pow(10, L*(X/g - 0.5))
 
     def PSLtofC(self,PSL_val,IP_type='MS'):
-        # https://dx.doi.org/10.1063/1.4936141
+        # Boutoux et al. https://dx.doi.org/10.1063/1.4936141
+        # BUT Other references:
+        # Nakanii et al (https://aip.scitation.org/doi/10.1063/1.2940217)
+        # Tanaka et al. (https://aip.scitation.org/doi/10.1063/1.1824371)
+        # Rabhi et al (https://aip.scitation.org/doi/pdf/10.1063/1.4950860)
         if IP_type == 'TR':
-            # above claims 0.005 PSL per electron for TR type. Error bar is 20%
+            # Boutoux above claims 0.005 PSL per electron for TR type. Error bar is 20%
             # 1 Coulumb is 6.241509×10^18 electrons
             # Therefore 1 C = 3.1207545e+16 PSL
             # or 0.032043 fC per PSL
@@ -597,17 +606,17 @@ class ESpec(Diagnostic):
         f=A1*np.exp(-t/B1)+A2*np.exp(-t/B2)
         return f
 
-    def IP_rescan_factor(self, filepath1, filepath2, roi=None, R=25, S=4000, bins=200, debug=True):
+    def IP_rescan_factor(self, filepath1, filepath2, roi=None, R=25, S=4000, bins=200, scanner='GE', debug=True):
         imgA = ImageProc(filepath1)
         imgA_orig = imgA.get_img()
         imgA_res= imgA_orig # resampling??? be careful with R below, etc.
-        imgA_PSL = self.QLtoPSL(imgA_res, R=R, S=S)
+        imgA_PSL = self.QLtoPSL(imgA_res, R=R, S=S, scanner=scanner)
         #imgA_PSL = imgA_PSL / self.IP_fade(fade_t) # fade times cancel anyway in ratio (if they are close)? this rescan factor takes any difference into account anyway... Would also need IP type
         imgA_PSL[imgA_PSL < 1e-6] = 1e-6
         imgB = ImageProc(filepath2)
         imgB_orig = imgB.get_img()
         imgB_res= imgB_orig # resampling??? be careful with R below, etc.
-        imgB_PSL = self.QLtoPSL(imgB_res, R=R, S=S)
+        imgB_PSL = self.QLtoPSL(imgB_res, R=R, S=S, scanner=scanner)
         #imgB_PSL = imgB_PSL / self.IP_fade(fade_t)
         imgB_PSL[imgB_PSL < 1e-6] = 1e-6
 
@@ -622,6 +631,19 @@ class ESpec(Diagnostic):
         maxi = np.argmax(hist_data[(bin_edges>0.1) & (bin_edges<0.9)]) 
 
         if debug:
+            plt.figure()
+            plt.imshow(imgA_PSL) 
+            rect = patches.Rectangle((roi[0][0], roi[0][1]), abs(roi[1][0]-roi[0][0]), abs(roi[1][1]-roi[0][1]), linewidth=1, edgecolor='r', facecolor='none')
+            plt.gca().add_patch(rect)
+            plt.title('First Scan IP')
+            plt.show(block=False)
+            plt.figure()
+            plt.imshow(imgB_PSL) 
+            rect = patches.Rectangle((roi[0][0], roi[0][1]), abs(roi[1][0]-roi[0][0]), abs(roi[1][1]-roi[0][1]), linewidth=1, edgecolor='r', facecolor='none')
+            plt.gca().add_patch(rect)
+            plt.title('Second Scan IP')
+            plt.show(block=False)
+        
             plt.figure()
             plt.plot(bin_edges, hist_data) 
             plt.xlabel('Value')
