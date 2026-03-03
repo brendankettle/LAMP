@@ -1,7 +1,7 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [0.2.0] - yyyy-mm-dd
+## [0.2.0] - 2026-03-03
  
 Bug fixes and feature additions.
  
@@ -16,6 +16,7 @@ Bug fixes and feature additions.
 ### Fixed
 - Some Path() instance checks (not strings)
 - Diagnostic variables defined in init() rather than as class attributes, so they don't change across different diagnostics instances (python is whacky sometimes!)
+- Adding root folder to system path in Experiment() startup; this fixes user DAQ problems.
 
 ## [0.1.0] - 2026-01-09
 First major release.

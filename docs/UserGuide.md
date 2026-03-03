@@ -450,4 +450,18 @@ Where...
 - dispersion
 - divergence
 
+## 5.2 Focal Spot (FocalSpot)
+
+### Description
+Basic diagnostic for analysing focal spots, including fitting and statistics etc. Aim is to build on this. Possibly things like handing off to LASY.
+
+### Key Functions
+
+`find_spot(shot_dict, ...)`
+
+`fit_spot(shot_dict, ...)`
+
+`anaylse_spot(shot_dict, ...)`
+
+`get_spot_stats(shot_dicts, ...)`
 
