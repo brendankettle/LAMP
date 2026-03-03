@@ -15,6 +15,7 @@ class FocalSpot(Diagnostic):
 
     # To Do - errors!
     # To Do - mroe details on fitting for debug?
+    # To Do - LASY integration? or handoff?
 
     __version = 0.1
     __authors = ['Brendan Kettle']

@@ -1,6 +1,6 @@
 """Main entry point for analysis scripts; Experiment class
 """
-import os
+import os, sys
 from pathlib import Path
 import importlib
 from LAMP.utils.io import load_file
@@ -10,6 +10,12 @@ class Experiment:
 
     def __init__(self, root_folder, local_config='local.toml', global_config='global.toml', diagnostics='diagnostics.toml'):
         """LAMP entry point. Load config, load DAQ, add diagnostics"""
+
+        # change the current working directory to the root folder
+        # will this break anything?? It's needed sometimes for importing modules below?
+        os.chdir(str(Path(root_folder)))
+        sys.path.append(str(Path(root_folder))) # and add as Path
+        # could above be better and check paths then add if missing?
 
         # Load local config
         local_config_filepath = Path(root_folder) / Path(local_config)
