@@ -403,7 +403,7 @@ class Diagnostic():
             if num_blobs> 0 and (debug or ('debug' in self.calib_dict['blob_filter'] and self.calib_dict['blob_filter']['debug'])):
                 if 'shot_dict' in locals():
                     shot_dict_str = f'({shot_dict})'
-                print(f'{num_blobs} removed. {shot_dict_str}')
+                print(f'{num_blobs} blobs removed. {shot_dict_str}')
 
         if 'median_filter' in self.calib_dict and self.calib_dict['median_filter'] is not False:
             if 'stage' in self.calib_dict['median_filter'] and self.calib_dict['median_filter']['stage'].lower() == 'original':
@@ -499,6 +499,13 @@ class Diagnostic():
             img_data = img.get_img()
             img_data[img_data<0] = 0
             img.set_img(img_data)
+
+        # below is untested, and will still be in terms of pixels, after transform (and everything else above)
+        if 'roi' in self.calib_dict and 'stage' in self.calib_dict['roi'] and self.calib_dict['roi']['stage'].lower() == 'transformed':
+            if 'pixels' in self.calib_dict['roi']:
+                roi = self.calib_dict['roi']['pixels']
+                img_data = img.get_img()[roi[0][1]:roi[1][1],roi[0][0]:roi[1][0]]
+                img.set_img(img_data)
 
         # if x / y not set (i.e. no transforms etc.), use pixel numbers
         if 'x' not in locals():
