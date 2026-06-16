@@ -764,12 +764,12 @@ class Diagnostic():
             shot_labels.append(burst_str + shot_str)
 
         if transpose:
-            axis = y
-        else:
             axis = x
+        else:
+            axis = y
         # cb_label = self.make_units(self.img_units)
 
-        fig, ax = plot_montage(images, axis=axis, x_downsample=x_downsample, y_downsample=y_downsample, title=self.shot_string(timeframe), 
+        fig, ax = plot_montage(images, axis=axis, x_downsample=x_downsample, y_downsample=y_downsample, title=self.shot_string(timeframe), x_roi=x_roi, y_roi=y_roi,
                                vmin=vmin, vmax=vmax, transpose=transpose, cb_label=cb_label, y_label=axis_label, num_rows=num_rows, shot_labels=shot_labels, colormap=colormap, colormap_option=colormap_option)
 
         return fig, ax

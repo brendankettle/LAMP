@@ -42,6 +42,9 @@ def create_montage(images, x_roi=None, y_roi=None, x_downsample=1, y_downsample=
     # m = num Y pixels, n = num X pixels, count = num images
     m, n, count = images.shape
 
+    if (x_downsample != 1) or (y_downsample != 1):
+        print('Warning! Downsampling counts not corrected!?')
+
     # TODO: Need to check ROIs are within pixel limits, or will cause errors below
     if x_roi:
         n = x_roi[1] - x_roi[0]
@@ -57,14 +60,22 @@ def create_montage(images, x_roi=None, y_roi=None, x_downsample=1, y_downsample=
     
     num_cols = int(np.ceil(count / num_rows))
   
+    # if transpose:
+    #     montage = np.zeros((num_rows * n, num_cols * m))
+    #     x_locs = np.linspace(0, m * (count-1), count) + m / 2.0
+    # else:
+    #     montage = np.zeros((num_rows * m, num_cols * n))
+    #     x_locs = np.linspace(0, n * (count-1), count) + n / 2.0
+    # x_locs above not right for num_cols?
     if transpose:
         montage = np.zeros((num_rows * n, num_cols * m))
-        x_locs = np.linspace(0, m * (count-1), count) + m / 2.0
+        x_locs = np.linspace(0, m * (num_cols-1), num_cols) + m / 2.0
     else:
         montage = np.zeros((num_rows * m, num_cols * n))
-        x_locs = np.linspace(0, n * (count-1), count) + n / 2.0
+        x_locs = np.linspace(0, n * (num_cols-1), num_cols) + n / 2.0
 
     # need to make sure any down sampling fit array sizes
+    #??
     if np.shape(images[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, 0])[0] > m:
         y_roi[1] = y_roi[1] - y_downsample
     if np.shape(images[y_roi[0]:y_roi[1]:y_downsample, x_roi[0]:x_roi[1]:x_downsample, 0])[1] > n:
@@ -73,8 +84,8 @@ def create_montage(images, x_roi=None, y_roi=None, x_downsample=1, y_downsample=
     max_val = np.max(images)
 
     image_id = 0
-    for j in range(count):
-        for k in range(num_rows):
+    for k in range(num_rows):
+        for j in range(num_cols):
             if image_id >= count:
                 break
             if transpose:
@@ -95,8 +106,7 @@ def create_montage(images, x_roi=None, y_roi=None, x_downsample=1, y_downsample=
 
 def plot_montage(images, x_roi=None, y_roi=None, axis=None, x_downsample=1, y_downsample=1, title='', num_rows=1, transpose=False, shot_labels=None, y_label=None, cb_label=None, vmin=None, vmax=None, colormap='plasma', colormap_option=None):
     """ images should be an [m, n, count] array of images, where m = Y size, n = X size
-    ROI values in image pixels - probably easier to handle ROIs before this function?
-    num_rows currently only works for =1"""
+    ROI values in image pixels - probably easier to handle ROIs before this function?"""
 
     # m = num Y pixels, n = num X pixels, count = num images
     m, n, count = images.shape
@@ -122,15 +132,40 @@ def plot_montage(images, x_roi=None, y_roi=None, axis=None, x_downsample=1, y_do
             axis = np.arange(n)
         else:
             axis = np.arange(m)
+
     if transpose:
         yaxis = axis[x_roi[0]:x_roi[1]:x_downsample]
-        xaxis = np.arange(montage.shape[1])
+        xaxis = np.arange(montage.shape[1]) # [1]?
     else:
         yaxis = axis[y_roi[0]:y_roi[1]:y_downsample]
         xaxis = np.arange(montage.shape[1]) 
 
+    # need to expand yaxis by number of rows
+    if num_rows > 1:
+        y_locs = np.arange(num_rows+1)*len(yaxis)
+        yaxis = np.arange(len(yaxis)*num_rows)
+        y_labels = []
+        for li in range(len(y_locs)):
+            y_labels.append('')
+
+    # this will probably break across multiple rows?
     if not shot_labels:
-        shot_labels = np.arange(count)+1
+        #shot_labels = np.arange(count)+1
+        shot_labels = np.arange(len(x_locs))+1
+    else:
+        if num_rows > 1:
+            num_cols = int(np.ceil(count/num_rows))
+            col_labels = []
+            for li in range(len(x_locs)):
+                this_col_label = ''
+                sep = ''
+                for ri in range(num_rows):
+                    if (li+(ri*num_cols)) < count:
+                        if ri > 0:
+                            sep = '/'
+                        this_col_label = this_col_label + sep + shot_labels[li+(ri*num_cols)]
+                col_labels.append(this_col_label)
+            shot_labels = col_labels
 
     fig = plt.figure()
     ax = plt.gca()
@@ -140,6 +175,9 @@ def plot_montage(images, x_roi=None, y_roi=None, axis=None, x_downsample=1, y_do
     divider = make_axes_locatable(ax)
     ax.set_xticks(x_locs)
     ax.set_xticklabels(shot_labels)
+    if num_rows>1:
+        ax.set_yticks(y_locs)
+        ax.set_yticklabels(y_labels)
     cax = divider.append_axes("right", size="2%", pad=0.05)
     cb = plt.colorbar(im, cax=cax)
     if cb_label is not None:

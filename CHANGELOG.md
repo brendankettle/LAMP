@@ -1,6 +1,17 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2026-06-16
+
+Some some bug fixes and feature additions
+
+### Added
+- GeminiMirage DAQ now supports filename_format modifiers. Should port this across to other DAQs soon, or maybe the core approach could be something like this.
+
+### Fixed
+- Default to text file type in load_file() if type (which actually uses extension) is not matched. This is a little confusing and not great - a full IO subsystem would be much better...
+- Fixed montage issues for num_rows and transposing
+
 ## [0.2.0] - 2026-03-03
  
 Bug fixes and feature additions.

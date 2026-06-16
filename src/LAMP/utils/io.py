@@ -25,10 +25,14 @@ def load_file(filepath, file_type=None, options=None):
             data = load_toml(filepath)
         elif file_ext.lower() == '.txt':
             data = load_text(filepath, options)
-        elif file_ext.lower() == '.tif':
+        elif file_ext.lower() == '.tif': # this function is mostly used for non-image file types... there are of course many other image types...
             data = image.imread(filepath)
         else:
-            print(f"IO error; load_file(); could not auto-read file type, please provide file_type arugment")
+            #print(f"IO error; load_file(); could not auto-read file type, please provide file_type arugment. Trying text...")
+            try:
+                data = load_text(filepath, options)
+            except:
+                print('IO error; load_file(); could not auto-read file type, please provide file_type arugment.')
     elif file_type.lower() == 'pickle' or file_ext.lower() == 'pkl':
         data = load_pickle(filepath)
     elif file_type.lower() == 'json':
@@ -39,12 +43,16 @@ def load_file(filepath, file_type=None, options=None):
         data = load_npy(filepath)
     elif file_type.lower() == 'toml':
         data = load_toml(filepath)
-    elif file_type.lower() == 'tif':
+    elif file_type.lower() == 'tif': # this function is mostly used for non-image file types... there are of course many other image types...
         data = image.imread(filepath)
     elif file_type.lower() == 'txt' or file_type.lower() == 'text':
         data = load_text(filepath, options)
     else:
-        print(f"IO error; load_file(); no known type '{file_type}'")
+        try:
+            #print(f"IO error; load_file(); no known type '{file_type}', defaulting to text")
+           data = load_text(filepath, options)
+        except:
+            print('IO error; load_file(); could not auto-read file type, please provide file_type arugment.')
     return data
 
 def save_file(filepath, data, file_type=None, options=None):

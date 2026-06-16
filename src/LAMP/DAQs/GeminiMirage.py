@@ -22,7 +22,7 @@ class GeminiMirage(DAQ):
         super().__init__(exp_obj, config=config)
         return
 
-    def _build_shot_filepath(self, diagnostic, date, run, shotnum, ext, burst=None):
+    def _build_shot_filepath(self, diagnostic, date, run, shotnum, ext, filename_format='', burst=None):
         """This is used internally, and so can be DAQ specific"""
         if 'shotnum_zfill' in self.config:
             zfill = self.config['shotnum_zfill']
@@ -32,7 +32,13 @@ class GeminiMirage(DAQ):
             burst_str = f'{burst}/'
         else:
             burst_str = ''
-        shot_path = Path(f'{self.data_folder}/{diagnostic}/{date}/{run}/{burst_str}Shot{str(shotnum).zfill(zfill)}.{ext}')
+        if filename_format != '':
+            shotnum_str = str(shotnum).zfill(zfill)
+            filename = filename_format.replace('{SHOTNUM}',shotnum_str)
+            filename = filename.replace('{EXT}',ext)
+            shot_path = Path(f'{self.data_folder}/{diagnostic}/{date}/{run}/{burst_str}{filename}')
+        else:
+            shot_path = Path(f'{self.data_folder}/{diagnostic}/{date}/{run}/{burst_str}Shot{str(shotnum).zfill(zfill)}.{ext}')
         # check file?
         return shot_path
     
@@ -154,6 +160,9 @@ class GeminiMirage(DAQ):
 
         diag_config = self.ex.diags[diag_name].config
 
+        if 'filename_format' not in diag_config:
+            diag_config['filename_format'] = ''
+
         # Check if shot_dict is not dictionary; could just be filepath
         if isinstance(shot_dict, str):
             shot_filepath = Path(f'{self.data_folder}/{shot_dict}') # should this be diagnostic folder?
@@ -180,7 +189,7 @@ class GeminiMirage(DAQ):
             else:
                 burst = None
                 
-            shot_filepath = self._build_shot_filepath(diag_config['data_folder'], shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], diag_config['data_ext'], burst=burst)
+            shot_filepath = self._build_shot_filepath(diag_config['data_folder'], shot_dict['date'], shot_dict['run'], shot_dict['shotnum'], diag_config['data_ext'], filename_format=diag_config['filename_format'], burst=burst)
 
         return shot_filepath
     
