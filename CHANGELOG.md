@@ -1,6 +1,16 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-08-??
+
+...
+
+### Added
+- Begun implementation of standalone single file operation. Note that calibration files for diagnostics still need defined in a seperate file. Need to work on in-file definitions and best way to handle this.
+
+### Fixed
+- 
+
 ## [0.2.1] - 2026-06-16
 
 Some some bug fixes and feature additions

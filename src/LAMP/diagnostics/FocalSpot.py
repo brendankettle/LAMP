@@ -163,11 +163,14 @@ class FocalSpot(Diagnostic):
             # a0 peak; a1,a3 centers; a2,a4 widths; a5 angle
             p_guess = (np.max(img), cx, (abs(np.max(x)-np.min(x))/10), cy, (abs(np.max(y)-np.min(y))/10), 0)
             #print(p_guess)
+        else: 
+            cx = p_guess[1]
+            cy = p_guess[3]
 
         # make beam mask
         R = np.sqrt((X-cx)**2+(Y-cy)**2) # some radius
         beamMask = (R<r_max)*(img>np.max(img*np.exp(-1))) # but also only use 1/e intensity (for fit)
-        I = img[beamMask].flatten()
+        I = img[beamMask].copy().flatten()
         #I = img.copy().flatten()
         # To Do: Some debugging of mask
 
@@ -180,7 +183,7 @@ class FocalSpot(Diagnostic):
 
         #(pFit,pcov) = sci.optimize.curve_fit(gauss2Dbeam, XY, I, p0=pGuess)
         a = (XY,I)
-        bnds = ((0,None),(None,None),(None,None),(None,None),(None,None),(None,None))
+        bnds = ((0,None),(0,None),(0,None),(0,None),(0,None),(None,None))
         z = optimize.minimize(self.gauss2D_fitfunc, p_guess, args=a, tol=tol, bounds=bnds, method='Nelder-Mead')
         pFit = z.x
         #print(pFit)
@@ -216,6 +219,7 @@ class FocalSpot(Diagnostic):
         if debug:
             cx = p_fit[1]
             cy = p_fit[3]
+
             gFWHM = 2 *np.sqrt(2 * np.log(2))
             fwhm_x = p_fit[2] * gFWHM
             fwhm_y = p_fit[4] * gFWHM
@@ -256,7 +260,7 @@ class FocalSpot(Diagnostic):
 
         return img_fit, p_fit
 
-    def anaylse_spot(self, img, x=None, y=None, r_max=100, debug=False):
+    def analyse_spot(self, img, x=None, y=None, r_max=100, p_guess=None, debug=False):
 
         # if a dictionary or string is passed, get img data
         if isinstance(img, dict) or isinstance(img, str) or isinstance(img, Path):
@@ -278,7 +282,7 @@ class FocalSpot(Diagnostic):
         metrics = {}
 
         # fit spot
-        img_fit, p_fit = self.fit_spot(img, x, y, r_max=r_max, debug=debug)
+        img_fit, p_fit = self.fit_spot(img, x, y, r_max=r_max, p_guess=p_guess, debug=debug)
         if debug:
             plt.suptitle(shot_dict)
 
@@ -319,7 +323,7 @@ class FocalSpot(Diagnostic):
         for shot_dict in shot_dicts:
             if debug:
                 print(f'Analysing {shot_dict}')
-            metrics = self.anaylse_spot(shot_dict, debug=debug)
+            metrics = self.analyse_spot(shot_dict, debug=debug)
             for mname in metrics:
                 if mname in stats:
                     stats[mname]['values'].append(metrics[mname])

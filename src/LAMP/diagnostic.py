@@ -773,3 +773,14 @@ class Diagnostic():
                                vmin=vmin, vmax=vmax, transpose=transpose, cb_label=cb_label, y_label=axis_label, num_rows=num_rows, shot_labels=shot_labels, colormap=colormap, colormap_option=colormap_option)
 
         return fig, ax
+
+    def help(self, item = None):
+
+        print('To Do!')
+
+        # lookf for text file help documentation and load and print
+
+        if item is not None:
+            print('Need to load text files?')
+
+        return

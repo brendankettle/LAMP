@@ -1,6 +1,5 @@
 import os
 import numpy as np
-import re
 from pathlib import Path
 from LAMP.DAQ import DAQ
 
@@ -14,7 +13,6 @@ class NoDAQ(DAQ):
     __version = 0.1
     __name = 'NoDAQ'
     __authors = ['Brendan Kettle']
-
 
     def __init__(self, exp_obj, config=None):
         """Initiate parent base DAQ class to get all shared attributes and funcs"""

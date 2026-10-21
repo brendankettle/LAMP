@@ -216,15 +216,15 @@ class ESpec(Diagnostic):
         #E_mean = np.mean(spec * MeV) / np.mean(spec)
         # following code is taken from GeminiRR21 code
         # normalise distribution by area under, then find mean using under under weighted spectrum?
-        spec_dist = np.abs(spec/np.trapz(spec, MeV))
+        spec_dist = np.abs(spec/np.trapezoid(spec, MeV))
         if debug:
             plt.figure()
             plt.plot(MeV,spec_dist)
             plt.xlabel('Electron Energy [MeV]')
             plt.ylabel('Normalised spectral distribution')
             plt.show(block=False)
-        E_mean = np.abs(np.trapz(spec_dist*MeV, MeV))
-        E_std = np.sqrt(np.abs(np.trapz(spec_dist*(MeV-E_mean)**2, MeV)))
+        E_mean = np.abs(np.trapezoid(spec_dist*MeV, MeV))
+        E_std = np.sqrt(np.abs(np.trapezoid(spec_dist*(MeV-E_mean)**2, MeV)))
 
         # find last array position over threshold
         # spec_thres = np.max(spec) * ((100-percentile)/100)
@@ -237,7 +237,7 @@ class ESpec(Diagnostic):
         percentile, energy = np.zeros(N), np.zeros(N)
         for i in range(0, N):
             max_index = len(MeV)-1-int(div)*i # work backwards
-            percentile[i] = np.abs(np.trapz(spec_dist[0:max_index], MeV[0:max_index]))
+            percentile[i] = np.abs(np.trapezoid(spec_dist[0:max_index], MeV[0:max_index]))
             energy[i] = MeV[max_index]
             if percentile[i] < target_percentile-0.05: # are we going past to interpolate back?
                 break
@@ -262,12 +262,12 @@ class ESpec(Diagnostic):
     #     """ Gets mean and std of electron energy. Returns electron energy at 90th percentile of charge distribution.
     #     """
     #     img_pC_permm2 = self.espec_data2screen(img_raw)
-    #     img_pC_per_MeV = np.trapz(self.espec_screen2spec(img_pC_permm2), self.screen_y_mm, axis=0)
-    #     spec_charge_dist= img_pC_per_MeV/np.trapz(img_pC_per_MeV, self.eAxis_MeV)
+    #     img_pC_per_MeV = np.trapezoid(self.espec_screen2spec(img_pC_permm2), self.screen_y_mm, axis=0)
+    #     spec_charge_dist= img_pC_per_MeV/np.trapezoid(img_pC_per_MeV, self.eAxis_MeV)
     #     spec_charge_dist[spec_charge_dist<=0]=0.0
-    #     mean_energy = np.trapz(spec_charge_dist*self.eAxis_MeV, self.eAxis_MeV)
-    #     #Exp_energy_sqrd = np.trapz(spec_charge_dist*self.eAxis_MeV**2, self.eAxis_MeV)
-    #     variance = np.trapz(spec_charge_dist*(self.eAxis_MeV-mean_energy)**2, self.eAxis_MeV)
+    #     mean_energy = np.trapezoid(spec_charge_dist*self.eAxis_MeV, self.eAxis_MeV)
+    #     #Exp_energy_sqrd = np.trapezoid(spec_charge_dist*self.eAxis_MeV**2, self.eAxis_MeV)
+    #     variance = np.trapezoid(spec_charge_dist*(self.eAxis_MeV-mean_energy)**2, self.eAxis_MeV)
 
     #     div=10.0
     #     N=int(len(spec_charge_dist)/div)
@@ -275,7 +275,7 @@ class ESpec(Diagnostic):
     #     target_percentile=0.9
 
     #     for i in range(0, N):
-    #         percentile[i]=np.trapz(spec_charge_dist[0:len(self.eAxis_MeV)-1-int(div)*i], self.eAxis_MeV[0:len(self.eAxis_MeV)-1-int(div)*i])
+    #         percentile[i]=np.trapezoid(spec_charge_dist[0:len(self.eAxis_MeV)-1-int(div)*i], self.eAxis_MeV[0:len(self.eAxis_MeV)-1-int(div)*i])
     #         energy[i]=self.eAxis_MeV[len(self.eAxis_MeV)-1-int(div)*i]
     #         if percentile[i]<target_percentile-0.05:
     #             break

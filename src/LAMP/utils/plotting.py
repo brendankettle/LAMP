@@ -101,6 +101,12 @@ def create_montage(images, x_roi=None, y_roi=None, x_downsample=1, y_downsample=
                 if divider and (j<(count-1)):
                     montage[:, (sliceJ + n - 2):(sliceJ + n + 2)] = max_val # 5 pixel wide divider
             image_id += 1
+        if divider and (k<(num_rows-1)):
+            if transpose: 
+                h = n
+            else:
+                h = m
+            montage[(sliceK + h - 2):(sliceK + h + 2),:] = max_val # 5 pixel wide divider
 
     return montage, x_locs
 
@@ -151,7 +157,21 @@ def plot_montage(images, x_roi=None, y_roi=None, axis=None, x_downsample=1, y_do
     # this will probably break across multiple rows?
     if not shot_labels:
         #shot_labels = np.arange(count)+1
-        shot_labels = np.arange(len(x_locs))+1
+        if num_rows > 1:
+            num_cols = int(np.ceil(count/num_rows))
+            col_labels = []
+            for li in range(len(x_locs)):
+                this_col_label = ''
+                sep = ''
+                for ri in range(num_rows):
+                    if (li+(ri*num_cols)) < count:
+                        if ri > 0:
+                            sep = '/'
+                        this_col_label = this_col_label + sep + str(li+(ri*num_cols)+1)
+                col_labels.append(this_col_label)
+            shot_labels = col_labels
+        else:
+            shot_labels = np.arange(len(x_locs))+1
     else:
         if num_rows > 1:
             num_cols = int(np.ceil(count/num_rows))

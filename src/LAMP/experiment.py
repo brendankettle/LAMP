@@ -8,7 +8,7 @@ from LAMP.results import Results
 
 class Experiment:
 
-    def __init__(self, root_folder, local_config='local.toml', global_config='global.toml', diagnostics='diagnostics.toml'):
+    def __init__(self, root_folder, local_config='local.toml', global_config='global.toml', diagnostic_config='diagnostics.toml', meta_config='metas.toml'):
         """LAMP entry point. Load config, load DAQ, add diagnostics"""
 
         # change the current working directory to the root folder
@@ -18,19 +18,30 @@ class Experiment:
         # could above be better and check paths then add if missing?
 
         # Load local config
-        local_config_filepath = Path(root_folder) / Path(local_config)
-        if not os.path.exists(local_config_filepath):
-            raise Exception(f'Problem finding local config file: {local_config_filepath}')
-        local_config = load_file(local_config_filepath)
+        if not isinstance(local_config, dict):
+            # unless it's passed directly as a dictionary, load contents using filename
+            local_config_filepath = Path(root_folder) / Path(local_config)
+            if not os.path.exists(local_config_filepath):
+                raise Exception(f'Problem finding local config file: {local_config_filepath}')
+            local_config = load_file(local_config_filepath)
+        else:
+            local_config_filepath = 'Dictionary'
 
         # load global config and save to object
-        global_config_filepath = Path(root_folder) / Path(global_config)
-        if not os.path.exists(global_config_filepath):
-            raise Exception(f'Problem finding global config file: {global_config_filepath}')
-        self.config = load_file(global_config_filepath)
+        if not isinstance(global_config, dict):
+            # unless it's passed directly as a dictionary, load contents using filename
+            global_config_filepath = Path(root_folder) / Path(global_config)
+            if not os.path.exists(global_config_filepath):
+                raise Exception(f'Problem finding global config file: {global_config_filepath}')
+            self.config = load_file(global_config_filepath)
+        else:
+            global_config_filepath = 'Dictionary'
+            self.config = global_config
 
-        # Add contents of local config to (global) config
+        # Add contents of local config to (global) config (there's probably a python fucntion to do this across all levels?)
         for section_key in local_config: 
+            if section_key not in self.config:
+                self.config[section_key] = {}
             for config_key in local_config[section_key]:
                 self.config[section_key][config_key] =  local_config[section_key][config_key]
 
@@ -39,50 +50,58 @@ class Experiment:
         self.config['paths']['local_config'] = local_config_filepath
         self.config['paths']['global_config'] = global_config_filepath
 
+        # some defaults?
+        if 'calibs_folder' not in self.config['paths']:
+            self.config['paths']['calibs_folder'] = './'
+
         # setup DAQ
-        if self.config['setup']['DAQ'].lower() == 'none':
-            print('To Do: Support single file analysis... This could just be another DAQ module called None...')
-        else:
-            DAQ_module = 'LAMP.DAQs.' + self.config['setup']['DAQ']
-            try: 
-                DAQ_lib = importlib.import_module(DAQ_module)
-            except ImportError as exc:
-                # User supplied DAQ?
-                if 'user_DAQs' in self.config['paths']:
-                    user_DAQ_module = self.config['paths']['user_DAQs'] + self.config['setup']['DAQ']
-                    try:
-                        DAQ_lib = importlib.import_module(user_DAQ_module)
-                    except ImportError as user_exc:
-                        print(f'Warning! Could not import DAQ module: {DAQ_module} (or {user_DAQ_module}). Exceptions given below.')
-                        print('Exception when tried user module:')
-                        print(user_exc)
-                        print('Exception when tried LAMP module:')
-                        raise Exception(exc)
-                    else:
-                        user_text = '(User) ' 
-                else:
-                    print(f'Warning! Could not import Diagnostics module: {DAQ_module}. Exception given below.')
+        if self.config['setup']['DAQ'].lower() == 'none' or self.config['setup']['DAQ'].lower() == 'nodaq':
+            self.config['setup']['DAQ'] = 'NoDAQ'
+        DAQ_module = 'LAMP.DAQs.' + self.config['setup']['DAQ']
+        try: 
+            DAQ_lib = importlib.import_module(DAQ_module)
+        except ImportError as exc:
+            # User supplied DAQ?
+            if 'user_DAQs' in self.config['paths']:
+                user_DAQ_module = self.config['paths']['user_DAQs'] + self.config['setup']['DAQ']
+                try:
+                    DAQ_lib = importlib.import_module(user_DAQ_module)
+                except ImportError as user_exc:
+                    print(f'Warning! Could not import DAQ module: {DAQ_module} (or {user_DAQ_module}). Exceptions given below.')
+                    print('Exception when tried user module:')
+                    print(user_exc)
+                    print('Exception when tried LAMP module:')
                     raise Exception(exc)
-            else:
-                user_text = ''
-          
-            #self.DAQ = DAQ_lib.DAQ(self)
-            #if callable(DAQ_class := getattr(DAQ_lib, self.config['setup']['DAQ'])):
-            DAQ_class = getattr(DAQ_lib, self.config['setup']['DAQ'])
-            if callable(DAQ_class):
-                print(f"Using {user_text}DAQ: {self.config['setup']['DAQ']}")
-                if 'DAQ_config' in self.config:
-                    self.DAQ = DAQ_class(self, self.config['DAQ_config'])
                 else:
-                    self.DAQ = DAQ_class(self)
+                    user_text = '(User) ' 
             else:
-                print(f"Error! Could not call {user_text}DAQ: {self.config['setup']['DAQ']}")
+                print(f'Warning! Could not import Diagnostics module: {DAQ_module}. Exception given below.')
+                raise Exception(exc)
+        else:
+            user_text = ''
+        
+        #self.DAQ = DAQ_lib.DAQ(self)
+        #if callable(DAQ_class := getattr(DAQ_lib, self.config['setup']['DAQ'])):
+        DAQ_class = getattr(DAQ_lib, self.config['setup']['DAQ'])
+        if callable(DAQ_class):
+            print(f"Using {user_text}DAQ: {self.config['setup']['DAQ']}")
+            if 'DAQ_config' in self.config:
+                self.DAQ = DAQ_class(self, self.config['DAQ_config'])
+            else:
+                self.DAQ = DAQ_class(self)
+        else:
+            print(f"Error! Could not call {user_text}DAQ: {self.config['setup']['DAQ']}")
 
         # loop through diagnostics and add
         self.diags = {}
-        diag_config_filepath = Path(root_folder) / Path(diagnostics)
-        if os.path.exists(diag_config_filepath):
-            self.diag_config = load_file(diag_config_filepath)
+        if not isinstance(diagnostic_config, dict):
+            # unless it's passed directly as a dictionary, load contents using filename
+            diag_config_filepath = Path(root_folder) / Path(diagnostic_config)
+            if os.path.exists(diag_config_filepath):
+                self.diag_config = load_file(diag_config_filepath)
+        else:
+            self.diag_config = diagnostic_config
+        if hasattr(self,'diag_config') and self.diag_config:
             for diag_name in self.diag_config: 
                 if ('on_startup' in self.diag_config[diag_name] and self.diag_config[diag_name]['on_startup']) or ('on_startup' not in self.diag_config[diag_name]):
                     self.add_diagnostic(diag_name)
@@ -90,9 +109,14 @@ class Experiment:
         # loop through metas and add
         # To Do: Not really made use of this yet... Meant for shot sheets etc.
         self.metas = {}
-        meta_config_filepath = Path(root_folder) / Path('metas.toml')
-        if os.path.exists(meta_config_filepath):
-            self.meta_config = load_file(meta_config_filepath)
+        if not isinstance(meta_config, dict):
+            # unless it's passed directly as a dictionary, load contents using filename
+            meta_config_filepath = Path(root_folder) / Path(meta_config)
+            if os.path.exists(meta_config_filepath):
+                self.meta_config = load_file(meta_config_filepath)
+        else:
+            self.meta_config = meta_config
+        if hasattr(self,'meta_config') and self.meta_config:
             for meta_name in self.meta_config: 
                 self.add_meta(meta_name)
 
@@ -100,7 +124,7 @@ class Experiment:
 
         # TODO: add from seperate file?
         if not self.diag_config:
-            raise Exception('No diagnostics config file loaded')
+            raise Exception('No diagnostics config file loaded or dictionary set')
         if diag_name not in self.diag_config:
             raise Exception(f'Could not find diagnostic: {diag_name}')
 
@@ -168,7 +192,7 @@ class Experiment:
     def add_meta(self, meta_name):
 
         if not self.meta_config:
-            raise Exception('No meta config file loaded')
+            raise Exception('No meta config file loaded or dictionary set')
         if meta_name not in self.meta_config:
             raise Exception(f'Could not find diagnostic: {meta_name}')
 
@@ -207,6 +231,7 @@ class Experiment:
     def open_results(self, db_name):
         db = Results(self, self.config, db_name)
         return db
+    # close result???
 
     def make_all_calibs(self):
         """Loop through all diagnostics, for each, loop through calibrations, if proc file set, make"""

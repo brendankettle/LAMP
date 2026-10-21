@@ -231,7 +231,7 @@ class Apollo(DAQ):
 
     
                 else: 
-                    print("No bursts found on this date/run")
+                    print("Note, no bursts found on this date/run. Continuing shot search...")
                     run_diag_path = os.path.join(run_folder, str(diag_config['data_folder']).strip('/\\'))
                     shotnums = []
                     for filename in os.listdir(run_diag_path):
