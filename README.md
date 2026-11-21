@@ -2,6 +2,8 @@
 
 # *L*aser-plasma *A*nalysis for *M*ultiple *P*latforms
 
+[https://github.com/brendankettle/LAMP](https://github.com/brendankettle/LAMP)
+
 LAMP is a python-based API to facilitate and streamline the analysis of laser-plasma experiment data.
 
 ## Installation
